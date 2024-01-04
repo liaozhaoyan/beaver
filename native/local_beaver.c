@@ -34,7 +34,7 @@ static int fd_non_blocking(int sfd)
         return -errno;
     }
 
-    flags &= ~O_NONBLOCK;
+    flags |= O_NONBLOCK;
     ret    = fcntl(sfd, F_SETFL, flags);
     if (ret < 0) {
         perror("error : cannot set socket flags!\n");
@@ -58,7 +58,7 @@ static int fd_blocking(int sfd)
         return -errno;
     }
 
-    flags |= O_NONBLOCK;
+    flags &= ~O_NONBLOCK;
     ret    = fcntl(sfd, F_SETFL, flags);
     if (ret < 0) {
         perror("error : cannot set socket flags!\n");

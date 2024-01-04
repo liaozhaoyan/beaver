@@ -8,6 +8,7 @@ local unistd = require("posix.unistd")
 local cffi = require("beavercffi")
 local CcoBeaver = require("coBeaver")
 local CasyncPipeRead = require("async.asyncPipeRead")
+local CasyncPipeWrite = require("async.asyncPipeWrite")
 local conf
 
 function init(f_in, f_out, name, config)
@@ -21,8 +22,12 @@ function init(f_in, f_out, name, config)
 end
 
 local function proc(b, conf)
-    local r = CasyncPipeRead.new(b, conf.f_in, 4096, -1)
+    local r = CasyncPipeRead.new(b, conf.f_in, -1)
+    local w = CasyncPipeWrite.new(b, conf.f_out, 10)
     print(r:read())
+    print(w:write(string.rep("hello", 2)))
+    print(w:write(string.rep("hello", 65536)))
+    print("proc done.")
 end
 
 function work()
@@ -30,7 +35,8 @@ function work()
     local b = CcoBeaver.new()
     --print(unistd.read(conf.f_in, 4096))
     local co = coroutine.create(proc)
-    coroutine.resume(co, b, conf)
+    local res, msg = coroutine.resume(co, b, conf)
+    assert(res, msg)
     b:poll()
     return 0
 end

@@ -137,8 +137,6 @@ static void * beaver_app(void * arg) {
         int len;
         len = snprintf(msg, MSG_BUF, "{\"func\":\"beaver_exit\",\"arg\":{\"name\":\"%s\"}}", name);
         ctrl_write(ctrl_out, msg, len);
-
-        read(ctrl_in, msg, MSG_BUF);
         // fd will close in pthread exit.
     }
     return NULL;

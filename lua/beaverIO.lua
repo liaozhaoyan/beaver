@@ -95,7 +95,7 @@ function CbeaverIO:write(fd, stream)
             end
 
             ::done::
-            res = self._cffi.mod_fd(self._efd, fd, 0)  -- epoll read ev only
+            res = c_api.mod_fd(self._efd, fd, 0)  -- epoll read ev only
             if res < 0 then
                 return nil, "epoll mod_fd failed.", -res
             end

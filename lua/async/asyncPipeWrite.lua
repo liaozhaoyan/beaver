@@ -10,16 +10,52 @@ local CasyncBase = require("async.asyncBase")
 
 local CasyncPipeWrite = class("asyncPipeWrite", CasyncBase)
 
-function CasyncPipeWrite:_init_(beaver, fd, stream, tmo)
-    self._stream = stream
+function CasyncPipeWrite:_init_(beaver, fd, tmo)
     self._toWake = coroutine.running()
-    tmo = tmo or 10
-    CasyncBase._init_(self, beaver, fd, tmo)
+    self._tmo = tmo
+    CasyncBase._init_(self, beaver, fd, -1)
 end
 
 function CasyncPipeWrite:_setup(fd, tmo)
-    local stream = self._beaver:pipeWrite(fd, self._stream)
-    coroutine.resume(self._toWake, stream)
+    local res, msg
+    local co = self._toWake
+    self._coSelf = coroutine.running()
+
+    local beaver = self._beaver
+    tmo = self._tmo
+    while true do
+        local stream = coroutine.yield()
+        if type(stream) == "string" then
+            beaver:co_set_tmo(fd, tmo)
+            local ret, err, errno = beaver:pipeWrite(fd, stream)
+            if coroutine.status(co) == "normal" then
+                coroutine.yield(ret, err, errno)
+            else
+                print("write long done.")
+                res, msg = coroutine.resume(co, ret, err, errno)
+                assert(res, msg)
+            end
+
+            beaver:co_set_tmo(fd, -1)
+        else  -- fd close event?
+            print(string.format("fd %d closed.", fd))
+            break
+        end
+    end
+end
+
+function CasyncPipeWrite:write(stream)
+    print("write ", #stream)
+    local res, msg, err, errno = coroutine.resume(self._coSelf, stream)
+    assert(res, msg)
+    if msg then  -- wake from yield
+        print("direct.")
+        coroutine.resume(self._coSelf)
+        return msg, err, errno
+    else
+        print("indirect.")
+        return coroutine.yield()
+    end
 end
 
 return CasyncPipeWrite

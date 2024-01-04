@@ -30,7 +30,7 @@ function CcoBeaver:_del_()
 end
 
 function CcoBeaver:co_set_tmo(fd, tmo)
-    assert(tmo > 10)
+    assert(tmo < 0 or tmo >= 10, "illegal tmo value.")
     self._tmoFd[fd] = tmo
 end
 
@@ -41,13 +41,14 @@ end
 function CcoBeaver:co_add(obj, cb, fd, tmo)
     tmo = tmo or 60   -- default tmo time is 60s, -1 means never overtime.
     if tmo > 0 then
-        assert(tmo > 10)
+        assert(tmo >= 10)
     end
     self._tmoFd[fd] = tmo  -- record fd time out
 
     self:add(fd)  -- add to epoll fd
     local co = coroutine.create(function(o, obj, fd, tmo)  cb(o, obj, fd, tmo) end)
-    coroutine.resume(co, obj, fd, tmo)
+    local res, msg = coroutine.resume(co, obj, fd, tmo)
+    assert(res, msg)
     self._cos[fd] = co
     return co
 end

@@ -12,24 +12,27 @@ local c_type, c_api = cffi.type, cffi.api
 
 local CasyncPipeRead = class("asyncPipeRead", CasyncBase)
 
-function CasyncPipeRead:_init_(beaver, fd, size, tmo)
-    self._size = size
+function CasyncPipeRead:_init_(beaver, fd, tmo)
     self._toWake = coroutine.running()
     tmo = tmo or 10
     CasyncBase._init_(self, beaver, fd, tmo)
 end
 
 function CasyncPipeRead:_setup(fd, tmo)
+    local res, msg
     local co = self._toWake
 
-    coroutine.resume(co)  -- back to wake.
     coroutine.yield()  -- wait to poll wake up.
 
     local beaver = self._beaver
     while true do
-        local stream = beaver:pipeRead(fd)
-        local res, msg = coroutine.resume(co, stream)
+        local stream, err, errno = beaver:pipeRead(fd)
+        res, msg = coroutine.resume(co, stream, err, errno)
         assert(res, msg)
+        if not stream then
+            print(string.format("fd %d closed.", fd))
+            break
+        end
     end
 end
 
