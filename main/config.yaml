@@ -1,0 +1,3 @@
+config:
+  port: 8400  # bind port
+  bind_addr: 0.0.0.0 # bind ip
