@@ -1,3 +1,7 @@
-config:
-  port: 8400  # bind port
-  bind_addr: 0.0.0.0 # bind ip
+worker:
+  number: 1   # worker process
+  function:
+    - echo:
+        mode: tcp
+        port: 3382
+        bind: 0.0.0.0

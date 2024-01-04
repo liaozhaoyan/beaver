@@ -37,6 +37,11 @@ function CasyncPipeWrite:_setup(fd, tmo)
             end
 
             beaver:co_set_tmo(fd, -1)
+
+            if not ret then -- fd close event?
+                print(string.format("fd %d closed.", fd))
+                break
+            end
         else  -- fd close event?
             print(string.format("fd %d closed.", fd))
             break
@@ -49,11 +54,9 @@ function CasyncPipeWrite:write(stream)
     local res, msg, err, errno = coroutine.resume(self._coSelf, stream)
     assert(res, msg)
     if msg then  -- wake from yield
-        print("direct.")
         coroutine.resume(self._coSelf)
         return msg, err, errno
     else
-        print("indirect.")
         return coroutine.yield()
     end
 end

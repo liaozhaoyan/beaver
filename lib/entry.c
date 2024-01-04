@@ -92,15 +92,6 @@ int start_beaver(char * path) {
     }
     printf("msg: %d\n", ret);
 
-    while (1) {
-        ret = read(pipeW[0], msg, MSG_SIZE);
-        if (ret < 0) {
-            printf("read: %d\n", pipeW[0]);
-            perror("read master pipe failed.");
-            goto endPipeReg;
-        }
-    }
-
     pause();
 
     // register pipe.

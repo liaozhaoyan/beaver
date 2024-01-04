@@ -11,12 +11,23 @@ local CasyncBase = require("async.asyncBase")
 
 local CasyncIO = class("asyncIO", CasyncBase)
 
-function CasyncIO:_init_(beaver, fd)
+function CasyncIO:_init_(beaver, fd, tmo)
+    self._toWake = coroutine.running()
+    tmo = tmo or 10
     CasyncBase._init_(self, beaver, fd)
 end
 
 function CasyncIO:_setup(fd, tmo)
+    local res, msg
+    local co = self._toWake
+    self._coSelf = coroutine.running()
+    local beaver = self._beaver
+    tmo = self._tmo
 
+    while true do
+        local mode, stream = coroutine.yield()  -- get io mode
+
+    end
 end
 
 return CasyncIO

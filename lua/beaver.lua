@@ -32,11 +32,8 @@ end
 
 function work()
     print(conf.name)
-    local b = CcoBeaver.new()
-    --print(unistd.read(conf.f_in, 4096))
-    local co = coroutine.create(proc)
-    local res, msg = coroutine.resume(co, b, conf)
-    assert(res, msg)
-    b:poll()
+    local module = require("module." .. conf.name)
+    local m = module.new(conf)
+    m:proc()
     return 0
 end
