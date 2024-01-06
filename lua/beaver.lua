@@ -21,15 +21,6 @@ function init(f_in, f_out, name, config)
     return 0
 end
 
-local function proc(b, conf)
-    local r = CasyncPipeRead.new(b, conf.f_in, -1)
-    local w = CasyncPipeWrite.new(b, conf.f_out, 10)
-    print(r:read())
-    print(w:write(string.rep("hello", 2)))
-    print(w:write(string.rep("hello", 65536)))
-    print("proc done.")
-end
-
 function work()
     print(conf.name)
     local module = require("module." .. conf.name)

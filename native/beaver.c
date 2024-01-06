@@ -95,6 +95,7 @@ static lua_State * app_init(struct beaver_init_args* args) {
     luaL_openlibs(L);
     lua_add_path(L, "path", "../lua/?.lua");
     lua_add_path(L, "path", "/usr/share/lua/5.1/?.lua");
+    lua_add_path(L, "path", "/usr/share/lua/5.1/?/init.lua");
     lua_add_path(L, "cpath", "/usr/lib64/lua/5.1/?.so");
     err_func = lua_reg_errFunc(L);
 

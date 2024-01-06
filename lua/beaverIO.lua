@@ -34,13 +34,50 @@ function CbeaverIO:add(fd)
     assert(c_api.add_fd(self._efd, fd) >= 0)
 end
 
-function CbeaverIO:read(fd, maxLen)
+function CbeaverIO:read(fd, len)
+    len = len or 4096
+    local s, err, errno
+    s, err, errno = unistd.read(fd, len)
+
+    if s then
+        if #s > 0 then
+            return s
+        else
+            return nil, "fd closed",  64
+        end
+    elseif errno == 11 then
+        local e = coroutine.yield()
+        if e.ev_close > 0 then
+            return nil, string.format("fd %d is already closed.", fd), 32
+        elseif e.ev_in > 0 then
+            s, err, errno = unistd.read(fd, len)
+            if s then
+                if #s > 0 then
+                    return s
+                else
+                    return nil, "fd closed",  64
+                end
+            else
+                return nil
+            end
+            return s, err, errno
+        else
+            return nil, "IO Error.", 5
+        end
+    end
+end
+
+function CbeaverIO:reads(fd, maxLen)
     maxLen = maxLen or 2 * 1024 * 1024  -- signal conversation accept 2M stream max
     local function readFd()
         local s, err, errno
         s, err, errno = unistd.read(fd, maxLen)
         if s then
-            return s
+            if #s > 0 then
+                return s
+            else
+                return nil, "fd closed",  64
+            end
         elseif errno == 11 then  -- EAGAIN
             local e = coroutine.yield()
             if e.ev_close > 0 then
@@ -48,9 +85,16 @@ function CbeaverIO:read(fd, maxLen)
             elseif e.ev_in > 0 then
                 s, err, errno = unistd.read(fd, maxLen)
                 if s then
-                    maxLen = maxLen - #s
+                    local len = #s
+                    if len > 0 then
+                        maxLen = maxLen - #s
+                        return s
+                    else
+                        return nil, "fd closed",  64
+                    end
+                else
+                    return s, err, errno
                 end
-                return s, err, errno
             else
                 return nil, "IO Error.", 5
             end
@@ -112,7 +156,7 @@ function CbeaverIO:readBySize(fd, size)
     local cnt = 1
     local buffs = {}
 
-    local readFunc = self:read(fd, size)
+    local readFunc = self:reads(fd, size)
 
     repeat
         res, err, errno = readFunc()

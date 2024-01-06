@@ -12,43 +12,28 @@ local CasyncBase = require("async.asyncBase")
 
 local CasyncAccept = class("asyncAccept", CasyncBase)
 
-local function pingpong(arg, beaver, fd)
-    local fread = beaver:read(fd, 1024)
-    while true do
-        local res = fread()
-        if res == "Quit" then
-            beaver:co_exit(fd)
-            break
-        end
-
-        local stat = beaver:write(fd, res)
-        if not stat then
-            self:co_exit(fd)
-        end
-    end
-    unistd.close(fd)
-end
-
-function CasyncAccept:_init_(beaver, fd, cb, arg)
+function CasyncAccept:_init_(beaver, fd, tmo)
+    self._toWake = coroutine.running()
     CasyncBase._init_(self, beaver, fd)  -- accept never overtime.
-    self._cb = cb or pingpong
-    self._arg = arg
-end
-
-function CasyncAccept:proc(fd, tmo)
-    self._cb(self._arg, self._beaver, fd)
 end
 
 function CasyncAccept:_setup(fd, tmo)
+    local co = self._toWake
+
     while true do
         local e = coroutine.yield()
         if e.ev_close > 0 then
-            error("Prohibits actively closing a bound handle.")
+            print("bind closed.")
+            break
         else
-            local nfd = assert(psocket.accept(fd))
-            self._beaver:co_add(nfd, self.proc, -1)
+            local nfd, addr, errno = assert(psocket.accept(fd))
+            assert(nfd, addr)
+            local res, msg = coroutine.resume(co, nfd, addr)
+            assert(res, msg)
         end
     end
+    self:stop()
+    unistd.close(fd)
 end
 
 return CasyncAccept

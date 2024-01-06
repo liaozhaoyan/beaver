@@ -20,7 +20,7 @@ typedef struct native_events {
 }native_events_t;
 
 typedef unsigned long pthread_t;
-pthread_t create_beaver(int ctrl_in, int ctrl_out, char* name, char *config);
+pthread_t create_beaver(int ctrl_in, int ctrl_out, const char* name, const char *config);
 
 int init(int listen_fd);
 int add_fd(int efd, int fd);

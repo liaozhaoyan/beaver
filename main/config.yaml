@@ -1,7 +1,7 @@
 worker:
   number: 1   # worker process
-  function:
-    - echo:
-        mode: tcp
-        port: 3382
-        bind: 0.0.0.0
+  funcs:
+    - func: "pingpong"
+      mode: "TCP"
+      bind: "0.0.0.0"
+      port: 3382

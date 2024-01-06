@@ -19,10 +19,6 @@ function CasyncBase:_init_(beaver, fd, tmo)
     beaver:co_add(self, self._setup, fd, tmo)  -- setup should apply for children class
 end
 
-function CasyncBase:_del_()
-    self:stop()
-end
-
 function CasyncBase:stop()
     self._beaver:co_exit(self._fd)
 end
