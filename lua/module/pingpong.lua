@@ -10,6 +10,7 @@ local psocket = require("posix.sys.socket")
 local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
 local CasyncAccept = require("async.asyncAccept")
+local workVar = require("module.workVar")
 
 
 local Cpingpong = class("pinngpong")
@@ -38,14 +39,17 @@ end
 
 local CasyncProc = class("asyncProc", CasyncBase)
 
-function CasyncProc:_init_(beaver, fd, tmo)
+function CasyncProc:_init_(beaver, fd, bfd, addr, tmo)
     self._beaver = beaver
     tmo = tmo or 10
+    self._bfd = bfd
+    self._addr = addr
     CasyncBase._init_(self, beaver, fd, tmo)
 end
 
 function CasyncProc:_setup(fd, tmo)
     local beaver = self._beaver
+    workVar.pingpongAdd(self._bfd, fd, coroutine.running(), self._addr)
     while true do
         beaver:co_set_tmo(fd, -1)
         local s = beaver:read(fd)
@@ -60,15 +64,16 @@ function CasyncProc:_setup(fd, tmo)
     end
     self:stop()
     unistd.close(fd)
+    workVar.pingpongDel(fd)
 end
 
 
 local function acceptServer(beaver, fd)
+    workVar.pingpongBindAdd(fd, coroutine.running())
     CasyncAccept.new(beaver, fd, -1)
     while true do
         local nfd, addr = coroutine.yield()
-        system:dumps(addr)
-        CasyncProc.new(beaver, nfd)
+        CasyncProc.new(beaver, nfd, fd)
     end
 end
 

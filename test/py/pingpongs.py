@@ -1,4 +1,5 @@
 from multiprocessing import Process
+import random
 import pingpong
 
 
@@ -15,7 +16,7 @@ class Cpp(Process):
 def loop():
     while True:
         ps = []
-        for i in range(16):
+        for i in range(random.randint(16, 32)):
             ps.append(Cpp())
         for p in ps:
             p.join()

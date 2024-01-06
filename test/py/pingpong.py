@@ -7,7 +7,8 @@ def single():
 
     s.connect(("127.0.0.1", 3382))
     i = 0
-    while i < 1000:
+    loop = random.randint(800, 1200)
+    while i < loop:
         stream = "abcdefg1234567" * random.randint(1, 8192)
         s.send(stream.encode())
 
@@ -20,6 +21,7 @@ def single():
         assert(stream == r)
         i += 1
 
+    s.close()
     print("test ok.")
 
 
