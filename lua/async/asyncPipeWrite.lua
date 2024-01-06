@@ -6,6 +6,7 @@
 
 require("eclass")
 
+local unistd = require("posix.unistd")
 local CasyncBase = require("async.asyncBase")
 
 local CasyncPipeWrite = class("asyncPipeWrite", CasyncBase)
@@ -47,6 +48,8 @@ function CasyncPipeWrite:_setup(fd, tmo)
             break
         end
     end
+    self:stop()
+    unistd.close(fd)
 end
 
 function CasyncPipeWrite:write(stream)

@@ -6,6 +6,7 @@
 
 require("eclass")
 
+local unistd = require("posix.unistd")
 local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
@@ -34,6 +35,8 @@ function CasyncPipeRead:_setup(fd, tmo)
             break
         end
     end
+    self:stop()
+    unistd.close(fd)
 end
 
 function CasyncPipeRead:read()
