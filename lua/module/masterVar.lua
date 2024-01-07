@@ -12,6 +12,7 @@ local system = require("common.system")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local lru = require("lru")
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
 local json = cjson.new()
@@ -20,8 +21,10 @@ json.encode_escape_forward_slash(false)
 local M = {}
 
 local var = {
-    workers = {},   -- masters children
     setup = false,
+    workers = {},   -- masters children
+    dnsBuf = lru.new(32),
+    dnsOvertime = 10,   -- dnsOvertime for 10s
 }
 
 function M.masterSetPipeOut(coOut)
@@ -80,12 +83,35 @@ local function workerReg(arg)
     var.workers[w][1] = true
 end
 
+local function checkDns(domain)
+    local buf = var.dnsBuf[domain]
+    local now = os.time()
+
+    if buf then
+        local t = buf[2]
+
+        if now - t > var.dnsOvertime then
+            return nil, now
+        else
+            return buf[1], t
+        end
+    else
+        return nil, now
+    end
+end
+
 local function reqDns(arg)
     local w = arg.id
     local coId = arg.coId
     local domain = arg.domain
+    local ip, now
 
-    local ip = var.dns:request(domain)
+    ip, now = checkDns(domain)
+    if not ip then
+        ip = var.dns:request(domain)
+        var.dnsBuf[domain] = {ip, now}
+    end
+
     local func = {
         func = "echoDns",
         arg = {

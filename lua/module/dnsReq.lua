@@ -38,7 +38,7 @@ function CdnsReq:_setup(fd, tmo)
         assert(domain == s, "bad echo.")
 
         beaver:co_set_tmo(fd, tmo)
-        local res = beaver:write(fd, ip)
+        local res = beaver:write(fd, domain .. ":" .. ip)
         if not res then
             break
         end
