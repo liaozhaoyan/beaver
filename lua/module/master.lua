@@ -10,6 +10,7 @@ local CcoBeaver = require("coBeaver")
 local system = require("common.system")
 local CasyncPipeRead = require("async.asyncPipeRead")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
+local masterVar = require("module.masterVar")
 
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
@@ -25,13 +26,8 @@ function Cmaster:_init_(conf)
     self._conf = conf
 end
 
-local config = {
-    workers = {},   -- masters children
-    setup = false
-}
-
-local function pipe_out(b, f_out)
-    local w = CasyncPipeWrite.new(b, f_out, 10)
+local function pipeOut(b, fOut)
+    local w = CasyncPipeWrite.new(b, fOut, 10)
 
     while true do
         local stream = coroutine.yield()
@@ -40,73 +36,26 @@ local function pipe_out(b, f_out)
     end
 end
 
-local function pipe_ctrl_reg(arg)
-    if not config.setup then
-        config.master_in  = arg["in"]
-        config.master_out = arg["out"]
-
-        for i = 1, config.yaml.worker.number do
-            local r, w, errno = unistd.pipe()
-            if not r then
-                errro(string.format("create pipe failed, %s, errno %d", w, errno))
-            end
-
-            local pid = c_api.create_beaver(r, config.master_in, "worker", config.conf.config)
-
-            local co = coroutine.create(pipe_out)
-            local res, msg = coroutine.resume(co, config.beaver, w)
-            assert(res, msg)
-            config.workers[w] = {false, pid, r, co}   -- use w pipe to record single thread.
-
-            local func = {
-                func = "reg_thread_id",
-                arg = {
-                    id = w,
-                }
-            }
-            res, msg = coroutine.resume(co, json.encode(func))
-            assert(res, msg)
-        end
-
-        config.setup = true
-        local ret = {ret = 0}
-        coroutine.resume(config.coOut, json.encode(ret))
-    end
-    return 0
-end
-
-local function worker_reg(arg)
-    local w = arg.id
-    print(string.format("thread %d is already online", w))
-    config.workers[w][1] = true
-end
-
-
-local func_table = {
-    pipe_ctrl_reg = function(arg) return pipe_ctrl_reg(arg)  end,
-    worker_reg = function(arg) return worker_reg(arg)  end,
-}
-
-local function pipe_in(b, conf)
-    local r = CasyncPipeRead.new(b, conf.f_in, -1)
-    local coOut = coroutine.create(pipe_out)
-    local res, msg = coroutine.resume(coOut, b, conf.f_out)
+local function pipeIn(b, conf)
+    local r = CasyncPipeRead.new(b, conf.fIn, -1)
+    local coOut = coroutine.create(pipeOut)
+    local res, msg = coroutine.resume(coOut, b, conf.fOut)
     assert(res, msg)
-    config.coOut = coOut
+    masterVar.masterSetPipeOut(coOut)
 
     while true do
         local s = r:read()
         local arg = json.decode(s)
-        func_table[arg.func](arg.arg)
+        masterVar.call(arg)
     end
 end
 
 function Cmaster:proc()
     local b = CcoBeaver.new()
-    config.beaver = b
-    config.conf = self._conf
-    config.yaml = lyaml.load(config.conf.config)
-    local co = coroutine.create(pipe_in)
+
+    masterVar.masterSetVar(b, self._conf, lyaml.load(self._conf.config))
+
+    local co = coroutine.create(pipeIn)
     local res, msg = coroutine.resume(co, b, self._conf)
     assert(res, msg)
     b:poll()

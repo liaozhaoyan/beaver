@@ -11,10 +11,10 @@ local CasyncPipeRead = require("async.asyncPipeRead")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local conf
 
-function init(f_in, f_out, name, config)
+function init(fIn, fOut, name, config)
     conf = {
-        f_in = f_in,
-        f_out = f_out,
+        fIn = fIn,
+        fOut = fOut,
         name = name,
         config = config
     }

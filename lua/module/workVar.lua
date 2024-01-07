@@ -7,39 +7,118 @@
 local M = {}
 local system = require("common.system")
 
+local cjson = require("cjson.safe")
+local json = cjson.new()
+json.encode_escape_forward_slash(false)
+
 local var = {
-    pingpong = {}
+    -- for module manage.
+    pingpong = {},
+    dnsReq = {},
+
+    -- for dns manager
+    dnsWait = {},   -- just for dns.
+    dnsId  = 1,     -- dns request co id,
 }
 
-function M.pingpongBindAdd(fd, co)
-    assert(not var.pingpong[fd], "pingpong bind socket is already in use.")
-    var.pingpong[fd] = {
+function M.workerSetPipeOut(coOut)
+    var.coOut = coOut
+end
+
+local function regThreadId(arg)
+    var.id = arg.id
+    local func = {
+        func = "workerReg",
+        arg = {
+            id = arg.id
+        }
+    }
+
+    local res, msg = coroutine.resume(var.coOut, json.encode(func))
+    assert(res, msg)
+end
+
+local function echoDns(arg)
+    local coId = arg.coId
+    local co = var.dnsWait[coId]
+
+    coroutine.resume(co, arg.domain, arg.ip)
+    var.dnsWait[coId] = nil   -- free wait.
+end
+
+local funcTable = {
+    regThreadId = function(arg) return regThreadId(arg)  end,
+    echoDns     = function(arg) return echoDns(arg)  end
+}
+
+function M.call(arg)
+    return funcTable[arg.func](arg.arg)
+end
+
+function M.workerSetVar(beaver, conf, yaml)
+    var.thread = {
+        beaver = beaver,
+        conf = conf,
+        yaml = yaml
+    }
+end
+
+function M.workerGetVar()
+    return var.thread
+end
+
+function M.bindAdd(m, fd, co)
+    assert(not var[m][fd], string.format("%s bind socket is already in use.", m))
+    var[m][fd] = {
         co = co,
         addrs = {},
         cos = {}
     }
 end
 
-function M.pingpongAdd(bfd, fd, co, addr)
-    print("add", bfd, fd)
-    assert(not var.pingpong[bfd].cos[fd], "pingpong work socket is already in use.")
-    var.pingpong[bfd].cos[fd] = co
-    var.pingpong[bfd].addrs[fd] = addr
+function M.clientAdd(m, bfd, fd, co, addr)
+    print(m, "add", bfd, fd)
+    assert(not var[m][bfd].cos[fd], string.format("%s work socket is already in use.", m))
+    var[m][bfd].cos[fd] = co
+    var[m][bfd].addrs[fd] = addr
 end
 
-function M.pingpongDel(fd)
-    for bfd, pingpong in pairs(var.pingpong) do
-        for i, _ in pairs(pingpong.cos) do
+function M.clientDel(m, fd)
+    for bfd, m in pairs(var[m]) do
+        for i, _ in pairs(m.cos) do
             if fd == i then
-                pingpong.addrs[i] = nil
-                pingpong.cos[i] = nil
+                m.addrs[i] = nil
+                m.cos[i] = nil
                 print("remove", bfd, fd)
                 return
             end
         end
     end
-    system:dumps(var.pingpong)
+    system.dumps(var[m])
     error(string.format("fd: %d is not register.", fd))
+end
+
+local function dnsGetCoId()
+    local ret = var.dnsId
+    var.dnsWait[ret] = coroutine.running()
+    var.dnsId = var.dnsId + 1
+    return ret
+end
+
+function M.dnsReq(domain)
+    local func = {
+        func = "reqDns",
+        arg = {
+            id = var.id,
+            domain = domain,
+            coId = dnsGetCoId()
+        }
+    }
+
+    local res, msg = coroutine.resume(var.coOut, json.encode(func))
+    assert(res, msg)
+    local domain, ip = coroutine.yield()
+    return domain, ip
 end
 
 return M

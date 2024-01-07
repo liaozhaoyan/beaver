@@ -32,6 +32,7 @@ end
 function CcoBeaver:co_set_tmo(fd, tmo)
     assert(tmo < 0 or tmo >= 10, "illegal tmo value.")
     self._tmoFd[fd] = tmo
+    self:co_fresh(fd)
 end
 
 function CcoBeaver:co_get_tmo(fd)
@@ -89,7 +90,7 @@ function CcoBeaver:_co_check()
                     local e = c_type.new("native_event_t")  -- need to close this fd
                     e.ev_close = 1
                     e.fd = fd
-
+                    print(fd, "is over time.")
                     res, msg = coroutine.resume(co, e)
                     assert(res, msg)
                 end

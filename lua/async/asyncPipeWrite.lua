@@ -53,7 +53,6 @@ function CasyncPipeWrite:_setup(fd, tmo)
 end
 
 function CasyncPipeWrite:write(stream)
-    print("write ", #stream)
     local res, msg, err, errno = coroutine.resume(self._coSelf, stream)
     assert(res, msg)
     if msg then  -- wake from yield

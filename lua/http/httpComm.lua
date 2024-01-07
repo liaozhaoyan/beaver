@@ -47,10 +47,10 @@ function ChttpComm:jdecode(s)
 end
 
 local function parseParam(param)
-    local tParam = pystring:split(param, "&")
+    local tParam = pystring.split(param, "&")
     local res = {}
     for _, s in ipairs(tParam) do
-        local kv = pystring:split(s, "=")
+        local kv = pystring.split(s, "=")
         if #kv ~= 2 then
             print("bad param " .. s)
             return nil
@@ -103,13 +103,13 @@ function ChttpComm:packServerHeaders(headTable, len) -- just for http out.
     end
 
     lines[c] = ""
-    return pystring:join("\r\n", lines)
+    return pystring.join("\r\n", lines)
 end
 
 local codeStrTable = codeTable()
 function ChttpComm:packStat(code)   -- only for server.
     local t = {"HTTP/1.1", code, codeStrTable[code]}
-    return pystring:join(" ", t)
+    return pystring.join(" ", t)
 end
 
 local function originCliHeader()
@@ -140,12 +140,12 @@ function ChttpComm:packCliHeaders(headTable, len)
 
     c = c + 1
     lines[c] = ""
-    return pystring:join("\r\n", lines)
+    return pystring.join("\r\n", lines)
 end
 
 function ChttpComm:packCliHead(method, url)
     local t = {method, url, "HTTP/1.1"}
-    return pystring:join(" ", t)
+    return pystring.join(" ", t)
 end
 
 return ChttpComm

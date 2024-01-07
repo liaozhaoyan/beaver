@@ -10,6 +10,8 @@ local CcoBeaver = require("coBeaver")
 local system = require("common.system")
 local CasyncPipeRead = require("async.asyncPipeRead")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
+local workVar = require("module.workVar")
+local sockComm = require("module.sockComm")
 
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
@@ -22,8 +24,8 @@ function Cworker:_init_(conf)
     self._conf = conf
 end
 
-local function pipe_out(b, f_out)
-    local w = CasyncPipeWrite.new(b, f_out, 10)
+local function pipeOut(b, fOut)
+    local w = CasyncPipeWrite.new(b, fOut, 10)
 
     while true do
         local stream = coroutine.yield()
@@ -32,57 +34,35 @@ local function pipe_out(b, f_out)
     end
 end
 
-local workVar = {}
+local function pipeIn(b, conf)
+    local r = CasyncPipeRead.new(b, conf.fIn, -1)
 
-local function reg_thread_id(arg)
-    workVar.id = arg.id
-    local func = {
-        func = "worker_reg",
-        arg = {
-            id = arg.id
-        }
-    }
-
-    local res, msg = coroutine.resume(workVar.coOut, json.encode(func))
+    local coOut = coroutine.create(pipeOut)
+    local res, msg = coroutine.resume(coOut, b, conf.fOut)
     assert(res, msg)
-end
-
-local func_table = {
-    reg_thread_id = function(arg) return reg_thread_id(arg)  end
-}
-
-local function pipe_in(b, conf)
-    local r = CasyncPipeRead.new(b, conf.f_in, -1)
-
-    local coOut = coroutine.create(pipe_out)
-    local res, msg = coroutine.resume(coOut, b, conf.f_out)
-    assert(res, msg)
-    workVar.coOut = coOut
+    workVar.workerSetPipeOut(coOut)
 
     while true do
         local s = r:read()
         local arg = json.decode(s)
-        func_table[arg.func](arg.arg)
+        workVar.call(arg)
     end
 end
 
-local function setupFuncs(var, b)
-    for _, cell in pairs(var.yaml.worker.funcs) do
+local function setupFuncs(thread, b)
+    for _, cell in pairs(thread.yaml.worker.funcs) do
         local module = require("module." .. cell.func)
-        module.new(b, cell)
+        sockComm.acceptSetup(module, b, cell)
     end
 end
 
 function Cworker:proc()
     local b = CcoBeaver.new()
 
-    workVar.beaver = b
-    workVar.conf = self._conf
-    workVar.yaml = lyaml.load(workVar.conf.config)
+    workVar.workerSetVar(b, self._conf, lyaml.load(self._conf.config))
+    setupFuncs(workVar.workerGetVar(), b)
 
-    setupFuncs(workVar, b)
-
-    local co = coroutine.create(pipe_in)
+    local co = coroutine.create(pipeIn)
     local res, msg = coroutine.resume(co, b, self._conf)
     assert(res, msg)
     b:poll()

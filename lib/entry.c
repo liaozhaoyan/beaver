@@ -76,7 +76,7 @@ int start_beaver(char * path) {
 
     // register pipe.
     len = snprintf(msg, MSG_SIZE,
-                   "{\"func\":\"pipe_ctrl_reg\",\"arg\":{\"in\":%d, \"out\":%d}}",
+                   "{\"func\":\"pipeCtrlReg\",\"arg\":{\"in\":%d, \"out\":%d}}",
                    pipeR[1], pipeW[0]);
     // 0 for read, 1 for write, for master Read
     ret = ctrl_write(pipeR[1], msg, len);   // 1 is for write
@@ -95,7 +95,7 @@ int start_beaver(char * path) {
     pause();
 
     // register pipe.
-    len = snprintf(msg, MSG_SIZE, "{\"func\":\"master_exit\",\"arg\":{}}");
+    len = snprintf(msg, MSG_SIZE, "{\"func\":\"masterExit\",\"arg\":{}}");
     ret = ctrl_write(pipeR[1], msg, len);   // 1 is for write
     if (ret < 0) {
         goto endMainExit;
