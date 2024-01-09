@@ -15,6 +15,7 @@ local var = {
     -- for module manage.
     pingpong = {},
     dnsReq = {},
+    upstream = {},
 
     -- for dns manager
     dnsWait = {},   -- just for dns.

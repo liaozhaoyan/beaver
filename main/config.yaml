@@ -9,3 +9,9 @@ worker:
       mode: "TCP"
       bind: "0.0.0.0"
       port: 3383
+    - func: "upstream"
+      mode: "TCP"
+      bind: "0.0.0.0"
+      port: 3384
+      upIP: "127.0.0.1"
+      upPort: 3385

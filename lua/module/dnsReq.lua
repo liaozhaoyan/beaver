@@ -12,20 +12,20 @@ local workVar = require("module.workVar")
 
 local CdnsReq = class("CdnsReq", CasyncBase)
 
-function CdnsReq:_init_(beaver, fd, bfd, addr, func, tmo)
+function CdnsReq:_init_(beaver, fd, bfd, addr, conf, tmo)
     self._beaver = beaver
     tmo = tmo or 10
     self._bfd = bfd
     self._addr = addr
-    self._func = func
+    self._conf = conf
     CasyncBase._init_(self, beaver, fd, tmo)
 end
 
 function CdnsReq:_setup(fd, tmo)
     local beaver = self._beaver
-    local func = self._func
+    local module = self._conf.func
 
-    workVar.clientAdd(func, self._bfd, fd, coroutine.running(), self._addr)
+    workVar.clientAdd(module, self._bfd, fd, coroutine.running(), self._addr)
 
     repeat
         beaver:co_set_tmo(fd, -1)
@@ -46,7 +46,7 @@ function CdnsReq:_setup(fd, tmo)
 
     self:stop()
     unistd.close(fd)
-    workVar.clientDel(func, fd)
+    workVar.clientDel(module, fd)
 end
 
 return CdnsReq

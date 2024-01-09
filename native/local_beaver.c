@@ -149,7 +149,20 @@ int mod_fd(int efd, int fd, int wr) {
     struct epoll_event event;
     int ret;
 
-    event.events  =  wr ? EPOLLOUT | EPOLLERR : EPOLLIN | EPOLLERR;
+    switch (wr) {
+        case 1:   // write only
+            event.events = EPOLLOUT | EPOLLERR | EPOLLRDHUP;
+            break;
+        case 0:   // read only
+            event.events = EPOLLIN | EPOLLERR | EPOLLRDHUP;
+            break;
+        case -1:   //no read and write
+            event.events = EPOLLERR | EPOLLRDHUP;
+            break;
+        default:
+            fprintf(stderr, "bad wr mode %d for mod_fd", wr);
+    }
+
     event.data.fd = fd;
 
     ret = epoll_ctl(efd, EPOLL_CTL_MOD, fd, &event);
@@ -175,6 +188,7 @@ int del_fd(int efd, int fd) {
 int poll_fds(int efd, int tmo, native_events_t* nes) {
     struct epoll_event events[NATIVE_EVENT_MAX];
     int i, ret = 0;
+    unsigned int close_flag = EPOLLERR | EPOLLHUP | EPOLLRDHUP;
 
     ret = epoll_wait(efd, events, NATIVE_EVENT_MAX, tmo * 1000);
     if (ret < 0) {
@@ -185,8 +199,7 @@ int poll_fds(int efd, int tmo, native_events_t* nes) {
     for (i = 0; i < ret; i ++) {
         nes->evs[i].fd = events[i].data.fd;
 
-        if ( (events[i].events & EPOLLERR) ||
-             (events[i].events & EPOLLHUP) ) {
+        if (events[i].events & close_flag) {
             nes->evs[i].ev_close = 1;
         }
         if (events[i].events & EPOLLIN) {

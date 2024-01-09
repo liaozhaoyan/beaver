@@ -18,13 +18,15 @@ function M.setupSocket(conf)
         local tPort = {family=psocket.AF_INET, addr=conf.bind, port=conf.port}
         res, err, errno = psocket.bind(fd, tPort)
         assert(res, err)
-    elseif conf.uni_sock then
-        unistd.unlink(conf.uni_sock)
+    elseif conf.uniSock then
+        unistd.unlink(conf.uniSock)
         fd, err, errno = psocket.socket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
         assert(fd, err)
-        local tPort = {family=psocket.AF_UNIX, path=conf.uni_sock}
+        local tPort = {family=psocket.AF_UNIX, path=conf.uniSock}
         res, err, errno = psocket.bind(fd, tPort)
         assert(res, err)
+    else
+        error("bad bind mode.")
     end
     local backlog = conf.backlog or 10
     res, err, errno = psocket.listen(fd, backlog)
@@ -32,20 +34,72 @@ function M.setupSocket(conf)
     return fd
 end
 
-local function acceptServer(obj, func, beaver, bfd)
-    workVar.bindAdd(func, bfd, coroutine.running())
+function M.connectSetup(tPort)
+    local fd, err, errno
+    if tPort.port then
+        fd, err, errno = psocket.socket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
+        assert(fd, err)
+    elseif tPort.path then
+        unistd.unlink(tPort.path)
+        fd, err, errno = psocket.socket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
+        assert(fd, err)
+    else
+        error("bad connect mode.")
+    end
+    return fd
+end
+
+local function tryConnect(fd, tConn)
+    local res, err, errno
+
+    res, err, errno = psocket.connect(fd, tConn)
+    if not res then
+        if errno == 115 then  -- need to wait.
+            return 1
+        else
+            error(string.format("socket connect failed, report:%d, %s", errno, err))
+            return
+        end
+    else
+        return res
+    end
+end
+
+function M.connect(fd, tPort, beaver)
+    local res = tryConnect(fd, tPort)
+    if res == 1 then -- 1 means connecting
+        beaver:mod_fd(fd, 1)  -- modify fd to writeable
+        local connected = false
+        repeat
+            local e = coroutine.yield()
+            if type(e) == "nil" then
+                return 1
+            elseif e.ev_out > 0 then
+                connected = true
+                beaver:mod_fd(fd, 0)
+                return 0
+            elseif e.ev_close > 0 then
+                return 1
+            end
+        until connected
+    end
+    return res
+end
+
+local function acceptServer(obj, conf, beaver, bfd)
+    workVar.bindAdd(conf.func, bfd, coroutine.running())
     CasyncAccept.new(beaver, bfd, -1)
     while true do
         local nfd, addr = coroutine.yield()
-        obj.new(beaver, nfd, bfd, addr, func)
+        obj.new(beaver, nfd, bfd, addr, conf)
     end
 end
 
 function M.acceptSetup(obj, beaver, conf)
-    assert(conf.mode == "TCP", "bad pingpong mode: " .. conf.mode)
+    assert(conf.mode == "TCP", "bad accept mode: " .. conf.mode)
     local fd = M.setupSocket(conf)
     local co = coroutine.create(acceptServer)
-    local res, msg = coroutine.resume(co, obj, conf.func, beaver, fd)
+    local res, msg = coroutine.resume(co, obj, conf, beaver, fd)
     assert(res, msg)
 end
 

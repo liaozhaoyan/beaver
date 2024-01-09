@@ -13,20 +13,20 @@ local workVar = require("module.workVar")
 
 local Cpingpong = class("pinngpong", CasyncBase)
 
-function Cpingpong:_init_(beaver, fd, bfd, addr, func, tmo)
+function Cpingpong:_init_(beaver, fd, bfd, addr, conf, tmo)
     self._beaver = beaver
     tmo = tmo or 10
     self._bfd = bfd
     self._addr = addr
-    self._func = func
+    self._conf = conf
     CasyncBase._init_(self, beaver, fd, tmo)
 end
 
 function Cpingpong:_setup(fd, tmo)
     local beaver = self._beaver
-    local func = self._func
+    local module = self._conf.func
 
-    workVar.clientAdd(func, self._bfd, fd, coroutine.running(), self._addr)
+    workVar.clientAdd(module, self._bfd, fd, coroutine.running(), self._addr)
     while true do
         beaver:co_set_tmo(fd, -1)
         local s = beaver:read(fd)
@@ -41,7 +41,7 @@ function Cpingpong:_setup(fd, tmo)
     end
     self:stop()
     unistd.close(fd)
-    workVar.clientDel(func, fd)
+    workVar.clientDel(module, fd)
 end
 
 return Cpingpong

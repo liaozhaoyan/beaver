@@ -34,6 +34,10 @@ function CbeaverIO:add(fd)
     assert(c_api.add_fd(self._efd, fd) >= 0)
 end
 
+function CbeaverIO:mod_fd(fd, wr)
+    assert(c_api.mod_fd(self._efd, fd, wr) == 0)
+end
+
 function CbeaverIO:read(fd, len)
     len = len or 4096
     local s, err, errno

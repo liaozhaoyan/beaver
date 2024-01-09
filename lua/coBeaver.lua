@@ -48,9 +48,10 @@ function CcoBeaver:co_add(obj, cb, fd, tmo)
 
     self:add(fd)  -- add to epoll fd
     local co = coroutine.create(function(o, obj, fd, tmo)  cb(o, obj, fd, tmo) end)
+    self._cos[fd] = co
+
     local res, msg = coroutine.resume(co, obj, fd, tmo)
     assert(res, msg)
-    self._cos[fd] = co
     return co
 end
 
@@ -84,7 +85,7 @@ function CcoBeaver:_co_check()
         local tmos = dictCopy(self._tmoCos)
         for fd, t in pairs(tmos) do
             local tmoFd = self._tmoFd[fd]
-            if tmoFd > 0 and now - t >= tmoFd then  -- overtime
+            if tmoFd and tmoFd > 0 and now - t >= tmoFd then  -- overtime
                 local co = self._cos[fd]
                 if co and coroutine.status(co) == "suspended" then
                     local e = c_type.new("native_event_t")  -- need to close this fd
@@ -106,11 +107,12 @@ function CcoBeaver:_pollFd(nes)
         local fd = e.fd
 
         local co = self._cos[fd]
-        assert(co, string.format("fd: %d not setup.", fd))
-
-        self._tmoCos[fd] = os.time()
-        local res, msg = coroutine.resume(co, e)
-        assert(res, msg)
+        -- assert(co, string.format("fd: %d not setup.", fd))
+        if co then -- coroutine event may closed.
+            self._tmoCos[fd] = os.time()
+            local res, msg = coroutine.resume(co, e)
+            assert(res, msg)
+        end
     end
     self:_co_check()
 end
