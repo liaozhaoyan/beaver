@@ -1,6 +1,8 @@
 import socketserver
 import random
 
+g_count = 1
+
 
 def recvLen(sock, size):
     ret = ""
@@ -15,7 +17,9 @@ def recvLen(sock, size):
 class MyTCPHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
-        print("new Cli.")
+        global g_count
+        print("new Cli.", g_count)
+        g_count += 1
         data = "abcdefg hijk"
         for i in range(random.randint(80, 120)):
             s = data * random.randint(1, 2000)
@@ -25,7 +29,7 @@ class MyTCPHandler(socketserver.BaseRequestHandler):
 
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 3385
+    HOST, PORT = "0.0.0.0", 3385
 
     # Create the server, binding to localhost on port 9999
     with socketserver.ThreadingTCPServer((HOST, PORT), MyTCPHandler) as server:

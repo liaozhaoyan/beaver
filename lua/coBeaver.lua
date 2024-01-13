@@ -128,8 +128,6 @@ function CcoBeaver:poll()
         end
 
         self:_pollFd(nes)
-
-        self:_co_check()
     end
 end
 

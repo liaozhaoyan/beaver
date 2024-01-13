@@ -13,5 +13,5 @@ worker:
       mode: "TCP"
       bind: "0.0.0.0"
       port: 3384
-      upIP: "127.0.0.1"
+      upIP: "172.16.0.131"
       upPort: 3385

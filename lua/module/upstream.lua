@@ -138,7 +138,9 @@ local function waitConnect(beaver, fd, down)
             beaver:mod_fd(fd, 0)  -- back to read mode
             return true
         else
-            print("wake from client.", t, w)
+            if t ~= "number" then
+                print("wake from client.", t, w, w.ev_close, w.ev_in, w.ev_out)
+            end
             return false
         end
     else  -- 1 connected

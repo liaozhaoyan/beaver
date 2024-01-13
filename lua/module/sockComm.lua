@@ -28,7 +28,7 @@ function M.setupSocket(conf)
     else
         error("bad bind mode.")
     end
-    local backlog = conf.backlog or 10
+    local backlog = conf.backlog or 100
     res, err, errno = psocket.listen(fd, backlog)
     assert(res, err)
     return fd
