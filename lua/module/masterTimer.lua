@@ -79,7 +79,6 @@ function CmasterTimer:run()
 
             node = tree:pop() -- node may change after yield.
             lastMs = node.ms
-            assert(lastMs == node.ms, "timer module may has some logic error.")
             node.loop = node.loop - 1
             cbWake(node)
 
