@@ -73,9 +73,10 @@ local function packQuery(domain)
 end
 
 function CasyncDns:_setup(fd, tmo)
+    local res, msg
     local beaver = self._beaver
     local serverIP = self._serverIP
-    local res, len, err, errno
+    local len, err, errno
     local tDist = {family=psocket.AF_INET, addr=serverIP, port=53}
 
     while true do
@@ -86,7 +87,8 @@ function CasyncDns:_setup(fd, tmo)
         len, err, errno = psocket.sendto(fd, query, tDist)
         if not len then
             print(err, errno)
-            coroutine.resume(co, nil)
+            res, msg = coroutine.resume(co, nil)
+            assert(res, msg)
             break
         end
 
@@ -94,11 +96,13 @@ function CasyncDns:_setup(fd, tmo)
         res, err, errno = beaver:read(fd, 512)
         if not res then
             print(err, errno)
-            coroutine.resume(co, nil)
+            res, msg = coroutine.resume(co, nil)
+            assert(res, msg)
             break
         else
             local ip = string.format("%d.%d.%d.%d", string.byte(res, -4, -1))
-            coroutine.resume(co, ip)
+            res, msg = coroutine.resume(co, ip)
+            assert(res, msg)
         end
     end
     self:stop()
@@ -106,8 +110,10 @@ function CasyncDns:_setup(fd, tmo)
 end
 
 function CasyncDns:request(domain)
+    local res, msg
     local co = coroutine.running()
-    coroutine.resume(self._co, co, domain)
+    res, msg = coroutine.resume(self._co, co, domain)
+    assert(res, msg)
     return coroutine.yield()
 end
 

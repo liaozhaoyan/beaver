@@ -7,6 +7,7 @@
 local unistd = require("posix.unistd")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local CasyncDns = require("async.asyncDns")
+local CmasterTimer = require("module.masterTimer")
 local system = require("common.system")
 
 local cffi = require("beavercffi")
@@ -23,6 +24,11 @@ local M = {}
 local var = {
     setup = false,
     workers = {},   -- masters children
+
+    -- for multi delay, loop >= 1
+    periodWakeCo = {},   -- multi delayed,
+    periodWakeId = 1,    -- index
+
     dnsBuf = lru.new(32),
     dnsOvertime = 10,   -- dnsOvertime for 10s
 }
@@ -42,6 +48,7 @@ local function pipeOut(b, fOut)
 end
 
 local function pipeCtrlReg(arg)
+    local res, msg
     if not var.setup then
         var.masterIn  = arg["in"]
         var.masterOut = arg["out"]
@@ -56,7 +63,7 @@ local function pipeCtrlReg(arg)
             local pid = c_api.create_beaver(r, var.masterIn, "worker", thread.conf.config)
 
             local co = coroutine.create(pipeOut)
-            local res, msg = coroutine.resume(co, thread.beaver, w)
+            res, msg = coroutine.resume(co, thread.beaver, w)
             assert(res, msg)
             var.workers[w] = {false, pid, r, co}   -- use w pipe to record single thread.
 
@@ -72,7 +79,8 @@ local function pipeCtrlReg(arg)
 
         var.setup = true
         local ret = {ret = 0}
-        coroutine.resume(var.coOut, json.encode(ret))
+        res, msg = coroutine.resume(var.coOut, json.encode(ret))
+        assert(res, msg)
     end
     return 0
 end
@@ -101,7 +109,7 @@ local function checkDns(domain)
 end
 
 local function reqDns(arg)
-    local w = arg.id
+    local fid = arg.id
     local coId = arg.coId
     local domain = arg.domain
     local ip, now
@@ -120,18 +128,81 @@ local function reqDns(arg)
             ip = ip
         }
     }
-    local co = var.workers[w][4]  -- refer to pipeCtrlReg
-    coroutine.resume(co, json.encode(func))
+    local co = var.workers[fid][4]  -- refer to pipeCtrlReg
+    local res, msg = coroutine.resume(co, json.encode(func))
+    assert(res, msg)
+end
+
+local function reqPeriodWake(arg)
+    local node = {
+        fid = arg.id,
+        coId = arg.coId,
+        period = arg.period,
+        loop = arg.loop
+    }
+    var.timer:add(node)
 end
 
 local funcTable = {
     pipeCtrlReg = function(arg) return pipeCtrlReg(arg)  end,
     workerReg = function(arg) return workerReg(arg) end,
-    reqDns = function(arg) return reqDns(arg)  end
+    reqDns = function(arg) return reqDns(arg)  end,
+    reqPeriodWake = function(arg) return reqPeriodWake(arg)  end,
 }
 
 function M.call(arg)
     return funcTable[arg.func](arg.arg)
+end
+
+local function periodWakeGetId()
+    local ret = var.periodWakeId
+    var.periodWakeCo[ret] = coroutine.running()
+    var.periodWakeId = var.periodWakeId + 1
+    return ret
+end
+
+local function timerWake(node) -- call in masterTimer.
+    local res, msg
+    local co
+    local fid = node.id
+    if fid > 0 then  -- wake worker
+        local func = {
+            func = "echoWake",
+            arg = {
+                coId = node.coId,
+                loop = node.loop,
+                period = node.period,
+            }
+        }
+        co = var.workers[fid][4]  -- refer to pipeCtrlReg
+        res, msg = coroutine.resume(co, json.encode(func))
+        assert(res, msg)
+    else
+        co = var.periodWakeCo[node.coId]
+        res, msg = coroutine.resume(co, node)
+        assert(res, msg)
+        if node.loop == 0 then
+            var.periodWakeCo[node.coId] = nil
+        end
+    end
+end
+
+function M.periodWake(period, loop)
+    assert(period >= 10, "period arg should greater than 10.")
+    assert(loop >= 1, "")
+    local node = {
+        id = 0,
+        coId = periodWakeGetId(),
+        period = period,
+        loop = loop,
+    }
+
+    var.timer:add(node)
+    coroutine.yield()
+end
+
+function M.msleep(ms)
+    return M.periodWake(ms, 1)
 end
 
 function M.masterSetVar(beaver, conf, yaml)
@@ -140,7 +211,11 @@ function M.masterSetVar(beaver, conf, yaml)
         conf = conf,
         yaml = yaml,
     }
+
     var.dns = CasyncDns.new(beaver)
+    var.timer = CmasterTimer.new(beaver, timerWake)
+
+    var.timer:start()
 end
 
 function M.masterGetVar()

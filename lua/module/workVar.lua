@@ -20,6 +20,10 @@ local var = {
     -- for dns manager
     dnsWait = {},   -- just for dns.
     dnsId  = 1,     -- dns request co id,
+
+    -- for multi delay, loop >= 1
+    periodWakeCo = {},   -- multi delayed,
+    periodWakeId = 1,    -- index
 }
 
 function M.workerSetPipeOut(coOut)
@@ -43,13 +47,27 @@ local function echoDns(arg)
     local coId = arg.coId
     local co = var.dnsWait[coId]
 
-    coroutine.resume(co, arg.domain, arg.ip)
+    local res, msg =  coroutine.resume(co, arg.domain, arg.ip)
+    assert(res, msg)
     var.dnsWait[coId] = nil   -- free wait.
+end
+
+local function echoWake(arg)
+    local res, msg
+    local coId = arg.coId
+    local co = var.periodWakeCo[coId]
+
+    res, msg = coroutine.resume(co, arg.period)
+    assert(res, msg)
+    if arg.loop == 0 then
+        var.periodWakeCo[coId] = nil   -- free wait.
+    end
 end
 
 local funcTable = {
     regThreadId = function(arg) return regThreadId(arg)  end,
-    echoDns     = function(arg) return echoDns(arg)  end
+    echoDns     = function(arg) return echoDns(arg)  end,
+    echoWake    = function(arg) return echoWake(arg)  end,
 }
 
 function M.call(arg)
@@ -120,6 +138,35 @@ function M.dnsReq(domain)
     assert(res, msg)
     local domain, ip = coroutine.yield()
     return domain, ip
+end
+
+local function periodWakeGetId()
+    local ret = var.periodWakeId
+    var.periodWakeCo[ret] = coroutine.running()
+    var.periodWakeId = var.periodWakeId + 1
+    return ret
+end
+
+function M.periodWake(period, loop)
+    assert(period >= 10, "period arg should greater than 10.")
+    assert(loop >= 1, "")
+    local func = {
+        func = "reqPeriodWake",
+        arg = {
+            id = var.id,
+            coId = periodWakeGetId(),
+            period = period,
+            loop = loop,
+        }
+    }
+
+    local res, msg = coroutine.resume(var.coOut, json.encode(func))
+    assert(res, msg)
+    return coroutine.yield()
+end
+
+function M.msleep(ms)
+    return M.periodWake(ms, 1)
 end
 
 return M

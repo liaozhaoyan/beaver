@@ -50,6 +50,24 @@ local function pipeIn(b, conf)
     end
 end
 
+local function check(last, hope)
+    local now = os.time()
+    assert(now - last == hope, "check var failed.")
+    return now
+end
+
+local function testTimer()
+    local last = os.time()
+    while true do
+        masterVar.msleep(1000)
+        last = check(last, 1)
+        print("test for timer1.")
+        masterVar.msleep(2000)
+        last = check(last, 2)
+        print("test for timer2.")
+    end
+end
+
 function Cmaster:proc()
     local b = CcoBeaver.new()
 
@@ -58,6 +76,11 @@ function Cmaster:proc()
     local co = coroutine.create(pipeIn)
     local res, msg = coroutine.resume(co, b, self._conf)
     assert(res, msg)
+
+    co = coroutine.create(testTimer)
+    res, msg = coroutine.resume(co)
+    assert(res, msg)
+
     b:poll()
     return 0
 end

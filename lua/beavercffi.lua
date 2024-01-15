@@ -36,6 +36,12 @@ int ssl_write(void *handle, const char *buff, int len);
 void *ssl_connect_pre(int fd);
 int ssl_connect(void * handle);
 void ssl_del(void *handle);
+
+int timer_io_init(void);
+unsigned long timer_io_now();
+unsigned long time_io_calc(unsigned long offset);
+int timer_io_set(int fd, unsigned long ms);
+int timer_io_get(int fd);
 ]]
 
 return {type = c_type, api=c_api}
