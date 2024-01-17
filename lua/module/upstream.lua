@@ -5,12 +5,14 @@
 ---
 
 require("eclass")
-local unistd = require("posix.unistd")
+
 local psocket = require("posix.sys.socket")
 local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
 local workVar = require("module.workVar")
 local sockComm = require("module.sockComm")
+local cffi = require("beavercffi")
+local c_type, c_api = cffi.type, cffi.api
 
 local Cdownstream = class("nextstream", CasyncBase)
 
@@ -89,7 +91,7 @@ function Cdownstream:_setup(fd, tmo)
     self._status = 0
     uplink:shutdown()
     self:stop()
-    unistd.close(fd)
+    c_api.b_close(fd)
     workVar.clientDel(conf.func, fd)
 end
 
@@ -191,7 +193,7 @@ function Cupstream:_setup(fd, tmo)
     ::stopStream::
     down:shutdown()
     self:stop()
-    unistd.close(fd)
+    c_api.b_close(fd)
     workVar.clientDel(conf.func, fd)
 end
 

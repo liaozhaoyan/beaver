@@ -7,8 +7,9 @@
 require("eclass")
 
 local psocket = require("posix.sys.socket")
-local unistd = require("posix.unistd")
 local pystring = require("pystring")
+local cffi = require("beavercffi")
+local c_type, c_api = cffi.type, cffi.api
 local CasyncBase = require("async.asyncBase")
 
 local CasyncDns = class("asyncDns", CasyncBase)
@@ -106,7 +107,7 @@ function CasyncDns:_setup(fd, tmo)
         end
     end
     self:stop()
-    unistd.close(fd)
+    c_api.b_close(fd)
 end
 
 function CasyncDns:request(domain)

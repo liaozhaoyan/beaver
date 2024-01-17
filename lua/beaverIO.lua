@@ -9,8 +9,10 @@ require("eclass")
 require("struct")
 
 local CbeaverIO = class("beaverIO")
+local buffer = require("string.buffer")
 local cffi = require("beavercffi")
-local unistd = require("posix.unistd")
+
+local ioBlockSize = 65536
 
 local c_type, c_api = cffi.type, cffi.api
 
@@ -38,66 +40,69 @@ function CbeaverIO:mod_fd(fd, wr)
     assert(c_api.mod_fd(self._efd, fd, wr) == 0)
 end
 
-function CbeaverIO:read(fd, len)
-    len = len or 4096
-    local s, err, errno
-    s, err, errno = unistd.read(fd, len)
+function CbeaverIO:read(fd, size)
+    size = size or ioBlockSize
+    local buf = buffer.new(size)
+    local ptr, len = buf:reserve(size)
 
-    if s then
-        if #s > 0 then
-            return s
-        else
-            return nil, "fd closed",  64
-        end
-    elseif errno == 11 then
+    len = len < size and len or size
+    local ret = c_api.b_read(fd, ptr, len)
+
+    if ret == 0 then
+        return nil, "fd closed",  64
+    elseif ret > 0 then
+        buf:commit(ret)
+        return buf:tostring()
+    elseif ret == -11 then
         local e = coroutine.yield()
         if e.ev_close > 0 then
             return nil, string.format("fd %d is already closed.", fd), 32
         elseif e.ev_in > 0 then
-            s, err, errno = unistd.read(fd, len)
-            if s then
-                if #s > 0 then
-                    return s
-                else
-                    return nil, "fd closed",  64
-                end
+            ret = c_api.b_read(fd, ptr, len)
+            if ret > 0 then
+                buf:commit(ret)
+                return buf:tostring()
+            elseif ret == 0 then
+                return nil, "fd closed",  64
             else
-                return nil
+                return nil, "IO Error.", -ret
             end
-            return s, err, errno
         else
-            return nil, "IO Error.", 5
+            return nil, "IO Error.", -ret
         end
     end
 end
 
 function CbeaverIO:reads(fd, maxLen)
-    maxLen = maxLen or 2 * 1024 * 1024  -- signal conversation accept 2M stream max
+    maxLen = maxLen or 2 * 1024 * 1024 -- signal conversation accept 2M stream max
+
     local function readFd()
-        local s, err, errno
-        s, err, errno = unistd.read(fd, maxLen)
-        if s then
-            if #s > 0 then
-                return s
-            else
-                return nil, "fd closed",  64
-            end
-        elseif errno == 11 then  -- EAGAIN
+        local bufSize = maxLen < ioBlockSize and maxLen or ioBlockSize  -- min(maxLen, ioBlockSize)
+        local buf = buffer.new(bufSize)
+        local ptr, len = buf:reserve(bufSize)
+
+        len = len < bufSize and len or bufSize   -- buffer min is 32, if maxLen little than 32,
+        local ret = c_api.b_read(fd, ptr, len)
+
+        if ret == 0 then
+            return nil, "fd closed",  64
+        elseif ret > 0 then
+            buf:commit(ret)
+            return buf:tostring()
+        elseif ret == -11 then
             local e = coroutine.yield()
             if e.ev_close > 0 then
                 return nil, string.format("fd %d is already closed.", fd), 32
             elseif e.ev_in > 0 then
-                s, err, errno = unistd.read(fd, maxLen)
-                if s then
-                    local len = #s
-                    if len > 0 then
-                        maxLen = maxLen - #s
-                        return s
-                    else
-                        return nil, "fd closed",  64
-                    end
+                ret = c_api.b_read(fd, ptr, len)
+                if ret > 0 then
+                    maxLen = maxLen - ret
+                    buf:commit(ret)
+                    return buf:tostring()
+                elseif ret == 0 then
+                    return nil, "fd closed",  64
                 else
-                    return s, err, errno
+                    return nil, "IO Error.", -ret
                 end
             else
                 return nil, "IO Error.", 5
@@ -108,33 +113,37 @@ function CbeaverIO:reads(fd, maxLen)
 end
 
 function CbeaverIO:write(fd, stream)
-    local sent, err, errno
     local res
+    local ret
 
-    sent, err, errno = unistd.write(fd, stream)
-    if sent ~= nil then
-        if sent < #stream then  -- send buffer may full
+    local buf = buffer.new()
+    buf:put(stream)
+    local ptr, len = buf:ref()
+    ret = c_api.b_write(fd, ptr, len)
+    if ret > 0 then
+        if ret < len then
             res = c_api.mod_fd(self._efd, fd, 1)  -- epoll write ev
             if res < 0 then
                 return nil, "epoll mod_fd failed.", -res
             end
 
-            while sent < #stream do
+            while ret < len do
+
                 local e = coroutine.yield()
+
                 if e.ev_close > 0 then
                     return nil, string.format("fd %d is already closed.", fd), 32
                 elseif e.ev_out then
-                    stream = string.sub(stream, sent + 1)
-                    if stream == nil then
-                        goto done
-                    end
-                    sent, err, errno = unistd.write(fd, stream)
-                    if sent == nil then
-                        if errno == 11 then  -- EAGAIN ?
-                            sent = 0
+                    buf:skip(ret)  -- move to next
+
+                    ptr, len = buf:ref()
+                    ret = c_api.b_write(fd, ptr, len)
+                    if ret < 0 then
+                        if ret == -11 then  -- EAGAIN ?
+                            ret = 0
                             goto continue
                         end
-                        return nil, err, errno
+                        return nil, "IO Error.", -ret
                     end
                 else  -- need to read ? may something error.
                     return nil, "need to read ? may something error.", 5
@@ -150,7 +159,7 @@ function CbeaverIO:write(fd, stream)
         end
         return 0
     else
-        return nil, err, errno
+        return nil, "IO Error.", -ret
     end
 end
 

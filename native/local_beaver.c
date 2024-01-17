@@ -212,6 +212,26 @@ int poll_fds(int efd, int tmo, native_events_t* nes) {
     return 0;
 }
 
+int b_read(int fd, void *buf, int count) {
+    int ret = read(fd, buf, count);
+    if (ret < 0) {
+        return -errno;
+    }
+    return ret;
+}
+
+int b_write(int fd, void *buf, int count) {
+    int ret = write(fd, buf, count);
+    if (ret < 0) {
+        return -errno;
+    }
+    return ret;
+}
+
+int b_close(int fd) {
+    return close(fd);
+}
+
 void deinit(int efd) {
     close(efd);
     async_ssl_deinit();

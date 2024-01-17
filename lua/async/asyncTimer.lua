@@ -6,7 +6,6 @@
 
 require("eclass")
 
-local unistd = require("posix.unistd")
 local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
@@ -40,7 +39,7 @@ function CasyncTimer:_setup(fd, tmo)
         assert(res, msg)
     end
     self:stop()
-    unistd.close(fd)
+    c_api.b_close(fd)
 end
 
 function CasyncTimer:update(ms)

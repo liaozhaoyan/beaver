@@ -7,8 +7,9 @@
 require("eclass")
 
 local psocket = require("posix.sys.socket")
-local unistd = require("posix.unistd")
 local CasyncBase = require("async.asyncBase")
+local cffi = require("beavercffi")
+local c_type, c_api = cffi.type, cffi.api
 
 local CasyncAccept = class("asyncAccept", CasyncBase)
 
@@ -33,7 +34,7 @@ function CasyncAccept:_setup(fd, tmo)
         end
     end
     self:stop()
-    unistd.close(fd)
+    c_api.b_close(fd)
 end
 
 return CasyncAccept

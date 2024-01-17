@@ -5,10 +5,12 @@
 ---
 
 require("eclass")
-local unistd = require("posix.unistd")
+
 local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
 local workVar = require("module.workVar")
+local cffi = require("beavercffi")
+local c_type, c_api = cffi.type, cffi.api
 
 local CdnsReq = class("CdnsReq", CasyncBase)
 
@@ -45,7 +47,7 @@ function CdnsReq:_setup(fd, tmo)
     until false
 
     self:stop()
-    unistd.close(fd)
+    c_api.b_close(fd)
     workVar.clientDel(module, fd)
 end
 

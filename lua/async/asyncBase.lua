@@ -6,9 +6,6 @@
 
 require("eclass")
 
-local psocket = require("posix.sys.socket")
-local unistd = require("posix.unistd")
-
 local CasyncBase = class("asyncBase")
 
 function CasyncBase:_init_(beaver, fd, tmo)

@@ -29,6 +29,9 @@ int mod_fd_block(int fd, int block);
 int del_fd(int efd, int fd);
 int poll_fds(int efd, int tmo, native_events_t* nes);
 int setsockopt_reuse_port(int fd);
+int b_read(int fd, void *buf, int count);
+int b_write(int fd, void *buf, int count);
+int b_close(int fd);
 void deinit(int efd);
 
 int ssl_read(void *handle, char *buff, int len);
