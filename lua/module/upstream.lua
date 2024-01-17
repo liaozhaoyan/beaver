@@ -72,7 +72,6 @@ function Cdownstream:_setup(fd, tmo)
             break
         else  -- read event.
             if e.ev_close > 0 then
-                print("down file closed.")
                 break
             elseif e.ev_in > 0 then
                 local s = beaver:read(fd)

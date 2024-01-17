@@ -96,7 +96,7 @@ function M.bindAdd(m, fd, co)
 end
 
 function M.clientAdd(m, bfd, fd, co, addr)
-    print(m, "add", bfd, fd)
+--    print(m, "add", bfd, fd)
     assert(not var[m][bfd].cos[fd], string.format("%s work socket is already in use.", m))
     var[m][bfd].cos[fd] = co
     var[m][bfd].addrs[fd] = addr
@@ -108,7 +108,6 @@ function M.clientDel(m, fd)
             if fd == i then
                 m.addrs[i] = nil
                 m.cos[i] = nil
-                print("remove", bfd, fd)
                 return
             end
         end
