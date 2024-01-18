@@ -14,27 +14,6 @@ local ChttpComm = class("httpComm")
 
 local cjson = require("cjson.safe")
 
-local function codeTable()
-    return {
-        [100] = "Continue",
-        [200] = "Ok",
-        [201] = "Created",
-        [202] = "Accepted",
-        [204] = "No Content",
-        [206] = "Partial Content",
-        [301] = "Moved Permanently",
-        [302] = "Found",
-        [304] = "Not Modified",
-        [400] = "Bad Request",
-        [401] = "Unauthorized",
-        [403] = "Forbidden",
-        [404] = "Not Found",
-        [418] = "I'm a beaver",
-        [500] = "Internal Server Error",
-        [501] = "Not Implemented"
-    }
-end
-
 function ChttpComm:jencode(t)
     return cjson.encode(t)
 end
@@ -74,75 +53,119 @@ function ChttpComm:parsePath(path)
     return parseParams(res)
 end
 
+local codeStrTable = {
+    [100] = "Continue",
+    [200] = "Ok",
+    [201] = "Created",
+    [202] = "Accepted",
+    [204] = "No Content",
+    [206] = "Partial Content",
+    [301] = "Moved Permanently",
+    [302] = "Found",
+    [304] = "Not Modified",
+    [400] = "Bad Request",
+    [401] = "Unauthorized",
+    [403] = "Forbidden",
+    [404] = "Not Found",
+    [418] = "I'm a beaver",
+    [500] = "Internal Server Error",
+    [501] = "Not Implemented",
+    [503] = "Service Unavailable",
+}
+local function packStat(code)   -- only for server.
+    local t = {"HTTP/1.1", tostring(code), codeStrTable[code]}
+    return table.concat(t, " ")
+end
+
 local function originServerHeader()
     return {
-        server = "beaver/0.0.4",
+        server = "beaver/0.1.0",
         date = os.date("%a, %d %b %Y %H:%M:%S %Z", os.time()),
     }
 end
 
-function ChttpComm:packServerHeaders(headTable, len) -- just for http out.
-    local lines = {}
-    if not headTable["Content-Length"] then
-        headTable["Content-Length"] = len
+local function packServerHeaders(headers, len) -- just for http out.
+    local heads = {}
+    if not headers then
+        headers = {
+            ["Content-Type"] = "text/plain",
+        }
+    end
+
+    if not headers["Content-Length"] then
+        headers["Content-Length"] = tonumber(len)
     end
     local origin = originServerHeader()
 
     local c = 1
     for k, v in pairs(origin) do
-        lines[c] = table.concat({k, v}, ": ")
+        heads[c] = table.concat({k, v}, ": ")
         c = c + 1
     end
 
-    for k, v in pairs(headTable) do
-        lines[c] = table.concat({k, v}, ": ")
+    for k, v in pairs(headers) do
+        heads[c] = table.concat({k, v}, ": ")
         c = c + 1
     end
 
-    lines[c] = ""
-    return pystring.join("\r\n", lines)
+    return table.concat(heads, "\r\n")
 end
 
-local codeStrTable = codeTable()
-function ChttpComm:packStat(code)   -- only for server.
-    local t = {"HTTP/1.1", code, codeStrTable[code]}
-    return pystring.join(" ", t)
-end
-
-local function originCliHeader()
-    return {
-        ["User-Agent"] = "beaverCli/0.0.4",
-        Connection = "Keep-Alive",
+function ChttpComm:packServerFrame(res)
+    local tHttp = {
+        packStat(res.code),
+        packServerHeaders(res.headers, #res.body),
+        "",
+        res.body
     }
+    return table.concat(tHttp, "\r\n")
 end
 
-function ChttpComm:packCliHeaders(headTable, len)
+local function packCliLine(method, url)
+    local t = {method, url, "HTTP/1.1"}
+    return table.concat(t, " ")
+end
+
+local originCliHeader = {
+    ["User-Agent"] = "beaverCli/0.1.0",
+    Connection = "Keep-Alive",
+}
+local function packCliHeaders(headers, len)
     len = len or 0
-    local lines = {}
-    if not headTable["Content-Length"] and len > 0 then
-        headTable["Content-Length"] = len
+    local heads = {}
+
+    if not headers then
+        headers = {
+            ["Content-Type"] = "text/plain",
+        }
     end
-    local origin = originCliHeader()
+    if not headers["Content-Length"] and len > 0 then
+        headers["Content-Length"] = tonumber(len)
+    end
+    local origin = originCliHeader
 
     local c = 0
     for k, v in pairs(origin) do
         c = c + 1
-        lines[c] = table.concat({k, v}, ": ")
+        heads[c] = table.concat({k, v}, ": ")
     end
 
-    for k, v in pairs(headTable) do
+    for k, v in pairs(headers) do
         c = c + 1
-        lines[c] = table.concat({k, v}, ": ")
+        heads[c] = table.concat({k, v}, ": ")
     end
 
-    c = c + 1
-    lines[c] = ""
-    return pystring.join("\r\n", lines)
+    return table.concat(heads, "\r\n")
 end
 
-function ChttpComm:packCliHead(method, url)
-    local t = {method, url, "HTTP/1.1"}
-    return pystring.join(" ", t)
+function ChttpComm:packClientFrame(res)
+    local tHttp = {
+        packCliLine(res.method, res.url),
+        packCliHeaders(res.headers, #res.body),
+        "",
+        res.body
+    }
+    return table.concat(tHttp, "\r\n")
 end
 
 return ChttpComm

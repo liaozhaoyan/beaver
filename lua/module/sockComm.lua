@@ -86,12 +86,32 @@ function M.connect(fd, tPort, beaver)
     return res
 end
 
+local ChttpInst = require("http.httpInst")
+
+local instTable = {
+    httpServer = function(conf)
+        local app = require("app." .. conf.entry)
+        local inst = ChttpInst.new()
+        app.new(inst, conf)
+        return inst
+    end,
+}
+
+local function setupInst(conf)
+    local func = instTable[conf.func]
+    if func then
+        return func(conf)
+    end
+    return nil
+end
+
 local function acceptServer(obj, conf, beaver, bfd)
     workVar.bindAdd(conf.func, bfd, coroutine.running())
+    local inst = setupInst(conf)
     CasyncAccept.new(beaver, bfd, -1)
     while true do
         local nfd, addr = coroutine.yield()
-        obj.new(beaver, nfd, bfd, addr, conf)
+        obj.new(beaver, nfd, bfd, addr, conf, inst)
     end
 end
 

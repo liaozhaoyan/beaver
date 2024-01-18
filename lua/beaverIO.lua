@@ -74,12 +74,13 @@ function CbeaverIO:read(fd, size)
 end
 
 function CbeaverIO:reads(fd, maxLen)
-    maxLen = maxLen or 2 * 1024 * 1024 -- signal conversation accept 2M stream max
+    maxLen = maxLen or 10 * 1024 * 1024 -- signal conversation accept 2M stream max
 
-    local function readFd()
+    local function readFd(tmo)
         local bufSize = maxLen < ioBlockSize and maxLen or ioBlockSize  -- min(maxLen, ioBlockSize)
         local buf = buffer.new(bufSize)
         local ptr, len = buf:reserve(bufSize)
+        tmo = tmo or -1
 
         len = len < bufSize and len or bufSize   -- buffer min is 32, if maxLen little than 32,
         local ret = c_api.b_read(fd, ptr, len)
@@ -90,6 +91,7 @@ function CbeaverIO:reads(fd, maxLen)
             buf:commit(ret)
             return buf:tostring()
         elseif ret == -11 then
+            self:co_set_tmo(fd, tmo)
             local e = coroutine.yield()
             if e.ev_close > 0 then
                 return nil, string.format("fd %d is already closed.", fd), 32

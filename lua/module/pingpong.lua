@@ -13,7 +13,7 @@ local c_type, c_api = cffi.type, cffi.api
 
 local Cpingpong = class("pinngpong", CasyncBase)
 
-function Cpingpong:_init_(beaver, fd, bfd, addr, conf, tmo)
+function Cpingpong:_init_(beaver, fd, bfd, addr, conf, inst, tmo)
     self._beaver = beaver
     tmo = tmo or 10
     self._bfd = bfd

@@ -118,7 +118,7 @@ end
 
 local Cupstream = class("upstream", CasyncBase)
 
-function Cupstream:_init_(beaver, fd, bfd, addr, conf, tmo)
+function Cupstream:_init_(beaver, fd, bfd, addr, conf, inst, tmo)
     self._beaver = beaver
     tmo = tmo or 10
     self._bfd = bfd
