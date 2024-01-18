@@ -15,8 +15,6 @@ local sockComm = require("module.sockComm")
 
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
-local json = cjson.new()
-json.encode_escape_forward_slash(false)
 
 local Cworker = class("master")
 
@@ -44,7 +42,7 @@ local function pipeIn(b, conf)
 
     while true do
         local s = r:read()
-        local arg = json.decode(s)
+        local arg = cjson.decode(s)
         workVar.call(arg)
     end
 end

@@ -8,14 +8,13 @@ local M = {}
 local system = require("common.system")
 
 local cjson = require("cjson.safe")
-local json = cjson.new()
-json.encode_escape_forward_slash(false)
 
 local var = {
     -- for module manage.
     pingpong = {},
     dnsReq = {},
     upstream = {},
+    httpServer = {},
 
     -- for dns manager
     dnsWait = {},   -- just for dns.
@@ -39,7 +38,7 @@ local function regThreadId(arg)
         }
     }
 
-    local res, msg = coroutine.resume(var.coOut, json.encode(func))
+    local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
     assert(res, msg)
 end
 
@@ -96,7 +95,6 @@ function M.bindAdd(m, fd, co)
 end
 
 function M.clientAdd(m, bfd, fd, co, addr)
---    print(m, "add", bfd, fd)
     assert(not var[m][bfd].cos[fd], string.format("%s work socket is already in use.", m))
     var[m][bfd].cos[fd] = co
     var[m][bfd].addrs[fd] = addr
@@ -133,7 +131,7 @@ function M.dnsReq(domain)
         }
     }
 
-    local res, msg = coroutine.resume(var.coOut, json.encode(func))
+    local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
     assert(res, msg)
     local domain, ip = coroutine.yield()
     return domain, ip
@@ -159,7 +157,7 @@ function M.periodWake(period, loop)
         }
     }
 
-    local res, msg = coroutine.resume(var.coOut, json.encode(func))
+    local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
     assert(res, msg)
     return coroutine.yield()
 end

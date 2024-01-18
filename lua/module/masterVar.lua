@@ -16,8 +16,6 @@ local c_type, c_api = cffi.type, cffi.api
 local lru = require("lru")
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
-local json = cjson.new()
-json.encode_escape_forward_slash(false)
 
 local M = {}
 
@@ -73,13 +71,13 @@ local function pipeCtrlReg(arg)
                     id = w,
                 }
             }
-            res, msg = coroutine.resume(co, json.encode(func))
+            res, msg = coroutine.resume(co, cjson.encode(func))
             assert(res, msg)
         end
 
         var.setup = true
         local ret = {ret = 0}
-        res, msg = coroutine.resume(var.coOut, json.encode(ret))
+        res, msg = coroutine.resume(var.coOut, cjson.encode(ret))
         assert(res, msg)
     end
     return 0
@@ -129,7 +127,7 @@ local function reqDns(arg)
         }
     }
     local co = var.workers[fid][4]  -- refer to pipeCtrlReg
-    local res, msg = coroutine.resume(co, json.encode(func))
+    local res, msg = coroutine.resume(co, cjson.encode(func))
     assert(res, msg)
 end
 
@@ -175,7 +173,7 @@ local function timerWake(node) -- call in masterTimer.
             }
         }
         co = var.workers[fid][4]  -- refer to pipeCtrlReg
-        res, msg = coroutine.resume(co, json.encode(func))
+        res, msg = coroutine.resume(co, cjson.encode(func))
         assert(res, msg)
     else
         co = var.periodWakeCo[node.coId]

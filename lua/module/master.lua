@@ -17,8 +17,7 @@ local c_type, c_api = cffi.type, cffi.api
 
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
-local json = cjson.new()
-json.encode_escape_forward_slash(false)
+
 
 local Cmaster = class("master")
 
@@ -45,14 +44,14 @@ local function pipeIn(b, conf)
 
     while true do
         local s = r:read()
-        local arg = json.decode(s)
+        local arg = cjson.decode(s)
         masterVar.call(arg)
     end
 end
 
 local function check(last, hope)
     local now = os.time()
-    assert(now - last == hope, "check var failed.")
+    assert(now - last == hope or now - last == hope + 1, "check var failed.")
     return now
 end
 

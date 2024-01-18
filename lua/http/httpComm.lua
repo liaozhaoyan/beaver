@@ -13,9 +13,6 @@ local sockerUrl = require("socket.url")
 local ChttpComm = class("httpComm")
 
 local cjson = require("cjson.safe")
-local json = cjson.new()
-
-json.encode_escape_forward_slash(false)
 
 local function codeTable()
     return {
@@ -39,11 +36,11 @@ local function codeTable()
 end
 
 function ChttpComm:jencode(t)
-    return json.encode(t)
+    return cjson.encode(t)
 end
 
 function ChttpComm:jdecode(s)
-    return json.decode(s)
+    return cjson.decode(s)
 end
 
 local function parseParam(param)
