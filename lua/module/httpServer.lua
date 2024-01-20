@@ -42,7 +42,6 @@ function ChttpServer:_setup(fd, tmo)
             local s = inst:packServerFrame(tReq)
             beaver:write(fd, s)
         else
-            print(string.format("fd %d closed", fd))
             break
         end
     end

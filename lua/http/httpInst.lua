@@ -80,13 +80,13 @@ local function reSearch(urlRe, path)
     return nil
 end
 
-local function echo404()
+local function echo404(path)
     return {
         code = 404,
         headers = {
             ["Content-Type"] = "text/plain",
         },
-        body = "Oops! Beaver may have forgotten it on Mars!!!\n",
+        body = string.format("Oops! Beaver may have forgotten %s on Mars!!!\n", path),
         keep = true
     }
 end
@@ -121,7 +121,6 @@ local function _proc(cbs, verb, tReq)
         local ok, res
         local func = cb.url[path]
 
-        print(func)
         if func then  -- direct mode
             ok, res = system.pcall(func, tReq)
         else  -- reSearch
@@ -129,7 +128,7 @@ local function _proc(cbs, verb, tReq)
             if func then
                 ok, res = system.pcall(func, tReq)
             else  -- not such page
-                res = echo404()
+                return echo404(path)
             end
         end
 

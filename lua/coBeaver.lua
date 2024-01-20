@@ -33,7 +33,9 @@ end
 function CcoBeaver:co_set_tmo(fd, tmo)
     assert(tmo < 0 or tmo >= 10, "illegal tmo value.")
     self._tmoFd[fd] = tmo
-    self:co_fresh(fd)
+    if tmo > 0 then
+        self._tmoCos[fd] = os.time()
+    end
 end
 
 function CcoBeaver:co_get_tmo(fd)
@@ -64,9 +66,6 @@ function CcoBeaver:co_exit(fd)
     self._tmoCos[fd] = nil
 end
 
-function CcoBeaver:co_fresh(fd)
-    self._tmoCos[fd] = os.time()
-end
 
 local function dictCopy(tbl)
     local cp = {}
@@ -78,25 +77,28 @@ local function dictCopy(tbl)
     return cp
 end
 
-function CcoBeaver:_co_check()
+function CcoBeaver:_co_check(now, checkedFd)
     local res, msg
-    local now = os.time()
     if now - self._last >= 1 then
         -- ! coroutine will del self._tmoCos cell in loop, so create a mirror table for safety
-        local tmos = dictCopy(self._tmoCos)
-        for fd, t in pairs(tmos) do
-            local tmoFd = self._tmoFd[fd]
-            if tmoFd and tmoFd > 0 and now - t >= tmoFd then  -- overtime
+        --local tmos = dictCopy(self._tmoCos)
+        for fd, tmo in pairs(self._tmoCos) do
+            if checkedFd[fd] then  -- the fd has last checked.
+                goto continue
+            end
+            local tmoFd = self._tmoFd[fd]  -- tmoFd record the socket fd set over time
+            if tmoFd and tmoFd > 0 and now - tmo >= tmoFd then  -- overtime
                 local co = self._cos[fd]
                 if co and coroutine.status(co) == "suspended" then
                     local e = c_type.new("native_event_t")  -- need to close this fd
                     e.ev_close = 1
                     e.fd = fd
-                    print(fd, "is over time.")
+                    print(fd, "is over time.", tmo, now - tmo)
                     res, msg = coroutine.resume(co, e)
                     system.coReport(co, res, msg)
                 end
             end
+            ::continue::
         end
         self._last = now
     end
@@ -104,6 +106,7 @@ end
 
 function CcoBeaver:_pollFd(nes)
     local now_time = os.time()
+    local checkedFd = {}
     for i = 0, nes.num - 1 do
         local e = nes.evs[i];
         local fd = e.fd
@@ -112,11 +115,12 @@ function CcoBeaver:_pollFd(nes)
         -- assert(co, string.format("fd: %d not setup.", fd))
         if co then -- coroutine event may closed.
             self._tmoCos[fd] = now_time
+            checkedFd[fd] = now_time
             local res, msg = coroutine.resume(co, e)
             system.coReport(co, res, msg)
         end
     end
-    self:_co_check()
+    self:_co_check(now_time, checkedFd)
 end
 
 function CcoBeaver:poll()

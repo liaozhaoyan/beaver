@@ -55,7 +55,7 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy)
 
     self._http = httpComm.new()
 
-    tmo = tmo or 10
+    tmo = tmo or 30
 
     local tPort = {family=psocket.AF_INET, addr=ip, port=port}
     local fd = sockComm.connectSetup(tPort)
@@ -121,7 +121,8 @@ function ChttpReq:_setup(fd, tmo)
                 local tRes = httpRead.clientRead(fread)
                 e = wake(co, tRes)
                 t = type(e)
-                if t == "nil" then -->upstream need to close.
+                if t == "cdata" then -->upstream need to close.
+                    assert(e.ev_close > 0)
                     wake(co, nil)  -->let upstream to do next working.
                     break
                 elseif t == "number" then  -->upstream reuse connect
@@ -273,7 +274,10 @@ end
 
 function ChttpReq:close()
     if self._status ~= 1 then
-        self:_waitData(nil)
+        local e = c_type.new("native_event_t")
+        e.ev_close = 1
+        e.fd = self._fd
+        self:_waitData(e)
     end
 end
 

@@ -25,7 +25,9 @@ local proxy = {
 local function instance(tReq)
     local req = ChttpReq.new(tReq, "100.100.100.200", 80)
     local tRes = req:get("/latest/meta-data/instance-id")
-    return {body = tRes.body}
+    if tRes then
+        return {body = tRes.body}
+    end
 end
 
 local function bing(tReq)

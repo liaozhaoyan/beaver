@@ -10,6 +10,8 @@ local M = {}
 local sockerUrl = require("socket.url")
 local pystring = require("pystring")
 
+local defaultHttpReadOvertime = 15
+
 local function parseParam(param)
     local tParam = pystring.split(param, "&")
     local res = {}
@@ -46,7 +48,7 @@ local function waitDataRest(fread, rest, tReq)
     local tStream = {tReq.body}
     local c = #tStream
     while len < rest do
-        local s = fread(10)
+        local s = fread(defaultHttpReadOvertime)
         if s then
             len = len + #s
             c = c + 1
@@ -64,7 +66,7 @@ local function waitChuckData(fread, s, size)
         if #s >= size + 2 then
             return s
         end
-        local add = fread(10)
+        local add = fread(defaultHttpReadOvertime)
         if add then
             s = s .. add
         else
@@ -78,7 +80,7 @@ local function waitChuckSize(fread, s)
         if string.find(s, "\r\n") then
             return s
         end
-        local add = fread(10)
+        local add = fread(defaultHttpReadOvertime)
         if add then
             s = s .. add
         else
@@ -149,14 +151,13 @@ local function waitHttpRest(fread, tReq)
     return 0
 end
 
-local function waitHttpHead(fread)
+local function waitHttpHead(fread, tmo)
     local stream = ""
-    local tmo = -1
     while true do
         local s = fread(tmo)
         if s then
             stream = stream .. s
-            tmo = 10
+            tmo = defaultHttpReadOvertime
             if string.find(stream, "\r\n\r\n") then
                 return stream
             end
@@ -213,7 +214,7 @@ local function serverParse(fread, stream)
 end
 
 function M.serverRead(fread)
-    local stream = waitHttpHead(fread)
+    local stream = waitHttpHead(fread, -1)
     if stream == nil then   -- read return stream or error code or nil
         return nil
     end
@@ -268,7 +269,7 @@ local function clientParse(fread, stream)
 end
 
 function M.clientRead(fread)
-    local stream = waitHttpHead(fread)
+    local stream = waitHttpHead(fread, 10 * defaultHttpReadOvertime)
     if stream == nil then   -- read return stream or error code or nil
         return nil
     end
