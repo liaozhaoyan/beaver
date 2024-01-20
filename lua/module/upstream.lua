@@ -99,7 +99,7 @@ function Cdownstream:send(s)
     local co = self._co
     if coroutine.status(co) == "suspended" then
         res, msg = coroutine.resume(co, s)
-        assert(res, msg)
+        system.coReport(co, res, msg)
     end
 end
 
@@ -108,7 +108,7 @@ function Cdownstream:shutdown()  -- send a nil message
     local co = self._co
     if coroutine.status(co) == "suspended" then
         res, msg = coroutine.resume(co, nil)
-        assert(res, msg)
+        system.coReport(co, res, msg)
     end
 end
 
@@ -129,8 +129,8 @@ end
 
 local function waitConnect(beaver, fd, down)
     local res = down:status()
-    if res == 0 then -- connect failed.
-        return false
+    if res == 0 then -- connect ok.
+        return true
     elseif res == 2 then -- connecting
         beaver:mod_fd(fd, -1)  -- mask io event, other close event is working.
         local w = coroutine.yield()
@@ -144,8 +144,8 @@ local function waitConnect(beaver, fd, down)
             end
             return false
         end
-    else  -- 1 connected
-        return true
+    else  -- 1 connect failed
+        return false
     end
 end
 
@@ -201,7 +201,7 @@ function Cupstream:send(s)
     local co = self._co
     if coroutine.status(co) == "suspended" then
         res, msg = coroutine.resume(co, s)
-        assert(res, msg)
+        system.coReport(co, res, msg)
     end
 end
 
@@ -210,7 +210,7 @@ function Cupstream:shutdown()  -- send a nil message
     local co = self._co
     if coroutine.status(co) == "suspended" then
         res, msg = coroutine.resume(co, nil)
-        assert(res, msg)
+        system.coReport(co, res, msg)
     end
 end
 
@@ -219,7 +219,7 @@ function Cupstream:connectWake(v)  -- send a nil message
     local co = self._co
     if coroutine.status(co) == "suspended" then
         res, msg = coroutine.resume(co, v)
-        assert(res, msg)
+        system.coReport(co, res, msg)
     end
 end
 

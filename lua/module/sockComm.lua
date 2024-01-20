@@ -3,10 +3,14 @@
 --- Created by liaozhaoyan.
 --- DateTime: 2024/1/7 11:11 AM
 ---
+
+local system = require("common.system")
 local unistd = require("posix.unistd")
 local psocket = require("posix.sys.socket")
 local CasyncAccept = require("async.asyncAccept")
 local workVar = require("module.workVar")
+local cffi = require("beavercffi")
+local c_type, c_api = cffi.type, cffi.api
 
 local M = {}
 
@@ -16,6 +20,8 @@ function M.setupSocket(conf)
         fd, err, errno = psocket.socket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
         assert(fd, err)
         local tPort = {family=psocket.AF_INET, addr=conf.bind, port=conf.port}
+        res = c_api.setsockopt_reuse_port(fd)
+        assert(res == 0, string.format("reuse port failed, return %d.", res))
         res, err, errno = psocket.bind(fd, tPort)
         assert(res, err)
     elseif conf.uniSock then
@@ -75,9 +81,13 @@ function M.connect(fd, tPort, beaver)
             if type(e) == "nil" then
                 return 1
             elseif e.ev_out > 0 then
-                connected = true
-                beaver:mod_fd(fd, 0)
-                return 0
+                if c_api.check_connected(fd) == 0 then
+                    connected = true
+                    beaver:mod_fd(fd, 0)
+                    return 0
+                else
+                    return 1
+                end
             elseif e.ev_close > 0 then
                 return 1
             end
@@ -120,7 +130,7 @@ function M.acceptSetup(obj, beaver, conf)
     local fd = M.setupSocket(conf)
     local co = coroutine.create(acceptServer)
     local res, msg = coroutine.resume(co, obj, conf, beaver, fd)
-    assert(res, msg)
+    system.coReport(co, res, msg)
 end
 
 return M

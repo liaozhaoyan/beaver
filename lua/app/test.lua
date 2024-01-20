@@ -6,6 +6,8 @@
 
 require("eclass")
 
+local ChttpReq = require("http.httpReq")
+
 local Ctest = class("test")
 
 local counter = 0
@@ -15,8 +17,38 @@ local function index(tReq)
     return {body = string.format("beaver %d say hello.", counter)}
 end
 
+local proxy = {
+    ip = "172.16.0.119",
+    port = 3128
+}
+
+local function instance(tReq)
+    local req = ChttpReq.new(tReq, "100.100.100.200", 80)
+    local tRes = req:get("/latest/meta-data/instance-id")
+    return {body = tRes.body}
+end
+
+local function bing(tReq)
+    local req = ChttpReq.new(tReq, "cn.bing.com", nil, nil, proxy)
+    local tRes = req:get("HTTP://cn.bing.com/")
+    if tRes then
+        return {body = tRes.body}
+    end
+end
+
+local function baidu(tReq)
+    local req = ChttpReq.new(tReq, "www.baidu.com", nil, nil, proxy)
+    local tRes = req:get("HTTP://www.baidu.com/")
+    if tRes then
+        return {body = tRes.body}
+    end
+end
+
 function Ctest:_init_(inst, conf)
     inst:get("/", index)
+    inst:get("/instance", instance)
+    inst:get("/bing", bing)
+    inst:get("/baidu", baidu)
 end
 
 return Ctest

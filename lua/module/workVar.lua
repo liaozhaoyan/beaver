@@ -10,11 +10,14 @@ local system = require("common.system")
 local cjson = require("cjson.safe")
 
 local var = {
-    -- for module manage.
+    -- for server module manage.
     pingpong = {},
     dnsReq = {},
     upstream = {},
     httpServer = {},
+
+    -- for connect module manage
+    httpReq = {},
 
     -- for dns manager
     dnsWait = {},   -- just for dns.
@@ -39,7 +42,7 @@ local function regThreadId(arg)
     }
 
     local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
-    assert(res, msg)
+    system.coReport(var.coOut, res, msg)
 end
 
 local function echoDns(arg)
@@ -47,7 +50,7 @@ local function echoDns(arg)
     local co = var.dnsWait[coId]
 
     local res, msg =  coroutine.resume(co, arg.domain, arg.ip)
-    assert(res, msg)
+    system.coReport(co, res, msg)
     var.dnsWait[coId] = nil   -- free wait.
 end
 
@@ -57,7 +60,7 @@ local function echoWake(arg)
     local co = var.periodWakeCo[coId]
 
     res, msg = coroutine.resume(co, arg.period)
-    assert(res, msg)
+    system.coReport(co, res, msg)
     if arg.loop == 0 then
         var.periodWakeCo[coId] = nil   -- free wait.
     end
@@ -101,7 +104,7 @@ function M.clientAdd(m, bfd, fd, co, addr)
 end
 
 function M.clientDel(m, fd)
-    for bfd, m in pairs(var[m]) do
+    for _, m in pairs(var[m]) do
         for i, _ in pairs(m.cos) do
             if fd == i then
                 m.addrs[i] = nil
@@ -112,6 +115,16 @@ function M.clientDel(m, fd)
     end
     system.dumps(var[m])
     error(string.format("fd: %d is not register.", fd))
+end
+
+function M.connectAdd(m, fd, co)
+    assert(not var[m][fd], string.format("%s connect socket is already working.", m))
+    var[m][fd] = co
+end
+
+function M.connectDel(m, fd)
+    assert(var[m][fd], "%s connect socket is not working.", m)
+    var[m][fd] = nil
 end
 
 local function dnsGetCoId()
@@ -132,7 +145,7 @@ function M.dnsReq(domain)
     }
 
     local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
-    assert(res, msg)
+    system.coReport(var.coOut, res, msg)
     local domain, ip = coroutine.yield()
     return domain, ip
 end
@@ -158,7 +171,7 @@ function M.periodWake(period, loop)
     }
 
     local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
-    assert(res, msg)
+    system.coReport(var.coOut, res, msg)
     return coroutine.yield()
 end
 

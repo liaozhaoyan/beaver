@@ -7,6 +7,7 @@
 require("eclass")
 
 local pystring = require("pystring")
+local system = require("common.system")
 local ChttpComm = require("http.httpComm")
 local httpRead = require("http.httpRead")
 
@@ -101,8 +102,8 @@ local function echo501()
     }
 end
 
-local function echo503(content)
-    local body = "Oh! beaver may have a bad stomach!!!\nhe say: " .. content
+local function echo503(path, msg)
+    local body = string.format("Oh! beaver may have a bad stomach!!!\nhe eat %s, report: %s\n", path, msg)
     return {
         code = 503,
         headers = {
@@ -121,33 +122,35 @@ local function _proc(cbs, verb, tReq)
         local func = cb.url[path]
 
         if func then  -- direct mode
-            ok, res = pcall(func, tReq)
+            ok, res = system.pcall(func, tReq)
         else  -- reSearch
             func = reSearch(cb.urlRe, path)
             if func then
-                ok, res = pcall(func, tReq)
+                ok, res = system.pcall(func, tReq)
             else  -- not such page
                 res = echo404()
             end
         end
 
-        if ok then  -- call success.
+        if ok and res then  -- call success.
             res.session = tReq.session
             if not res.code then
                 res.code = 200
             end
             return res
         else  -- res nil, bad state.
-            return echo503(tReq.path)
+            return echo503(tReq.path, system.lastError())
         end
     end
     return echo501()
 end
 
-function ChttpInst:proc(fread, session)
+function ChttpInst:proc(fread, session, beaver, fd)
     local tReq = httpRead.serverRead(fread)
     if tReq then
         tReq.session = session
+        tReq.beaver = beaver
+        tReq.fd = fd
         return _proc(self._cbs, tReq.verb, tReq)
     end
     return nil

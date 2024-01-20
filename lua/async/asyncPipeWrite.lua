@@ -6,6 +6,7 @@
 
 require("eclass")
 
+local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
@@ -29,13 +30,12 @@ function CasyncPipeWrite:_setup(fd, tmo)
         local stream = coroutine.yield()
         if type(stream) == "string" then
             beaver:co_set_tmo(fd, tmo)
-            local ret, err, errno = beaver:pipeWrite(fd, stream)
-            if coroutine.status(co) == "normal" then
+            local ret, err, errno = beaver:pipeWrite(fd, stream)  -->pipe write may yield out
+            if coroutine.status(co) == "normal" then  --> write not yield
                 coroutine.yield(ret, err, errno)
             else
-                print("write long done.")
                 res, msg = coroutine.resume(co, ret, err, errno)
-                assert(res, msg)
+                system.coReport(co, res, msg)
             end
 
             beaver:co_set_tmo(fd, -1)
@@ -55,11 +55,13 @@ end
 
 function CasyncPipeWrite:write(stream)
     local res, msg, err, errno = coroutine.resume(self._coSelf, stream)
-    assert(res, msg)
-    if msg then  -- wake from yield
-        coroutine.resume(self._coSelf)
-        return msg, err, errno
-    else
+    system.coReport(self._coSelf, res, msg)
+    if msg then  -- write function may write to pipe, if stream is short enough, write will return at once
+        local ret = msg
+        res, msg = coroutine.resume(self._coSelf)  -->task will yield after write success.
+        system.coReport(self._coSelf, res, msg)
+        return ret, err, errno
+    else --> the pipe call from if stream is too long, the task may be yield.
         return coroutine.yield()
     end
 end

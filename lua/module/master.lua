@@ -25,8 +25,8 @@ function Cmaster:_init_(conf)
     self._conf = conf
 end
 
-local function pipeOut(b, fOut)
-    local w = CasyncPipeWrite.new(b, fOut, 10)
+local function pipeOut(beaver, fOut)
+    local w = CasyncPipeWrite.new(beaver, fOut, 10)
 
     while true do
         local stream = coroutine.yield()
@@ -35,11 +35,12 @@ local function pipeOut(b, fOut)
     end
 end
 
-local function pipeIn(b, conf)
+local function pipeIn(b, conf)  --> to receive call function
     local r = CasyncPipeRead.new(b, conf.fIn, -1)
+
     local coOut = coroutine.create(pipeOut)
     local res, msg = coroutine.resume(coOut, b, conf.fOut)
-    assert(res, msg)
+    system.coReport(coOut, res, msg)
     masterVar.masterSetPipeOut(coOut)
 
     while true do
@@ -70,19 +71,19 @@ local function testTimer()
 end
 
 function Cmaster:proc()
-    local b = CcoBeaver.new()
+    local beaver = CcoBeaver.new()
 
-    masterVar.masterSetVar(b, self._conf, lyaml.load(self._conf.config))
+    masterVar.masterSetVar(beaver, self._conf, lyaml.load(self._conf.config))
 
     local co = coroutine.create(pipeIn)
-    local res, msg = coroutine.resume(co, b, self._conf)
-    assert(res, msg)
+    local res, msg = coroutine.resume(co, beaver, self._conf)
+    system.coReport(co, res, msg)
 
     co = coroutine.create(testTimer)
     res, msg = coroutine.resume(co)
-    assert(res, msg)
+    system.coReport(co, res, msg)
 
-    b:poll()
+    beaver:poll()
     return 0
 end
 

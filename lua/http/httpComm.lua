@@ -114,7 +114,7 @@ end
 function ChttpComm:packServerFrame(res)
     local tHttp = {
         packStat(res.code),
-        packServerHeaders(res.headers, #res.body),
+        packServerHeaders(res.headers, res.body and #res.body or 0),
         "",
         res.body
     }

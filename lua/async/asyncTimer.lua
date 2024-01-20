@@ -6,6 +6,7 @@
 
 require("eclass")
 
+local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
@@ -36,7 +37,7 @@ function CasyncTimer:_setup(fd, tmo)
         res = c_api.timer_io_get(fd)
         assert(res >= 0, "get timer_io value failed.")
         res, msg = coroutine.resume(co, 0)  -- to wake up masterTimer.
-        assert(res, msg)
+        system.coReport(co, res, msg)
     end
     self:stop()
     c_api.b_close(fd)
@@ -53,7 +54,7 @@ function CasyncTimer:wait(ms)
     local co = coroutine.running()
 
     res, msg = coroutine.resume(self._co, co, ms)
-    assert(res, msg)
+    system.coReport(self._co, res, msg)
     return coroutine.yield()
 end
 

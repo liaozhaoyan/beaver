@@ -35,7 +35,7 @@ function ChttpServer:_setup(fd, tmo)
     workVar.clientAdd(module, self._bfd, fd, coroutine.running(), self._addr)
     while true do
         local fread = beaver:reads(fd)
-        local tReq = inst:proc(fread, session)
+        local tReq = inst:proc(fread, session, beaver, fd)
 
         if tReq then
             beaver:co_set_tmo(fd, tmo)

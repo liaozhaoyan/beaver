@@ -43,7 +43,7 @@ end
 
 local function waitDataRest(fread, rest, tReq)
     local len = 0
-    local tStream = {tReq.data}
+    local tStream = {tReq.body}
     local c = #tStream
     while len < rest do
         local s = fread(10)
@@ -55,7 +55,7 @@ local function waitDataRest(fread, rest, tReq)
             return -1
         end
     end
-    tReq.data = table.concat(tStream)
+    tReq.body = table.concat(tStream)
     return 0
 end
 
@@ -89,7 +89,7 @@ end
 
 local function readChunks(fread, tReq)
     local cells = {}
-    local s = tReq.data
+    local s = tReq.body
     local size
     local len = 1
     local bodies, body
@@ -118,17 +118,17 @@ local function readChunks(fread, tReq)
             return -1
         end
     end
-    tReq.data = table.concat(cells)
+    tReq.body = table.concat(cells)
     return 0
 end
 
 local function waitHttpRest(fread, tReq)
     if tReq.header["content-length"] then
-        local lenData = #tReq.data
+        local lenData = #tReq.body
         local lenInfo = tonumber(tReq.header["content-length"])
 
         local rest = lenInfo - lenData
-        if rest > 10 * 1024 * 1024 then  -- limit max data len
+        if rest > 10 * 1024 * 1024 then  -- limit max body len
             return -1
         end
 
@@ -136,14 +136,14 @@ local function waitHttpRest(fread, tReq)
             return -2
         end
     else  -- chunk mode
-        if tReq.data then
-            if #tReq.data > 0 then
+        if tReq.body then
+            if #tReq.body > 0 then
                 if readChunks(fread, tReq) < 0 then
                     return -3
                 end
             end
         else
-            tReq.data = ""  --empty body.
+            tReq.body = ""  --empty body.
         end
     end
     return 0
@@ -246,7 +246,7 @@ local function clientParse(fread, stream)
         print("bad head: " .. heads)
         return nil
     end
-    local headers, data = unpack(tHead)
+    local headers, body = unpack(tHead)
     local tHeader = pystring.split(headers, "\r\n")
     local header = {}
     for _, s in ipairs(tHeader) do
@@ -260,7 +260,7 @@ local function clientParse(fread, stream)
         header[k] = pystring.lstrip(v)
     end
     tRes.header = header
-    tRes.data = data
+    tRes.body = body
     if waitHttpRest(fread, tRes) < 0 then
         return nil
     end

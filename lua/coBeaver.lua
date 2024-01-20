@@ -7,6 +7,7 @@
 
 require("eclass")
 
+local system = require("common.system")
 local socket = require("posix.sys.socket")
 local unistd = require("posix.unistd")
 local CbeaverIO = require("beaverIO")
@@ -51,7 +52,7 @@ function CcoBeaver:co_add(obj, cb, fd, tmo)
     self._cos[fd] = co
 
     local res, msg = coroutine.resume(co, obj, fd, tmo)
-    assert(res, msg)
+    system.coReport(co, res, msg)
     return co
 end
 
@@ -93,7 +94,7 @@ function CcoBeaver:_co_check()
                     e.fd = fd
                     print(fd, "is over time.")
                     res, msg = coroutine.resume(co, e)
-                    assert(res, msg)
+                    system.coReport(co, res, msg)
                 end
             end
         end
@@ -102,6 +103,7 @@ function CcoBeaver:_co_check()
 end
 
 function CcoBeaver:_pollFd(nes)
+    local now_time = os.time()
     for i = 0, nes.num - 1 do
         local e = nes.evs[i];
         local fd = e.fd
@@ -109,9 +111,9 @@ function CcoBeaver:_pollFd(nes)
         local co = self._cos[fd]
         -- assert(co, string.format("fd: %d not setup.", fd))
         if co then -- coroutine event may closed.
-            self._tmoCos[fd] = os.time()
+            self._tmoCos[fd] = now_time
             local res, msg = coroutine.resume(co, e)
-            assert(res, msg)
+            system.coReport(co, res, msg)
         end
     end
     self:_co_check()

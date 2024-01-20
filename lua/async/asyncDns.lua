@@ -6,6 +6,7 @@
 
 require("eclass")
 
+local system = require("common.system")
 local psocket = require("posix.sys.socket")
 local pystring = require("pystring")
 local cffi = require("beavercffi")
@@ -89,7 +90,7 @@ function CasyncDns:_setup(fd, tmo)
         if not len then
             print(err, errno)
             res, msg = coroutine.resume(co, nil)
-            assert(res, msg)
+            system.coReport(co, res, msg)
             break
         end
 
@@ -98,12 +99,12 @@ function CasyncDns:_setup(fd, tmo)
         if not res then
             print(err, errno)
             res, msg = coroutine.resume(co, nil)
-            assert(res, msg)
+            system.coReport(co, res, msg)
             break
         else
             local ip = string.format("%d.%d.%d.%d", string.byte(res, -4, -1))
             res, msg = coroutine.resume(co, ip)
-            assert(res, msg)
+            system.coReport(co, res, msg)
         end
     end
     self:stop()
@@ -114,7 +115,7 @@ function CasyncDns:request(domain)
     local res, msg
     local co = coroutine.running()
     res, msg = coroutine.resume(self._co, co, domain)
-    assert(res, msg)
+    system.coReport(self._co, res, msg)
     return coroutine.yield()
 end
 

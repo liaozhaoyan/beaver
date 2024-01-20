@@ -37,7 +37,7 @@ local function pipeIn(b, conf)
 
     local coOut = coroutine.create(pipeOut)
     local res, msg = coroutine.resume(coOut, b, conf.fOut)
-    assert(res, msg)
+    system.coReport(coOut, res, msg)
     workVar.workerSetPipeOut(coOut)
 
     while true do
@@ -62,7 +62,7 @@ function Cworker:proc()
 
     local co = coroutine.create(pipeIn)
     local res, msg = coroutine.resume(co, b, self._conf)
-    assert(res, msg)
+    system.coReport(co, res, msg)
     b:poll()
     return 0
 end

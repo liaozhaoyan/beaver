@@ -35,8 +35,8 @@ function M.masterSetPipeOut(coOut)
     var.coOut = coOut
 end
 
-local function pipeOut(b, fOut)
-    local w = CasyncPipeWrite.new(b, fOut, 10)
+local function workerPipeOut(beaver, fOut)
+    local w = CasyncPipeWrite.new(beaver, fOut, 10)
 
     while true do
         local stream = coroutine.yield()
@@ -45,8 +45,14 @@ local function pipeOut(b, fOut)
     end
 end
 
+--[==[
+pipeCtrlReg call from entry.c, entry.c push master's in and out pipe fd to master
+thread var set in masterSetVar, in proc function
+
+]==]
 local function pipeCtrlReg(arg)
     local res, msg
+
     if not var.setup then
         var.masterIn  = arg["in"]
         var.masterOut = arg["out"]
@@ -60,9 +66,9 @@ local function pipeCtrlReg(arg)
 
             local pid = c_api.create_beaver(r, var.masterIn, "worker", thread.conf.config)
 
-            local co = coroutine.create(pipeOut)
+            local co = coroutine.create(workerPipeOut)
             res, msg = coroutine.resume(co, thread.beaver, w)
-            assert(res, msg)
+            system.coReport(co, res, msg)
             var.workers[w] = {false, pid, r, co}   -- use w pipe to record single thread.
 
             local func = {
@@ -71,14 +77,15 @@ local function pipeCtrlReg(arg)
                     id = w,
                 }
             }
+
             res, msg = coroutine.resume(co, cjson.encode(func))
-            assert(res, msg)
+            system.coReport(var.coOut, res, msg)
         end
 
         var.setup = true
         local ret = {ret = 0}
         res, msg = coroutine.resume(var.coOut, cjson.encode(ret))
-        assert(res, msg)
+        system.coReport(var.coOut, res, msg)
     end
     return 0
 end
@@ -128,7 +135,7 @@ local function reqDns(arg)
     }
     local co = var.workers[fid][4]  -- refer to pipeCtrlReg
     local res, msg = coroutine.resume(co, cjson.encode(func))
-    assert(res, msg)
+    system.coReport(co, res, msg)
 end
 
 local function reqPeriodWake(arg)
@@ -174,11 +181,11 @@ local function timerWake(node) -- call in masterTimer.
         }
         co = var.workers[fid][4]  -- refer to pipeCtrlReg
         res, msg = coroutine.resume(co, cjson.encode(func))
-        assert(res, msg)
+        system.coReport(co, res, msg)
     else
         co = var.periodWakeCo[node.coId]
         res, msg = coroutine.resume(co, node)
-        assert(res, msg)
+        system.coReport(co, res, msg)
         if node.loop == 0 then
             var.periodWakeCo[node.coId] = nil
         end

@@ -34,6 +34,34 @@ function system.dumps(t)
     print(serpent.block(t))
 end
 
+local function _coReport(co, msg)
+    local cells = {
+        --"coroutine run failed, err message is:",
+        msg or "resume dead thread",
+        --"\ncallback list:",
+        --debug.traceback(co)
+    }
+    return table.concat(cells, "\n")
+end
+
+function system.coReport(co, res, msg)
+    return assert(res, res or _coReport(co, msg))  -- if res true, the 2nd var will return
+end
+
+local lastStack = ""
+local function funcReport(err)
+    lastStack = err .. debug.traceback()
+    print("call error: ", lastStack)
+end
+
+function system.pcall(func, ...)
+    return xpcall(func, funcReport, ...)
+end
+
+function system.lastError()
+    return lastStack
+end
+
 function system.reverseTable(t)
     local n = #t
     for i = 1, n / 2 do

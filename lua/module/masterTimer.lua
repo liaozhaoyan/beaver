@@ -6,6 +6,7 @@
 
 require("eclass")
 
+local system = require("common.system")
 local lrbtree = require("lrbtree")
 local CasyncTimer = require("async.asyncTimer")
 
@@ -48,7 +49,12 @@ function CmasterTimer:add(node)
     res = tree:insert(node)
     assert(res, "insert to rbtree failed.")
     if not first then  -- empty tree, wake coroutine， in func else wakeup from empty.
-        res, msg = coroutine.resume(self._co)
+        if coroutine.status(self._co) == "suspended" then
+            res, msg = coroutine.resume(self._co)
+            system.coReport(self._co, res, msg)
+        else
+            return
+        end
     elseif first.ms > node.ms then -- first is nil means empty tree
         self._timer:update(node.ms)
     end
@@ -57,7 +63,7 @@ end
 function CmasterTimer:start()  -- the tree should at least one node
     local res, msg
     res, msg = coroutine.resume(self._co, self)
-    assert(res, msg)
+    system.coReport(self._co, res, msg)
 end
 
 function CmasterTimer:run()

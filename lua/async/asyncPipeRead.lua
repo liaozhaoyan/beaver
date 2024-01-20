@@ -6,6 +6,7 @@
 
 require("eclass")
 
+local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
@@ -28,7 +29,7 @@ function CasyncPipeRead:_setup(fd, tmo)
     while true do
         local stream, err, errno = beaver:pipeRead(fd)
         res, msg = coroutine.resume(co, stream, err, errno)
-        assert(res, msg)
+        system.coReport(co, res, msg)
         if not stream then
             print(string.format("fd %d closed.", fd))
             break

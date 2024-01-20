@@ -6,6 +6,7 @@
 
 require("eclass")
 
+local system = require("common.system")
 local psocket = require("posix.sys.socket")
 local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
@@ -30,7 +31,7 @@ function CasyncAccept:_setup(fd, tmo)
             local nfd, addr, errno = assert(psocket.accept(fd))
             assert(nfd, addr)
             local res, msg = coroutine.resume(co, nfd, addr)
-            assert(res, msg)
+            system.coReport(co, res, msg)
         end
     end
     self:stop()

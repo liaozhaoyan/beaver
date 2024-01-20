@@ -212,6 +212,18 @@ int poll_fds(int efd, int tmo, native_events_t* nes) {
     return 0;
 }
 
+int check_connected(int fd) {
+    int ret;
+    int so_error;
+    socklen_t len = sizeof(so_error);
+
+    ret = getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &len);
+    if (ret < 0) {
+        return -errno;
+    }
+    return so_error == 0 ? 0 : 1;
+}
+
 int b_read(int fd, void *buf, int count) {
     int ret = read(fd, buf, count);
     if (ret < 0) {
