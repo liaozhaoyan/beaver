@@ -121,6 +121,7 @@ local function _proc(cbs, verb, tReq)
         local ok, res
         local func = cb.url[path]
 
+        print(func)
         if func then  -- direct mode
             ok, res = system.pcall(func, tReq)
         else  -- reSearch
