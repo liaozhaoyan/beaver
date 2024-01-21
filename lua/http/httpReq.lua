@@ -204,6 +204,19 @@ local function setupHeader(headers)
     return headers
 end
 
+local function checkKeepAlive(res)
+    if not res then -- nil, bad response
+        return false
+    end
+
+    if res.header and res.header.connection then
+        if res.header.connection == "close" then
+            return false
+        end
+    end
+    return true
+end
+
 function ChttpReq:post(uri, headers, body, reuse)
     headers = headers or {}
     headers.Host = self._domain
@@ -215,7 +228,7 @@ function ChttpReq:post(uri, headers, body, reuse)
     }
     local stream = self._http:packClientFrame(res)
     local res = self:_waitData(stream)
-    if not reuse then
+    if not reuse or not checkKeepAlive(res) then
         self:close()
     end
     return res
@@ -232,7 +245,7 @@ function ChttpReq:get(uri, headers, body, reuse)
     }
     local stream = self._http:packClientFrame(res)
     local res = self:_waitData(stream)
-    if not reuse then
+    if not reuse or not checkKeepAlive(res) then
         self:close()
     end
     return res
@@ -249,7 +262,7 @@ function ChttpReq:put(uri, headers, body, reuse)
     }
     local stream = self._http:packClientFrame(res)
     local res = self:_waitData(stream)
-    if not reuse then
+    if not reuse or not checkKeepAlive(res) then
         self:close()
     end
     return res
@@ -266,7 +279,7 @@ function ChttpReq:delete(uri, headers, body, reuse)
     }
     local stream = self._http:packClientFrame(res)
     local res = self:_waitData(stream)
-    if not reuse then
+    if not reuse or not checkKeepAlive(res) then
         self:close()
     end
     return res

@@ -62,10 +62,8 @@ local function testTimer()
     while true do
         masterVar.msleep(1000)
         last = check(last, 1)
-        print("test for timer1.", loop)
         masterVar.msleep(2000)
         last = check(last, 2)
-        print("test for timer2.", loop)
         loop = loop + 1
     end
 end

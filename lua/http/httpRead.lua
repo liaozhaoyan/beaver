@@ -28,7 +28,7 @@ local function parseParam(param)
     return res
 end
 
-local function parseParams(tUrl)
+function M.parseParams(tUrl)
     if tUrl.query then
         tUrl.queries = parseParam(tUrl.query)
     end
@@ -38,9 +38,13 @@ local function parseParams(tUrl)
     return tUrl
 end
 
-function M.parseUrl(url)
-    local tUrl = sockerUrl.parse(url)
-    return parseParams(tUrl)
+function M.parseUrl(url, parseParam)
+    local tUrl = sockerUrl.parse(url)  -- refer to https://lunarmodules.github.io/luasocket/url.html
+    if parseParam then
+        return M.parseParams(tUrl)
+    else
+        return tUrl
+    end
 end
 
 local function waitDataRest(fread, rest, tReq)
@@ -167,7 +171,7 @@ local function waitHttpHead(fread, tmo)
     end
 end
 
-local function serverParse(fread, stream)
+local function serverParse(fread, stream, parseParam)
     local tStatus = pystring.split(stream, "\r\n", 1)
     if #tStatus < 2 then
         print("bad stream format.")
@@ -182,9 +186,11 @@ local function serverParse(fread, stream)
     end
 
     local verb, url, version = unpack(tStat)
-    local tReq = M.parseUrl(url)
+    local tReq
+    tReq = M.parseUrl(url, parseParam)
     tReq.verb = string.lower(verb)
     tReq.version = version
+    tReq.origUrl = url
 
     local tHead = pystring.split(heads, "\r\n\r\n", 1)
     if #tHead < 2 then
@@ -213,12 +219,12 @@ local function serverParse(fread, stream)
     return tReq
 end
 
-function M.serverRead(fread)
+function M.serverRead(fread, parseParam)
     local stream = waitHttpHead(fread, -1)
     if stream == nil then   -- read return stream or error code or nil
         return nil
     end
-    return serverParse(fread, stream)
+    return serverParse(fread, stream, parseParam)
 end
 
 local function clientParse(fread, stream)
