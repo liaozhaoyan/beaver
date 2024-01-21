@@ -209,8 +209,8 @@ local function checkKeepAlive(res)
         return false
     end
 
-    if res.header and res.header.connection then
-        if res.header.connection == "close" then
+    if res.headers and res.headers.connection then
+        if res.headers.connection == "close" then
             return false
         end
     end

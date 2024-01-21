@@ -129,9 +129,10 @@ local function readChunks(fread, tReq)
 end
 
 local function waitHttpRest(fread, tReq)
-    if tReq.header["content-length"] then
+    local length = tReq.headers["content-length"]
+    if length then
         local lenData = #tReq.body
-        local lenInfo = tonumber(tReq.header["content-length"])
+        local lenInfo = tonumber(length)
 
         local rest = lenInfo - lenData
         if rest > 10 * 1024 * 1024 then  -- limit max body len
@@ -197,9 +198,9 @@ local function serverParse(fread, stream, parseParam)
         print("bad head: " .. heads)
         return nil
     end
-    local headers, body = unpack(tHead)
-    local tHeader = pystring.split(headers, "\r\n")
-    local header = {}
+    local headerStr, body = unpack(tHead)
+    local tHeader = pystring.split(headerStr, "\r\n")
+    local headers = {}
     for _, s in ipairs(tHeader) do
         local tKv = pystring.split(s, ":", 1)
         if #tKv < 2 then
@@ -208,10 +209,10 @@ local function serverParse(fread, stream, parseParam)
         end
         local k, v = unpack(tKv)
         k = string.lower(k)
-        header[k] = pystring.lstrip(v)
+        headers[k] = pystring.lstrip(v)
     end
 
-    tReq.header = header
+    tReq.headers = headers
     tReq.body = body
     if waitHttpRest(fread, tReq) < 0 then
         return nil
@@ -253,9 +254,9 @@ local function clientParse(fread, stream)
         print("bad head: " .. heads)
         return nil
     end
-    local headers, body = unpack(tHead)
-    local tHeader = pystring.split(headers, "\r\n")
-    local header = {}
+    local headerStr, body = unpack(tHead)
+    local tHeader = pystring.split(headerStr, "\r\n")
+    local headers = {}
     for _, s in ipairs(tHeader) do
         local tKv = pystring.split(s, ":", 1)
         if #tKv < 2 then
@@ -264,9 +265,9 @@ local function clientParse(fread, stream)
         end
         local k, v = unpack(tKv)
         k = string.lower(k)
-        header[k] = pystring.lstrip(v)
+        headers[k] = pystring.lstrip(v)
     end
-    tRes.header = header
+    tRes.headers = headers
     tRes.body = body
     if waitHttpRest(fread, tRes) < 0 then
         return nil
