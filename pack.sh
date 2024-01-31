@@ -1,4 +1,4 @@
-DIST=$1/dist
+DIST=$1/beaver
 APP=${DIST}/app
 
 echo $DIST

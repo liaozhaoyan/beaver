@@ -5,11 +5,11 @@ all:
 	make -C main
 
 rm:
-	rm -rf dist/
+	rm -rf beaver/
 
 dist:
 	sh pack.sh ./
-	tar zcv -f dist.tar.gz dist/
+	tar zcv -f beaver.tar.gz beaver/
 
 clean:
 	make -C lib clean
