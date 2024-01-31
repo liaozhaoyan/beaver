@@ -42,7 +42,7 @@ local function getIp(host)
     return ip
 end
 
-function ChttpReq:_init_(tReq, host, port, tmo, proxy)
+function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
     local beaver = tReq.beaver
     self._domain = host
     local ip
@@ -56,6 +56,7 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy)
     self._http = httpComm.new()
 
     tmo = tmo or 30
+    self._maxLen = maxLen or 2 * 1024 * 1024
 
     local tPort = {family=psocket.AF_INET, addr=ip, port=port}
     local fd = sockComm.connectSetup(tPort)
@@ -85,6 +86,7 @@ end
 function ChttpReq:_setup(fd, tmo)
     local beaver = self._beaver
     local co = self._coWake
+    local maxLen = self._maxLen
     local status, res
     local e
 
@@ -117,7 +119,7 @@ function ChttpReq:_setup(fd, tmo)
             if e.ev_close > 0 then
                 break
             elseif e.ev_in > 0 then
-                local fread = beaver:reads(fd)
+                local fread = beaver:reads(fd, maxLen)
                 local tRes = httpRead.clientRead(fread)
                 e = wake(co, tRes)
                 t = type(e)

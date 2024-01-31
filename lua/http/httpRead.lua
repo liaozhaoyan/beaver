@@ -135,7 +135,7 @@ local function waitHttpRest(fread, tReq)
         local lenInfo = tonumber(length)
 
         local rest = lenInfo - lenData
-        if rest > 10 * 1024 * 1024 then  -- limit max body len
+        if rest > 200 * 1024 * 1024 then  -- limit max body len
             return -1
         end
 
@@ -143,11 +143,10 @@ local function waitHttpRest(fread, tReq)
             return -2
         end
     else  -- chunk mode
-        if tReq.body then
-            if #tReq.body > 0 then
-                if readChunks(fread, tReq) < 0 then
-                    return -3
-                end
+        local chunked = tReq.headers["transfer-encoding"]
+        if chunked == "chunked" or (tReq.body and #tReq.body > 0) then
+            if readChunks(fread, tReq) < 0 then
+                return -3
             end
         else
             tReq.body = ""  --empty body.

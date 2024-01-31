@@ -23,9 +23,11 @@ cp /usr/lib64/libpcre.so* ${DIST}/install/
 
 mkdir ${DIST}/lib
 cp -r /usr/lib64/lua/5.1/* ${DIST}/lib/
+cp -r /usr/local/lib/lua/5.1/* ${DIST}/lib/
 
 mkdir ${DIST}/lua
 cp -r /usr/share/lua/5.1/* ${DIST}/lua/
+cp -r /usr/local/share/lua/5.1/* ${DIST}/lua/
 
 mkdir ${APP}
 cp -r lua ${APP}
