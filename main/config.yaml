@@ -1,6 +1,6 @@
 worker:
-  number: 1   # worker process
-  funcs:
+  - number: 1   # worker process
+    funcs:
     - func: "pingpong"
       mode: "TCP"
       bind: "0.0.0.0"
@@ -15,7 +15,7 @@ worker:
       port: 3384
       upIP: "172.16.0.131"
       upPort: 3385
-    - func:  "httpServer"
+    - func: "httpServer"
       mode: "TCP"
       bind: "0.0.0.0"
       port: 3385
