@@ -19,6 +19,9 @@ local var = {
     -- for connect module manage
     httpReq = {},
 
+    -- for redis client
+    redis = {},
+
     -- for dns manager
     dnsWait = {},   -- just for dns.
     dnsId  = 1,     -- dns request co id,

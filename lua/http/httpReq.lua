@@ -6,9 +6,8 @@
 
 require("eclass")
 
-local system = require("common.system")
 local psocket = require("posix.sys.socket")
-local CasyncBase = require("async.asyncBase")
+local CasyncClient = require("async.asyncClient")
 local workVar = require("module.workVar")
 local sockComm = require("module.sockComm")
 local httpRead = require("http.httpRead")
@@ -16,41 +15,16 @@ local httpComm = require("http.httpComm")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
-local ChttpReq = class("request", CasyncBase)
-
-local ip_pattern = "(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)"
-
-local function match_ip(ip)
-    local d1, d2, d3, d4 = ip:match(ip_pattern)
-    if d1 and d2 and d3 and d4 then
-        local num1, num2, num3, num4 = tonumber(d1), tonumber(d2), tonumber(d3), tonumber(d4)
-        if num1 >= 0 and num1 <= 255 and num2 >= 0 and num2 <= 255 and num3 >= 0 and num3 <= 255 and num4 >= 0 and num4 <= 255 then
-            return true
-        end
-    end
-    return false
-end
-
-local function getIp(host)
-    local domain, ip
-    if match_ip(host) then
-        ip = host
-    else
-        domain, ip = workVar.dnsReq(host)
-        assert(domain == host, "bad dns request.")
-    end
-    return ip
-end
+local ChttpReq = class("request", CasyncClient)
 
 function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
-    local beaver = tReq.beaver
     self._domain = host
     local ip
 
     if proxy then
         ip, port = proxy.ip, proxy.port
     else
-        ip, port = getIp(host), port or 80
+        ip, port = sockComm.getIp(host), port or 80
     end
 
     self._http = httpComm.new()
@@ -59,28 +33,7 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
     self._maxLen = maxLen or 2 * 1024 * 1024
 
     local tPort = {family=psocket.AF_INET, addr=ip, port=port}
-    local fd = sockComm.connectSetup(tPort)
-    self._tPort = tPort
-
-    self._coWake = coroutine.running()
-    self._status = 0  -- 0:disconnect, 1 connected, 2 connecting
-
-    CasyncBase._init_(self, beaver, fd, tmo)
-    assert(self:_waitConnected(beaver, tReq.fd) == 0, "connect socket failed.")
-    self._hostFd = tReq.fd
-end
-
-function ChttpReq:_del_()
-    self:close()
-end
-
-local function wake(co, v)
-    local res, msg
-    if coroutine.status(co) == "suspended" then
-        res, msg = coroutine.resume(co, v)
-        system.coReport(co, res, msg)
-        return msg
-    end
+    CasyncClient._init_(self, tReq.beaver, tReq.fd, tPort, tmo)
 end
 
 function ChttpReq:_setup(fd, tmo)
@@ -97,7 +50,7 @@ function ChttpReq:_setup(fd, tmo)
     status = sockComm.connect(fd, self._tPort, beaver)
     beaver:co_set_tmo(fd, -1)   -- back
     self._status = status  -- connected
-    e = wake(co, status)  -- connected
+    e = self:wake(co, status)  -- connected
 
     while status == 0 do
         if not e then
@@ -113,7 +66,7 @@ function ChttpReq:_setup(fd, tmo)
             e = nil
             beaver:co_set_tmo(fd, -1)
         elseif t == "nil" then  -- host closed
-            wake(co, nil)
+            self:wake(co, nil)
             break
         else  -- read event.
             if e.ev_close > 0 then
@@ -121,11 +74,11 @@ function ChttpReq:_setup(fd, tmo)
             elseif e.ev_in > 0 then
                 local fread = beaver:reads(fd, maxLen)
                 local tRes = httpRead.clientRead(fread)
-                e = wake(co, tRes)
+                e = self:wake(co, tRes)
                 t = type(e)
                 if t == "cdata" then -->upstream need to close.
                     assert(e.ev_close > 0)
-                    wake(co, nil)  -->let upstream to do next working.
+                    self:wake(co, nil)  -->let upstream to do next working.
                     break
                 elseif t == "number" then  -->upstream reuse connect
                     e = nil
@@ -141,61 +94,6 @@ function ChttpReq:_setup(fd, tmo)
     self:stop()
     c_api.b_close(fd)
     workVar.connectDel("httpReq", fd)
-end
-
-function ChttpReq:_waitConnected(beaver, fd)  -- this fd is server fd,
-    local res = self._status
-    if res == 0 then -- connect ok.
-        return 0
-    elseif res == 2 then -- connecting
-        beaver:mod_fd(fd, -1)  -- mask io event, only close event is working.
-        local w = coroutine.yield()
-        beaver:mod_fd(fd, 0)  -- back host fd to read mode
-        local t = type(w)
-        if t == "number" then  -- 0 is ok
-            return w
-        else
-            print("wake from self.", t, w, w.ev_close, w.ev_in, w.ev_out)
-            return 1
-        end
-    else  -- 1 connect failed
-        return 1
-    end
-end
-
-function ChttpReq:_waitData(stream)
-    local beaver = self._beaver
-    local coWake = self._co
-    local selfFd = self._hostFd
-
-    local status = self._status
-
-    if status == 0 then -- connect ok.
-        local res, msg
-        local e
-
-        local statCo = coroutine.status(coWake)
-        if statCo == "suspended" then
-            res, msg = coroutine.resume(coWake, stream)
-            system.coReport(coWake, res, msg)
-            beaver:mod_fd(selfFd, -1)  -- to block fd other event, mask io event, only close event is working.
-            e = coroutine.yield()
-            beaver:mod_fd(selfFd, 0)  -- back to read mode
-        elseif statCo == "normal" then    -- wake from http client.
-            e = coroutine.yield(stream)
-        else
-            return nil
-        end
-
-        local t = type(e)
-        if t == "table" then
-            return e
-        else
-            return nil
-        end
-    else
-        return nil
-    end
 end
 
 local function setupHeader(headers)

@@ -14,6 +14,30 @@ local c_type, c_api = cffi.type, cffi.api
 
 local M = {}
 
+local ip_pattern = "(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)"
+
+local function match_ip(ip)
+    local d1, d2, d3, d4 = ip:match(ip_pattern)
+    if d1 and d2 and d3 and d4 then
+        local num1, num2, num3, num4 = tonumber(d1), tonumber(d2), tonumber(d3), tonumber(d4)
+        if num1 >= 0 and num1 <= 255 and num2 >= 0 and num2 <= 255 and num3 >= 0 and num3 <= 255 and num4 >= 0 and num4 <= 255 then
+            return true
+        end
+    end
+    return false
+end
+
+function M.getIp(host)
+    local domain, ip
+    if match_ip(host) then
+        ip = host
+    else
+        domain, ip = workVar.dnsReq(host)
+        assert(domain == host, "bad dns request.")
+    end
+    return ip
+end
+
 function M.setupSocket(conf)
     local res, fd, err, errno
     if conf.port then
