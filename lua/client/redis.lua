@@ -11,18 +11,44 @@ local c_type, c_api = cffi.type, cffi.api
 -- refer to https://maling.io/docs/redis/resp-protocol/
 
 local common_cmds = {
+    "del",      "dump",         "exist",    "expire",
+    "keys",     "move",         "persist",  "rename",
+    "renamenx", "ttl",          "pexpire",  "expireat",
+    "pttl",     "dbsize",       "radnomkey", "sort",
+    "scan",                                             -- Key
     "get",      "set",          "mget",     "mset",
-    "del",      "incr",         "decr",                 -- Strings
+    "del",      "incr",         "decr",     "getrange",
+    "setnx",    "setex",        "psetex",   "msetnx",
+    "getset",   "incrby",       "incrbyfloat",  "decrby",
+    "append",   "substr",       "strlen",   "setrange",
+    "setbit",   "getbit",       "bittop",    "bitcount",-- Strings 
     "llen",     "lindex",       "lpop",     "lpush",
-    "lrange",   "linsert",                              -- Lists
+    "lrange",   "linsert",      "rpush",    "ltrim",
+    "lset",     "lrem",         "rpop",     "rpoppush",
+    "blpop",    "brpop",        "rpushx",   "lpushx",
+    "brpoplpush",                                       -- Lists
     "hexists",  "hget",         "hset",     "hmget",
-    --[[ "hmset", ]]            "hdel",                 -- Hashes
+    "hdel",     "hgetall",      "hsetnx",   "hincrby",
+    "hincrbyfloat","hdel",      "hexists",  "hlen",
+    "hkeys",    "hvals",        "hscan",                -- Hashes
     "smembers", "sismember",    "sadd",     "srem",
-    "sdiff",    "sinter",       "sunion",               -- Sets
+    "sdiff",    "sinter",       "sunion",   "spop",
+    "smove",    "sinterstore",  "sunionstore","sdiffstore",
+    "srandomember","sscan",                            -- Sets
     "zrange",   "zrangebyscore", "zrank",   "zadd",
-    "zrem",     "zincrby",                              -- Sorted Sets
-    "auth",     "eval",         "expire",   "script",
-    "sort"                                              -- Others
+    "zrem",     "zincrby",      "zrevrange","zrevrangebyscore",
+    "zunionstore","zinterstore", "zcount",  "zcard",
+    "zscore",   "zremrangebyscore","zremrangebyrank",
+    "zscan",                                           -- Sorted Sets
+    "ping",     "echo",     "auth",     "select",      -- connection
+    "multi",    "exec",     "discard",  "watch",
+    "unwatch",                                         -- transactions
+    "eval",     "evalsha",  "script",                  -- redis scripting
+    "bgrewriteaof", "config",   "client",   "slaveof",
+    "save",     "bgsave",   "lastsave", "flushdb",
+    "flushall", "monitor",  "time", "slowlog",
+    "info",                                             -- server
+    "publish",                                          -- publish
 }
 
 
@@ -180,9 +206,8 @@ local function prefixStar(s, fread)    -- *
         local cells = {}
         local cell
         for i = 1, num do
-            rest, start = waitBlock(rest, fread)
-            cell, rest = unpack(pystring.split(rest, "\r\n", 1))
-            cells[i] = cell            
+            cell, rest = prefixDollar(sub(rest, 2), fread)
+            cells[i] = cell
         end
         return cells, rest
     end
@@ -193,7 +218,7 @@ local function prefixUnderline(s, fread)   -- _ null
     local start
     s, start = waitBlock(s, fread)
     if s then
-        return "", sub(s, start + 2)
+        return "nil", sub(s, start + 2)
     end
     return nil
 end

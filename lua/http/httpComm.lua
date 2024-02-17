@@ -112,11 +112,15 @@ local function packServerHeaders(headers, len) -- just for http out.
 end
 
 function ChttpComm:packServerFrame(res)
+    local body = res.body
+    if body and type(body) ~= "string" then
+        body = tostring(body)
+    end
     local tHttp = {
         packStat(res.code),
-        packServerHeaders(res.headers, res.body and #res.body or 0),
+        packServerHeaders(res.headers, body and #body or 0),
         "",
-        res.body
+        body
     }
     return table.concat(tHttp, "\r\n")
 end

@@ -50,21 +50,21 @@ local function baidu(tReq)
     end
 end
 
-local function rset(tReq)
+local function rcmd(tReq)
     local r = Credis.new(tReq, "172.16.0.136", 3341)
     local s = tReq.body
-    local k, v = unpack(pystring.split(s, ":", 1))
-    local res = r:set(k, v)
-    if res then
-        return {body = res}
-    end
-end
 
-local function rget(tReq)
-    local r = Credis.new(tReq, "172.16.0.136", 3341)
-    local s = tReq.body
-    local res = r:get(s)
+    local cmd, argStr = unpack(pystring.split(s, " ", 1))
+    local args = {}
+    if argStr then
+        args = pystring.split(argStr, ":")
+    end
+    local res = r[cmd](r, unpack(args))
+
     if res then
+        if type(res) == "table" then
+            res = cjson.encode(res)
+        end
         return {body = res}
     end
 end
@@ -77,7 +77,10 @@ local function rcmds(tReq)
     local cmds = pystring.split(s, "\n")
     for _, cmdLine in ipairs(cmds) do
         local cmd, argStr = unpack(pystring.split(cmdLine, " ", 1))
-        local args = pystring.split(argStr, ":")
+        local args = {}
+        if argStr then
+            args = pystring.split(argStr, ":")
+        end
         pipe[cmd](pipe, unpack(args))
     end
     local res = pipe:send()
@@ -91,8 +94,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/instance", instance)
     inst:get("/bing", bing)
     inst:get("/baidu", baidu)
-    inst:post("/rset", rset)
-    inst:post("/rget", rget)
+    inst:post("/rcmd", rcmd)
     inst:post("/rcmds", rcmds)
 end
 
