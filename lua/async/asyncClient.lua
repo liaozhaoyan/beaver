@@ -69,21 +69,28 @@ function CasyncClient:_waitData(stream)
             system.coReport(coWake, res, msg)
             beaver:mod_fd(selfFd, -1)  -- to block fd other event, mask io event, only close event is working.
             e = coroutine.yield()
+            if type(e) == "cdata" then
+                if e.ev_close == 1 and e.fd  == selfFd then
+                    return nil, "local socket closeed."
+                else
+                    error(string.format("beaver report bug: fd: %d, in: %d, out: %d", e.fd, e.ev_in, e.ev_out))
+                end
+            end
             beaver:mod_fd(selfFd, 0)  -- back to read mode
         elseif statCo == "normal" then    -- wake from http client.
             e = coroutine.yield(stream)
         else
-            return nil
+            error(string.format("beaver report bug: co status: %s", statCo))
         end
 
         local t = type(e)
         if t ~= "nil" then
             return e
         else
-            return nil
+            return nil, "read bad body."
         end
     else
-        return nil
+        return nil, "not connected."
     end
 end
 

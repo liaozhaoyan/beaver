@@ -10,6 +10,7 @@ local system = require("common.system")
 local pystring = require("pystring")
 local cjson = require("cjson.safe")
 local ChttpReq = require("http.httpReq")
+local httpRead = require("http.httpRead")
 local Credis = require("client.redis")
 
 local Ctest = class("test")
@@ -48,6 +49,20 @@ local function baidu(tReq)
     if tRes then
         return {body = tRes.body}
     end
+end
+
+local function svg(tReq)
+    httpRead.parseParams(tReq)
+    system.dumps(tReq)
+    local body = [[<svg width="100" height="100">
+    <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />
+  </svg>]]
+    return {
+        body = body,
+        headers = {
+            ["Content-Type"] = "image/svg+xml",
+        }
+    }
 end
 
 local function rcmd(tReq)
@@ -94,6 +109,8 @@ function Ctest:_init_(inst, conf)
     inst:get("/instance", instance)
     inst:get("/bing", bing)
     inst:get("/baidu", baidu)
+    inst:get("/svg", svg)
+    inst:get("/svg/*", svg)
     inst:post("/rcmd", rcmd)
     inst:post("/rcmds", rcmds)
 end

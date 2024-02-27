@@ -16,10 +16,11 @@ worker:
 
 
 def createProject(projName):
+    os.mkdir(projName)
     confPath = os.path.join(projName, "main")
-    os.popen("mkdir -p %s" % confPath)
+    os.mkdir(confPath)
     confFile = os.path.join(confPath, "config.yaml")
-    with open(confFile, "w") as f:
+    with open(confFile, "a") as f:
         f.write(confBase)
     os.popen("mkdir -p %s" % os.path.join(projName, "lua/app"))
     print("project %s is created." % projName)
