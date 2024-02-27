@@ -18,7 +18,6 @@ cp /usr/lib64/libcom_err.so* ${DIST}/install/
 cp /usr/lib64/libk5crypto.so*  ${DIST}/install/
 cp /usr/lib64/libkrb5support.so* ${DIST}/install/
 cp /usr/lib64/libkeyutils.so* ${DIST}/install/
-cp /usr/lib64/libresolv.so* ${DIST}/install/
 cp /usr/lib64/libpcre.so* ${DIST}/install/
 
 mkdir ${DIST}/lib
