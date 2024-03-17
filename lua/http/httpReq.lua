@@ -15,6 +15,8 @@ local httpComm = require("http.httpComm")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local format = string.format
+
 local ChttpReq = class("request", CasyncClient)
 
 function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
@@ -29,7 +31,7 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
 
     self._http = httpComm.new()
 
-    tmo = tmo or 30
+    tmo = tmo or 15
     self._maxLen = maxLen or 2 * 1024 * 1024
 
     local tPort = {family=psocket.AF_INET, addr=ip, port=port}
@@ -52,7 +54,7 @@ function ChttpReq:_setup(fd, tmo)
     self._status = status  -- connected
     e = self:wake(co, status)  -- connected
 
-    while status == 0 do
+    while status == 1 do
         if not e then
             e = coroutine.yield()
         end
@@ -90,7 +92,7 @@ function ChttpReq:_setup(fd, tmo)
         end
     end
 
-    self._status = 1  -- connected
+    self._status = 0  -- closed
     self:stop()
     c_api.b_close(fd)
     workVar.connectDel("httpReq", fd)
@@ -117,81 +119,46 @@ local function checkKeepAlive(res)
     return true
 end
 
-function ChttpReq:post(uri, headers, body, reuse)
+function ChttpReq:_req(verb, uri, headers, body, reuse)
+    if self._status ~= 1 then
+        return {body = format("connected %s status is %d, should be 1.", self._domain, self._status), 
+                code = 500}
+    end
     headers = headers or {}
     headers.Host = self._domain
     local res = {
         url = uri,
-        method = "POST",
+        method = verb,
         headers = setupHeader(headers),
         body = body or "",
     }
     local stream = self._http:packClientFrame(res)
-    local res = self:_waitData(stream)
+    local res, msg = self:_waitData(stream)
+    assert(res, msg)
+    if type(res) ~= "table" then
+        -- closed by remote server.
+        return nil
+    end
     if not reuse or not checkKeepAlive(res) then
         self:close()
     end
     return res
+end
+
+function ChttpReq:post(uri, headers, body, reuse)
+    return self:_req("POST", uri, headers, body, reuse)
 end
 
 function ChttpReq:get(uri, headers, body, reuse)
-    headers = headers or {}
-    headers.Host = self._domain
-    local res = {
-        url = uri,
-        method = "GET",
-        headers = setupHeader(headers),
-        body = body or "",
-    }
-    local stream = self._http:packClientFrame(res)
-    local res = self:_waitData(stream)
-    if not reuse or not checkKeepAlive(res) then
-        self:close()
-    end
-    return res
+    return self:_req("GET", uri, headers, body, reuse)
 end
 
 function ChttpReq:put(uri, headers, body, reuse)
-    headers = headers or {}
-    headers.Host = self._domain
-    local res = {
-        url = uri,
-        method = "PUT",
-        headers = setupHeader(headers),
-        body = body or "",
-    }
-    local stream = self._http:packClientFrame(res)
-    local res = self:_waitData(stream)
-    if not reuse or not checkKeepAlive(res) then
-        self:close()
-    end
-    return res
+    return self:_req("PUT", uri, headers, body, reuse)
 end
 
 function ChttpReq:delete(uri, headers, body, reuse)
-    headers = headers or {}
-    headers.Host = self._domain
-    local res = {
-        url = uri,
-        method = "DELETE",
-        headers = setupHeader(headers),
-        body = body or "",
-    }
-    local stream = self._http:packClientFrame(res)
-    local res = self:_waitData(stream)
-    if not reuse or not checkKeepAlive(res) then
-        self:close()
-    end
-    return res
-end
-
-function ChttpReq:close()
-    if self._status ~= 1 then
-        local e = c_type.new("native_event_t")
-        e.ev_close = 1
-        e.fd = self._fd
-        self:_waitData(e)
-    end
+    return self:_req("DELETE", uri, headers, body, reuse)
 end
 
 return ChttpReq

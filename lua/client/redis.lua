@@ -100,7 +100,8 @@ function Credis:_init_(tReq, host, port, tmo)
     for _, cmd in ipairs(common_cmds) do
         self[cmd] = function(obj, ...)
             local s = exec_cmd(cmd, ...)
-            local res = obj:send(s)
+            local res, msg = obj:send(s)
+            assert(res, msg)
             return res
         end
     end
@@ -387,7 +388,7 @@ function Credis:_setup(fd, tmo)
     self._status = status  -- connected
     e = self:wake(co, status)  -- connected
 
-    while status == 0 do
+    while status == 1 do
         if not e then
             e = coroutine.yield()
         end
@@ -441,7 +442,7 @@ function Credis:_setup(fd, tmo)
         end
     end
 
-    self._status = 1  -- connected
+    self._status = 0  -- closed
     self:stop()
     c_api.b_close(fd)
     workVar.connectDel("redis", fd)

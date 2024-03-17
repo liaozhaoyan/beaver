@@ -12,6 +12,10 @@ local workVar = require("module.workVar")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local format = string.format
+local newSocket = psocket.socket
+local connect = psocket.connect
+
 local M = {}
 
 local ip_pattern = "(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)"
@@ -41,18 +45,18 @@ end
 function M.setupSocket(conf)
     local res, fd, err, errno
     if conf.port then
-        fd, err, errno = psocket.socket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
+        fd, err, errno = newSocket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
         assert(fd, err)
         local tPort = {family=psocket.AF_INET, addr=conf.bind, port=conf.port}
         res = c_api.setsockopt_reuse_port(fd)
-        assert(res == 0, string.format("reuse port failed, return %d.", res))
+        assert(res == 0, format("reuse port failed, return %d.", res))
         res, err, errno = psocket.bind(fd, tPort)
         assert(res, err)
     elseif conf.uniSock then
         unistd.unlink(conf.uniSock)
-        fd, err, errno = psocket.socket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
+        fd, err, errno = newSocket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
         assert(fd, err)
-        local tPort = {family=psocket.AF_UNIX, path=conf.uniSock}
+        local tPort = {family=psocket.AF_UNIX, path=conf.uniSock, addr="", port=0}
         res, err, errno = psocket.bind(fd, tPort)
         assert(res, err)
     else
@@ -67,11 +71,11 @@ end
 function M.connectSetup(tPort)
     local fd, err, errno
     if tPort.port then
-        fd, err, errno = psocket.socket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
+        fd, err, errno = newSocket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
         assert(fd, err)
     elseif tPort.path then
         unistd.unlink(tPort.path)
-        fd, err, errno = psocket.socket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
+        fd, err, errno = newSocket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
         assert(fd, err)
     else
         error("bad connect mode.")
@@ -82,12 +86,12 @@ end
 local function tryConnect(fd, tConn)
     local res, err, errno
 
-    res, err, errno = psocket.connect(fd, tConn)
+    res, err, errno = connect(fd, tConn)
     if not res then
         if errno == 115 then  -- need to wait.
-            return 1
+            return 2  -- refer to aysync.asyncClient _init_ 2 connecting
         else
-            error(string.format("socket connect failed, report:%d, %s", errno, err))
+            error(format("socket connect %s, %d failed, report:%d, %s", tConn.addr, tConn.port, errno, err))
             return
         end
     else
@@ -97,23 +101,23 @@ end
 
 function M.connect(fd, tPort, beaver)
     local res = tryConnect(fd, tPort)
-    if res == 1 then -- 1 means connecting
+    if res == 2 then -- 2 means connecting  refer to aysync.asyncClient _init_
         beaver:mod_fd(fd, 1)  -- modify fd to writeable
         local connected = false
         repeat
             local e = coroutine.yield()
             if type(e) == "nil" then
-                return 1
+                return 3 -- connected failed  refer to aysync.asyncClient _init_
             elseif e.ev_out > 0 then
                 if c_api.check_connected(fd) == 0 then
                     connected = true
-                    beaver:mod_fd(fd, 0)
-                    return 0
+                    beaver:mod_fd(fd, 0)   -- modify fd to readonly
+                    return 1  -- connected success  refer to aysync.asyncClient _init_
                 else
-                    return 1
+                    return 3
                 end
             elseif e.ev_close > 0 then
-                return 1
+                return 3
             end
         until connected
     end

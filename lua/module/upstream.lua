@@ -53,7 +53,7 @@ function Cdownstream:_setup(fd, tmo)
     beaver:co_set_tmo(fd, -1)   -- back
     self._status = res  -- connected
     uplink:connectWake(res)
-    if res ~= 0 then
+    if res ~= 1 then   -- connect failed
         print("connect failed.", res)
         goto stopStream
     end
@@ -129,13 +129,13 @@ end
 
 local function waitConnect(beaver, fd, down)
     local res = down:status()
-    if res == 0 then -- connect ok.
+    if res == 1 then -- connect ok.
         return true
     elseif res == 2 then -- connecting
         beaver:mod_fd(fd, -1)  -- mask io event, other close event is working.
         local w = coroutine.yield()
         local t = type(w)
-        if t == "number" and w == 0 then  -- 0 is ok
+        if t == "number" and w == 1 then  -- 0 is ok
             beaver:mod_fd(fd, 0)  -- back to read mode
             return true
         else
@@ -144,7 +144,7 @@ local function waitConnect(beaver, fd, down)
             end
             return false
         end
-    else  -- 1 connect failed
+    else  -- not connect
         return false
     end
 end

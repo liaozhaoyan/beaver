@@ -51,6 +51,15 @@ local function baidu(tReq)
     end
 end
 
+local function unkown(tReq)
+    local req = ChttpReq.new(tReq, "www.unknown.com")
+    local tRes = req:get("HTTP://www.unknown.com/")
+    if tRes then
+        print(tRes.body)
+        return {body = tRes.body}
+    end
+end
+
 local function svg(tReq)
     httpRead.parseParams(tReq)
     system.dumps(tReq)
@@ -109,6 +118,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/instance", instance)
     inst:get("/bing", bing)
     inst:get("/baidu", baidu)
+    inst:get("/unkown", unkown)
     inst:get("/svg", svg)
     inst:get("/svg/*", svg)
     inst:post("/rcmd", rcmd)
