@@ -16,7 +16,7 @@ local c_type, c_api = cffi.type, cffi.api
 local CmasterTimer = class("masterTimer")
 
 local function rbCmp(node1, node2)
-    return node1.ms - node2.ms
+    return node1.ms >= node2.ms and 1 or -1
 end
 
 function CmasterTimer:_init_(beaver, cbWake)
@@ -33,7 +33,7 @@ end
 function CmasterTimer:add(node)
     -- node should contains
     -- loop: loop times, only integer
-    -- period：should > 10 ms，
+    -- period：should > 1 ms，
     -- optional:
     -- fid: if fid is zero, coId means inner co, otherwise means work write id to send.
     -- coId: coroutine id.
@@ -42,7 +42,7 @@ function CmasterTimer:add(node)
     local loop = node.loop
     local period = node.period
     assert(loop % 1 == 0, "illegal loop value.")
-    assert(period >= 10 and period % 1 == 0, "illegal ms value.")
+    assert(period >= 1 and period % 1 == 0, "illegal ms value.")
 
     local first = tree:first()  -- caution：tree may empty
     node.ms = c_api.time_io_calc(period)
@@ -55,7 +55,7 @@ function CmasterTimer:add(node)
         else
             return
         end
-    elseif first.ms > node.ms then -- first is nil means empty tree
+    elseif first.ms > node.ms then -- this node may be the first node.
         self._timer:update(node.ms)
     end
 end

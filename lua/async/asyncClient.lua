@@ -1,7 +1,7 @@
 require("eclass")
 
 local system = require("common.system")
-local sockComm = require("module.sockComm")
+local sockComm = require("common.sockComm")
 local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api

@@ -4,7 +4,7 @@ local pystring = require("pystring")
 local system = require("common.system")
 local workVar = require("module.workVar")
 local CasyncClient = require("async.asyncClient")
-local sockComm = require("module.sockComm")
+local sockComm = require("common.sockComm")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 

@@ -10,7 +10,7 @@
 #include <errno.h>
 
 int timer_io_init(void) {
-    int timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);  //close for child process.
+    int timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);  //close for child process.
 
     if (timer_fd == -1) {
         perror("timerfd_create");

@@ -46,6 +46,13 @@ local function regThreadId(arg)
 
     local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
     system.coReport(var.coOut, res, msg)
+
+    if var.setupCb then
+        local call = var.setupCb.func
+        local args = var.setupCb.args
+        call(args)
+        var.setupCb = nil  -- clear after call.
+    end
 end
 
 local function echoDns(arg)
@@ -161,8 +168,8 @@ local function periodWakeGetId()
 end
 
 function M.periodWake(period, loop)
-    assert(period >= 10, "period arg should greater than 10.")
-    assert(loop >= 1, "")
+    assert(period >= 1, "period arg should greater than 1.")
+    assert(loop >= 1, "loop should greater than 1.")
     local func = {
         func = "reqPeriodWake",
         arg = {
@@ -180,6 +187,13 @@ end
 
 function M.msleep(ms)
     return M.periodWake(ms, 1)
+end
+
+function M.setCb(func, args)
+    var.setupCb = {
+        func = func,
+        args = args
+    }
 end
 
 return M

@@ -14,6 +14,7 @@ local masterVar = require("module.masterVar")
 
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
+local format = string.format
 
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
@@ -52,7 +53,7 @@ end
 
 local function check(last, hope)
     local now = os.time()
-    assert(now - last == hope or now - last == hope + 1, "check var failed.")
+    assert(now - last == hope or now - last == hope + 1, format("check var failed. hope: %d, now: %d", hope, now - last))
     return now
 end
 
@@ -60,10 +61,10 @@ local function testTimer()
     local last = os.time()
     local loop = 1
     while true do
-        masterVar.msleep(1000)
-        last = check(last, 1)
-        masterVar.msleep(2000)
-        last = check(last, 2)
+        masterVar.msleep(3000)
+        last = check(last, 3)
+        masterVar.msleep(5000)
+        last = check(last, 5)
         loop = loop + 1
     end
 end

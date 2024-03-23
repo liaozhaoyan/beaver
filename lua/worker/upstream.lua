@@ -10,7 +10,7 @@ local psocket = require("posix.sys.socket")
 local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
 local workVar = require("module.workVar")
-local sockComm = require("module.sockComm")
+local sockComm = require("common.sockComm")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 

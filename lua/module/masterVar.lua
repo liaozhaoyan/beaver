@@ -85,29 +85,33 @@ local function pipeCtrlReg(arg)
                 system.coReport(var.coOut, res, msg)
             end
         end
-        --for i = 1, thread.yaml.worker.number do
-        --    local r, w, errno = unistd.pipe()
-        --    if not r then
-        --        error(string.format("create pipe failed, %s, errno %d", w, errno))
-        --    end
-        --
-        --    local pid = c_api.create_beaver(r, var.masterIn, "worker", thread.conf.config)
-        --
-        --    local co = coroutine.create(workerPipeOut)
-        --    res, msg = coroutine.resume(co, thread.beaver, w)
-        --    system.coReport(co, res, msg)
-        --    var.workers[w] = {false, pid, r, co}   -- use w pipe to record single thread.
-        --
-        --    local func = {
-        --        func = "regThreadId",
-        --        arg = {
-        --            id = w,
-        --        }
-        --    }
-        --
-        --    res, msg = coroutine.resume(co, cjson.encode(func))
-        --    system.coReport(var.coOut, res, msg)
-        --end
+
+        if yaml.user then
+            for _, cell in ipairs(yaml.user) do
+                local r, w, errno = unistd.pipe()
+                if not r then
+                    error(string.format("create pipe failed, %s, errno %d", w, errno))
+                end
+
+                local config = {user = cell}
+                local pid = c_api.create_beaver(r, var.masterIn, "userModule", lyaml.dump({config}))
+
+                local co = coroutine.create(workerPipeOut)
+                res, msg = coroutine.resume(co, thread.beaver, w)
+                system.coReport(co, res, msg)
+                var.workers[w] = {false, pid, r, co}   -- use w pipe to record single thread.
+
+                local func = {
+                    func = "regThreadId",
+                    arg = {
+                        id = w,
+                    }
+                }
+
+                res, msg = coroutine.resume(co, cjson.encode(func))
+                system.coReport(var.coOut, res, msg)
+            end
+        end
 
         var.setup = true
         local ret = {ret = 0}
@@ -167,7 +171,7 @@ end
 
 local function reqPeriodWake(arg)
     local node = {
-        fid = arg.id,
+        id = arg.id,
         coId = arg.coId,
         period = arg.period,
         loop = arg.loop
@@ -180,6 +184,7 @@ local funcTable = {
     workerReg = function(arg) return workerReg(arg) end,
     reqDns = function(arg) return reqDns(arg)  end,
     reqPeriodWake = function(arg) return reqPeriodWake(arg)  end,
+    
 }
 
 function M.call(arg)
@@ -220,8 +225,8 @@ local function timerWake(node) -- call in masterTimer.
 end
 
 function M.periodWake(period, loop)
-    assert(period >= 10, "period arg should greater than 10.")
-    assert(loop >= 1, "")
+    assert(period >= 1, "period arg should greater than 1.")
+    assert(loop >= 1, "loop should greater than 1.")
     local node = {
         id = 0,
         coId = periodWakeGetId(),

@@ -20,3 +20,7 @@ worker:
       bind: "0.0.0.0"
       port: 3385
       entry: test  # entry path
+
+user:
+  - entry: userTest
+    args: "just for test."
