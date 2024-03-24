@@ -18,8 +18,8 @@ local function pipeOut(b, fOut)
     local w = CasyncPipeWrite.new(b, fOut, 10)
 
     while true do
-        local stream = coroutine.yield()
-        local res, err = w:write(stream)
+        local stream, toWake = coroutine.yield()
+        local res, err = w:write(stream, toWake)
         assert(res, err)
     end
 end

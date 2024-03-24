@@ -19,6 +19,16 @@ function M.setPipeOut(coOut)
     var.coOut = coOut
 end
 
+local function sendCoOut(stream)
+    local res, msg = coroutine.resume(var.coOut, stream)
+    system.coReport(var.coOut, res, msg)
+    if msg == false then  -- send buffer full, wait for write wake.
+        print("neend to sleep.")
+        coroutine.yield()
+        print("wake from sleep.")
+    end
+end
+
 local function regThreadId(arg)
     var.id = arg.id
     local func = {
@@ -28,8 +38,7 @@ local function regThreadId(arg)
         }
     }
 
-    local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
-    system.coReport(var.coOut, res, msg)
+    sendCoOut(cjson.encode(func))
 
     if var.setupCb then
         local call = var.setupCb.func
@@ -98,8 +107,7 @@ function M.periodWake(period, loop)
             loop = loop,
         }
     }
-    local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
-    system.coReport(var.coOut, res, msg)
+    sendCoOut(cjson.encode(func))
     return coroutine.yield()
 end
 

@@ -32,6 +32,7 @@ int setsockopt_reuse_port(int fd);
 int check_connected(int fd);
 int b_read(int fd, void *buf, int count);
 int b_write(int fd, void *buf, int count);
+void b_yield(void);
 int b_close(int fd);
 void deinit(int efd);
 

@@ -42,7 +42,6 @@ function CasyncPipeWrite:_setup(fd, tmo)
 
             if not ret then -- fd close event?
                 print(string.format("pipe write fd %d closed.", fd))
-                print(err, errno)
                 break
             end
         else  -- fd close event?
@@ -63,10 +62,7 @@ function CasyncPipeWrite:write(stream)
         system.coReport(self._coSelf, res, msg)
         return ret, err, errno
     else --> the pipe call from if stream is too long, the task may be yield.
-        print("msg too long.", stream)
-        res, err, errno = coroutine.yield()
-        print(res, err, errno)
-        return res, err, errno
+        return coroutine.yield()
     end
 end
 

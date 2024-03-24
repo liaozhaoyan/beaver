@@ -2,11 +2,13 @@
 // Created by 廖肇燕 on 2023/2/14.
 //
 
+#define _GNU_SOURCE
 #include "local_beaver.h"
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sched.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -238,6 +240,10 @@ int b_write(int fd, void *buf, int count) {
         return -errno;
     }
     return ret;
+}
+
+void b_yield(void) {
+    sched_yield();
 }
 
 int b_close(int fd) {
