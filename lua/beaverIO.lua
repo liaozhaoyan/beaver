@@ -202,16 +202,19 @@ function CbeaverIO:pipeRead(fd)
 end
 
 local function blockeWrite(func, fd, stream)
-    local res, err, errno
+    local res
     local buf = buffer.new()
     buf:put(stream)
     local ptr, len = buf:ref()
+
+    local write = c_api.b_write
+    local yield = c_api.b_yield
     repeat
-        res = func(fd, ptr, len)
+        res = write(fd, ptr, len)
         if res < 0 then
             if res == -11 then  -- EAGAIN ?
-                
                 res = 0
+                yield()
             else
                return nil, "innner write IO Error.", -res 
             end
@@ -226,7 +229,6 @@ end
 function CbeaverIO:pipeWrite(fd, stream)
     local len = #stream
     local buff = struct.pack("<i", len) .. stream
-    -- return self:write(fd, buff)
     return blockeWrite(c_api.b_write, fd, buff)
 end
 
