@@ -239,6 +239,9 @@ function M.periodWake(period, loop)
 end
 
 function M.msleep(ms)
+    if ms < 1 then
+        return
+    end
     return M.periodWake(ms, 1)
 end
 

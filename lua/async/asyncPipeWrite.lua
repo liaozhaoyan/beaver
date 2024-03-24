@@ -41,11 +41,12 @@ function CasyncPipeWrite:_setup(fd, tmo)
             beaver:co_set_tmo(fd, -1)
 
             if not ret then -- fd close event?
-                print(string.format("fd %d closed.", fd))
+                print(string.format("pipe write fd %d closed.", fd))
+                print(err, errno)
                 break
             end
         else  -- fd close event?
-            print(string.format("fd %d closed.", fd))
+            print(string.format("write fd %d closed. for event", fd))
             break
         end
     end
@@ -62,7 +63,10 @@ function CasyncPipeWrite:write(stream)
         system.coReport(self._coSelf, res, msg)
         return ret, err, errno
     else --> the pipe call from if stream is too long, the task may be yield.
-        return coroutine.yield()
+        print("msg too long.", stream)
+        res, err, errno = coroutine.yield()
+        print(res, err, errno)
+        return res, err, errno
     end
 end
 

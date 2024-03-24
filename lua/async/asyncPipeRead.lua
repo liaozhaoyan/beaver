@@ -31,7 +31,7 @@ function CasyncPipeRead:_setup(fd, tmo)
         res, msg = coroutine.resume(co, stream, err, errno)
         system.coReport(co, res, msg)
         if not stream then
-            print(string.format("fd %d closed.", fd))
+            print(string.format("pipe read fd %d closed.", fd))
             break
         end
     end

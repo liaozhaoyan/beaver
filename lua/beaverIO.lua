@@ -11,6 +11,7 @@ require("struct")
 local CbeaverIO = class("beaverIO")
 local buffer = require("string.buffer")
 local cffi = require("beavercffi")
+local format = string.format
 
 local ioBlockSize = 65536
 
@@ -56,7 +57,7 @@ function CbeaverIO:read(fd, size)
     elseif ret == -11 then
         local e = coroutine.yield()
         if e.ev_close > 0 then
-            return nil, string.format("fd %d is already closed.", fd), 32
+            return nil, format("fd %d is already closed.", fd), 32
         elseif e.ev_in > 0 then
             ret = c_api.b_read(fd, ptr, len)
             if ret > 0 then
@@ -65,10 +66,10 @@ function CbeaverIO:read(fd, size)
             elseif ret == 0 then
                 return nil, "fd closed",  64
             else
-                return nil, "IO Error.", -ret
+                return nil, "inner read IO Error.", -ret
             end
         else
-            return nil, "IO Error.", -ret
+            return nil, "top read IO Error.", -ret
         end
     end
 end
@@ -94,7 +95,7 @@ function CbeaverIO:reads(fd, maxLen)
             self:co_set_tmo(fd, tmo)
             local e = coroutine.yield()
             if e.ev_close > 0 then
-                return nil, string.format("fd %d is already closed.", fd), 32
+                return nil, format("fd %d is already closed.", fd), 32
             elseif e.ev_in > 0 then
                 ret = c_api.b_read(fd, ptr, len)
                 if ret > 0 then
@@ -104,10 +105,10 @@ function CbeaverIO:reads(fd, maxLen)
                 elseif ret == 0 then
                     return nil, "fd closed",  64
                 else
-                    return nil, "IO Error.", -ret
+                    return nil, "inner reads IO Error.", -ret
                 end
             else
-                return nil, "IO Error.", 5
+                return nil, "top reads IO Error.", 5
             end
         end
     end
@@ -122,20 +123,24 @@ function CbeaverIO:write(fd, stream)
     buf:put(stream)
     local ptr, len = buf:ref()
     ret = c_api.b_write(fd, ptr, len)
-    if ret > 0 then
+    if ret == -11 then  -- full EAGAIN ?
+        ret = 0
+    end
+
+    if ret >= 0 then
         if ret < len then
             res = c_api.mod_fd(self._efd, fd, 1)  -- epoll write ev
             if res < 0 then
                 return nil, "epoll mod_fd failed.", -res
             end
-
+            
             while ret < len do
-
                 local e = coroutine.yield()
 
                 if e.ev_close > 0 then
-                    return nil, string.format("fd %d is already closed.", fd), 32
+                    return nil, format("write fd %d is already closed.", fd), 32
                 elseif e.ev_out then
+                    print("write fd %d need  to write %d.", fd, len - ret)
                     buf:skip(ret)  -- move to next
 
                     ptr, len = buf:ref()
@@ -145,7 +150,7 @@ function CbeaverIO:write(fd, stream)
                             ret = 0
                             goto continue
                         end
-                        return nil, "IO Error.", -ret
+                        return nil, "innner write IO Error.", -ret
                     end
                 else  -- need to read ? may something error.
                     return nil, "need to read ? may something error.", 5
@@ -161,7 +166,7 @@ function CbeaverIO:write(fd, stream)
         end
         return 0
     else
-        return nil, "IO Error.", -ret
+        return nil, "top write IO Error.", -ret
     end
 end
 

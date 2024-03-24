@@ -24,3 +24,4 @@ worker:
 user:
   - entry: userTest
     args: "just for test."
+    num: 4096
