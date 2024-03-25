@@ -10,7 +10,7 @@ local M = {}
 local sockerUrl = require("socket.url")
 local pystring = require("pystring")
 
-local defaultHttpReadOvertime = 15
+local defaultHttpReadOvertime = 30
 
 local function parseParam(param)
     local tParam = pystring.split(param, "&")

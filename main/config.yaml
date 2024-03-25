@@ -24,4 +24,4 @@ worker:
 user:
   - entry: userTest
     args: "just for test."
-    num: 4096
+    num: 3192

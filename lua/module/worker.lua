@@ -51,7 +51,8 @@ local function setupFuncs(thread)
     local b = thread.beaver
     for _, cell in pairs(thread.yaml.worker.funcs) do
         local module = require("worker." .. cell.func)
-        sockComm.acceptSetup(module, b, cell)
+        local bindAdd = workVar.bindAdd
+        sockComm.acceptSetup(module, b, cell, bindAdd)
     end
 end
 

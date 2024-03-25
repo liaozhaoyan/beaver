@@ -90,7 +90,7 @@ end
 function Credis:_init_(tReq, host, port, tmo)
     local ip
 
-    ip, port = sockComm.getIp(host), port or 6379
+    ip, port = workVar.getIp(host), port or 6379
     tmo = tmo or 10
 
     local tPort = {family=psocket.AF_INET, addr=ip, port=port}

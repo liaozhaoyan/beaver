@@ -8,7 +8,6 @@ local system = require("common.system")
 local unistd = require("posix.unistd")
 local psocket = require("posix.sys.socket")
 local CasyncAccept = require("async.asyncAccept")
-local workVar = require("module.workVar")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
@@ -17,30 +16,6 @@ local newSocket = psocket.socket
 local connect = psocket.connect
 
 local M = {}
-
-local ip_pattern = "(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)"
-
-local function match_ip(ip)
-    local d1, d2, d3, d4 = ip:match(ip_pattern)
-    if d1 and d2 and d3 and d4 then
-        local num1, num2, num3, num4 = tonumber(d1), tonumber(d2), tonumber(d3), tonumber(d4)
-        if num1 >= 0 and num1 <= 255 and num2 >= 0 and num2 <= 255 and num3 >= 0 and num3 <= 255 and num4 >= 0 and num4 <= 255 then
-            return true
-        end
-    end
-    return false
-end
-
-function M.getIp(host)
-    local domain, ip
-    if match_ip(host) then
-        ip = host
-    else
-        domain, ip = workVar.dnsReq(host)
-        assert(domain == host, "bad dns request.")
-    end
-    return ip
-end
 
 function M.setupSocket(conf)
     local res, fd, err, errno
@@ -143,8 +118,10 @@ local function setupInst(conf)
     return nil
 end
 
-local function acceptServer(obj, conf, beaver, bfd)
-    workVar.bindAdd(conf.func, bfd, coroutine.running())
+local function acceptServer(obj, conf, beaver, bfd, bindAdd)
+    if bindAdd then
+        bindAdd(conf.func, bfd, coroutine.running())
+    end
     local inst = setupInst(conf)
     CasyncAccept.new(beaver, bfd, -1)
     while true do
@@ -153,11 +130,11 @@ local function acceptServer(obj, conf, beaver, bfd)
     end
 end
 
-function M.acceptSetup(obj, beaver, conf)
+function M.acceptSetup(obj, beaver, conf, bindAdd)
     assert(conf.mode == "TCP", "bad accept mode: " .. conf.mode)
     local fd = M.setupSocket(conf)
     local co = coroutine.create(acceptServer)
-    local res, msg = coroutine.resume(co, obj, conf, beaver, fd)
+    local res, msg = coroutine.resume(co, obj, conf, beaver, fd, bindAdd)
     system.coReport(co, res, msg)
 end
 

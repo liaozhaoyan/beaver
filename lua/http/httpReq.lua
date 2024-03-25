@@ -17,6 +17,8 @@ local c_type, c_api = cffi.type, cffi.api
 
 local format = string.format
 
+local httpConnectTmo = 10
+
 local ChttpReq = class("request", CasyncClient)
 
 function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
@@ -26,12 +28,12 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
     if proxy then
         ip, port = proxy.ip, proxy.port
     else
-        ip, port = sockComm.getIp(host), port or 80
+        ip, port = workVar.getIp(host), port or 80
     end
 
     self._http = httpComm.new()
 
-    tmo = tmo or 15
+    tmo = tmo or 60
     self._maxLen = maxLen or 2 * 1024 * 1024
 
     local tPort = {family=psocket.AF_INET, addr=ip, port=port}
@@ -48,7 +50,7 @@ function ChttpReq:_setup(fd, tmo)
     workVar.connectAdd("httpReq", fd, coroutine.running())
 
     self._status = 2  -- connecting
-    beaver:co_set_tmo(fd, tmo)  -- set connect timeout
+    beaver:co_set_tmo(fd, httpConnectTmo)  -- set connect timeout
     status = sockComm.connect(fd, self._tPort, beaver)
     beaver:co_set_tmo(fd, -1)   -- back
     self._status = status  -- connected

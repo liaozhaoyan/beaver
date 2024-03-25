@@ -22,7 +22,7 @@ local function loop()
         ms = math.random(0, 5000)
         msleep(ms)
         now = socket.gettime() * 1000
-        if now - last > ms + 10 then
+        if now - last > ms + 50 then
             print(format("time: %d, hope: %d", now - last, ms))
         end
         last = now
