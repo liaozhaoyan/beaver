@@ -43,9 +43,15 @@ function CasyncClient:_waitConnected(beaver, fd)  -- this fd is server fd,
     if res == 1 then -- connect ok.
         return 1
     elseif res == 2 then -- connecting
-        beaver:mod_fd(fd, -1)  -- mask io event, only close event is working.
-        local w = coroutine.yield()
-        beaver:mod_fd(fd, 0)  -- back host fd to read mode
+        local w
+        if fd then
+            beaver:mod_fd(fd, -1)  -- mask io event, only close event is working.
+            w = coroutine.yield()
+            beaver:mod_fd(fd, 0)  -- back host fd to read mode
+        else
+            w = coroutine.yield()
+        end
+        
         local t = type(w)
         if t == "number" then  -- 0 is ok
             if w == 1 then  -- refer to sockComm, 0 means connect ok.
@@ -81,7 +87,9 @@ function CasyncClient:_waitData(stream)
         if statCo == "suspended" then
             res, msg = coroutine.resume(coWake, stream)
             system.coReport(coWake, res, msg)
-            beaver:mod_fd(selfFd, -1)  -- to block fd other event, mask io event, only close event is working.
+            if selfFd then
+                beaver:mod_fd(selfFd, -1)  -- to block fd other event, mask io event, only close event is working. 
+            end
             e = coroutine.yield()
             if type(e) == "cdata" then
                 if e.ev_close == 1 and e.fd == selfFd then

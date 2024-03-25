@@ -25,3 +25,8 @@ user:
   - entry: userTest
     args: "just for test."
     num: 3192
+  - entry: uniServ
+    mode: "TCP"
+    path: "db.sock"
+  - entry: uniCli
+    path: "db.sock"

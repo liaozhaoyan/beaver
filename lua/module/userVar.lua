@@ -6,7 +6,8 @@
 
 local M = {}
 local system = require("common.system")
-
+local CasyncAccept = require("async.asyncAccept")
+local sockComm = require("common.sockComm")
 local cjson = require("cjson.safe")
 
 local var = {
@@ -116,6 +117,25 @@ function M.msleep(ms)
         return
     end
     return M.periodWake(ms, 1)
+end
+
+local function acceptServer(obj, conf, beaver, bfd, bindAdd)
+    if bindAdd then
+        bindAdd(conf.func, bfd, coroutine.running())
+    end
+    CasyncAccept.new(beaver, bfd, -1)
+    while true do
+        local nfd, addr = coroutine.yield()
+        obj.new(beaver, nfd, bfd, addr, conf)
+    end
+end
+
+function M.acceptSetup(obj, beaver, conf, bindAdd)
+    assert(conf.mode == "TCP", "bad accept mode: " .. conf.mode)
+    local fd = sockComm.setupSocket(conf)
+    local co = coroutine.create(acceptServer)
+    local res, msg = coroutine.resume(co, obj, conf, beaver, fd, bindAdd)
+    system.coReport(co, res, msg)
 end
 
 return M

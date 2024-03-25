@@ -30,7 +30,7 @@ function M.setupSocket(conf)
         unistd.unlink(conf.uniSock)
         fd, err, errno = newSocket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
         assert(fd, err)
-        local tPort = {family=psocket.AF_UNIX, path=conf.uniSock, addr="", port=0}
+        local tPort = {family=psocket.AF_UNIX, path=conf.uniSock}
         res, err, errno = psocket.bind(fd, tPort)
         assert(res, err)
     else
@@ -48,24 +48,30 @@ function M.connectSetup(tPort)
         fd, err, errno = newSocket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
         assert(fd, err)
     elseif tPort.path then
-        unistd.unlink(tPort.path)
         fd, err, errno = newSocket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
         assert(fd, err)
+        tPort.family = psocket.AF_UNIX
     else
         error("bad connect mode.")
     end
     return fd
 end
 
-local function tryConnect(fd, tConn)
+local function tryConnect(fd, tPort)
     local res, err, errno
 
-    res, err, errno = connect(fd, tConn)
+    res, err, errno = connect(fd, tPort)
     if not res then
         if errno == 115 then  -- need to wait.
             return 2  -- refer to aysync.asyncClient _init_ 2 connecting
         else
-            error(format("socket connect %s, %d failed, report:%d, %s", tConn.addr, tConn.port, errno, err))
+            if tPort.addr then
+                error(format("socket connect %s:%d failed, report:%d, %s", tPort.addr, tPort.port, errno, err))
+            elseif tPort.path then
+                error(format("socket connect %s failed, report:%d, %s", tPort.path, errno, err))
+            else
+                error(format("socket connect failed, report:%d, %s", errno, err))
+            end
             return
         end
     else
