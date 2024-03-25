@@ -11,7 +11,6 @@ local system = require("common.system")
 local CasyncPipeRead = require("async.asyncPipeRead")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local workVar = require("module.workVar")
-local sockComm = require("common.sockComm")
 
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
@@ -52,7 +51,7 @@ local function setupFuncs(thread)
     for _, cell in pairs(thread.yaml.worker.funcs) do
         local module = require("worker." .. cell.func)
         local bindAdd = workVar.bindAdd
-        sockComm.acceptSetup(module, b, cell, bindAdd)
+        workVar.acceptSetup(module, b, cell, bindAdd)
     end
 end
 

@@ -7,7 +7,6 @@
 local system = require("common.system")
 local unistd = require("posix.unistd")
 local psocket = require("posix.sys.socket")
-local CasyncAccept = require("async.asyncAccept")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
@@ -97,45 +96,6 @@ function M.connect(fd, tPort, beaver)
         until connected
     end
     return res
-end
-
-local ChttpInst = require("http.httpInst")
-
-local instTable = {
-    httpServer = function(conf)
-        local app = require("app." .. conf.entry)
-        local inst = ChttpInst.new()
-        app.new(inst, conf)
-        return inst
-    end,
-}
-
-local function setupInst(conf)
-    local func = instTable[conf.func]
-    if func then
-        return func(conf)
-    end
-    return nil
-end
-
-local function acceptServer(obj, conf, beaver, bfd, bindAdd)
-    if bindAdd then
-        bindAdd(conf.func, bfd, coroutine.running())
-    end
-    local inst = setupInst(conf)
-    CasyncAccept.new(beaver, bfd, -1)
-    while true do
-        local nfd, addr = coroutine.yield()
-        obj.new(beaver, nfd, bfd, addr, conf, inst)
-    end
-end
-
-function M.acceptSetup(obj, beaver, conf, bindAdd)
-    assert(conf.mode == "TCP", "bad accept mode: " .. conf.mode)
-    local fd = M.setupSocket(conf)
-    local co = coroutine.create(acceptServer)
-    local res, msg = coroutine.resume(co, obj, conf, beaver, fd, bindAdd)
-    system.coReport(co, res, msg)
 end
 
 return M
