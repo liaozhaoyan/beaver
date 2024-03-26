@@ -13,7 +13,8 @@ function CasyncClient:_init_(beaver, hostFd, tPort, tmo)
     local fd = sockComm.connectSetup(tPort)
     self._tPort = tPort
     self._coWake = coroutine.running()
-    self._status = 0  -- 0:disconnect, 1 connected, 2 connecting, 3 connect failed.
+    self._status = 0
+    -- 0:disconnect, 1 connected, 2 connecting, 3 connect failed.
 
     CasyncBase._init_(self, beaver, fd, tmo)
     -- assert(self:_waitConnected(beaver, hostFd) == 0, "connect socket failed.")
@@ -38,16 +39,16 @@ function CasyncClient:wake(co, v)
     end
 end
 
-function CasyncClient:_waitConnected(beaver, fd)  -- this fd is server fd,
+function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
     local res = self._status
     if res == 1 then -- connect ok.
         return 1
     elseif res == 2 then -- connecting
         local w
-        if fd then
-            beaver:mod_fd(fd, -1)  -- mask io event, only close event is working.
+        if hostFd then
+            beaver:mod_fd(hostFd, -1)  -- mask io event, only close event is working.
             w = coroutine.yield()
-            beaver:mod_fd(fd, 0)  -- back host fd to read mode
+            beaver:mod_fd(hostFd, 0)  -- back host fd to read mode
         else
             w = coroutine.yield()
         end
@@ -72,6 +73,18 @@ function CasyncClient:_waitConnected(beaver, fd)  -- this fd is server fd,
     end
 end
 
+function CasyncClient:cliConnect(fd, tmo)
+    local beaver = self._beaver
+    local status
+
+    self._status = 2  -- connecting
+    beaver:co_set_tmo(fd, tmo)  -- set connect timeout
+    status = sockComm.connect(fd, self._tPort, beaver)  -- 
+    beaver:co_set_tmo(fd, -1)   -- back
+    self._status = status  -- connected
+    return status, self:wake(self._coWake, status)  -- wake up to wake, set in asyncClient.
+end
+
 function CasyncClient:_waitData(stream)
     local beaver = self._beaver
     local coWake = self._co
@@ -89,16 +102,18 @@ function CasyncClient:_waitData(stream)
             system.coReport(coWake, res, msg)
             if selfFd then
                 beaver:mod_fd(selfFd, -1)  -- to block fd other event, mask io event, only close event is working. 
-            end
-            e = coroutine.yield()
-            if type(e) == "cdata" then
-                if e.ev_close == 1 and e.fd == selfFd then
-                    return nil, "local socket closeed."
-                else
-                    error(string.format("beaver report bug: fd: %d, in: %d, out: %d", e.fd, e.ev_in, e.ev_out))
+                e = coroutine.yield()
+                if type(e) == "cdata" then
+                    if e.ev_close == 1 and e.fd == selfFd then
+                        return nil, "local socket closeed."
+                    else
+                        error(string.format("beaver report bug: fd: %d, in: %d, out: %d", e.fd, e.ev_in, e.ev_out))
+                    end
                 end
+                beaver:mod_fd(selfFd, 0)  -- back to read mode
+            else
+                e = coroutine.yield()
             end
-            beaver:mod_fd(selfFd, 0)  -- back to read mode
         elseif statCo == "normal" then    -- wake from http client.
             e = coroutine.yield(stream)
         else

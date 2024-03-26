@@ -12,6 +12,7 @@ local cjson = require("cjson.safe")
 local ChttpReq = require("http.httpReq")
 local httpRead = require("http.httpRead")
 local Credis = require("client.redis")
+local CcliBase = require("client.cliBase")
 
 local Ctest = class("test")
 
@@ -113,6 +114,16 @@ local function rcmds(tReq)
     end
 end
 
+local function uds(tReq)
+    local tPort = {path = "db.sock"}
+    local cli = CcliBase.new(tReq.beaver, tPort)
+    local res = cli:echo("hello, uds.")
+    cli:close()
+    if res then
+        return {body = cjson.encode(res)}
+    end
+end
+
 function Ctest:_init_(inst, conf)
     inst:get("/", index)
     inst:get("/instance", instance)
@@ -123,6 +134,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/svg/*", svg)
     inst:post("/rcmd", rcmd)
     inst:post("/rcmds", rcmds)
+    inst:get("/uds", uds)
 end
 
 return Ctest

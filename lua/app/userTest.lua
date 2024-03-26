@@ -41,11 +41,10 @@ function CuserTest:proc()
     local user = self._thread.yaml.user
     local i = 0
     createCo(user.num)
+    print(format("args: %s, counter: %d", user.args, 0))
     while true do
-        print("hello world.")
         if user.args then
             i = i + 1
-            print(format("args: %s, counter: %d", user.args, i))
         end
         msleep(2000)
     end

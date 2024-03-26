@@ -20,7 +20,6 @@ end
 function CuniServ:proc()
     userVar.acceptSetup(CservLoop, self._beaver, self._conf)
     while true do
-        print("server proc.")
         userVar.msleep(3000)
     end
 end

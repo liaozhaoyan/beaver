@@ -11,13 +11,14 @@ local CasyncClient = require("async.asyncClient")
 local workVar = require("module.workVar")
 local sockComm = require("common.sockComm")
 local httpRead = require("http.httpRead")
-local httpComm = require("http.httpComm")
+local ChttpComm = require("http.httpComm")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
 local format = string.format
 
 local httpConnectTmo = 10
+local httpCommInst = ChttpComm.new()
 
 local ChttpReq = class("request", CasyncClient)
 
@@ -30,8 +31,6 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
     else
         ip, port = workVar.getIp(host), port or 80
     end
-
-    self._http = httpComm.new()
 
     tmo = tmo or 60
     self._maxLen = maxLen or 2 * 1024 * 1024
@@ -49,12 +48,7 @@ function ChttpReq:_setup(fd, tmo)
 
     workVar.connectAdd("httpReq", fd, coroutine.running())
 
-    self._status = 2  -- connecting
-    beaver:co_set_tmo(fd, httpConnectTmo)  -- set connect timeout
-    status = sockComm.connect(fd, self._tPort, beaver)
-    beaver:co_set_tmo(fd, -1)   -- back
-    self._status = status  -- connected
-    e = self:wake(co, status)  -- connected
+    status, e = self:cliConnect(fd, tmo)
 
     while status == 1 do
         if not e then
@@ -134,7 +128,7 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
         headers = setupHeader(headers),
         body = body or "",
     }
-    local stream = self._http:packClientFrame(res)
+    local stream = httpCommInst:packClientFrame(res)
     local res, msg = self:_waitData(stream)
     assert(res, msg)
     if type(res) ~= "table" then

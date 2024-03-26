@@ -75,7 +75,7 @@ local function tryConnect(fd, tPort)
             return
         end
     else
-        return res
+        return 1   -- 1 means connected
     end
 end
 
