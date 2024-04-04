@@ -30,3 +30,6 @@ user:
     path: "db.sock"
   - entry: uniCli
     path: "db.sock"
+  - entry: uniCli
+    path: "db.sock"
+    

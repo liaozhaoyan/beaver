@@ -30,10 +30,11 @@ cp -r /usr/local/share/lua/5.1/* ${DIST}/lua/
 
 mkdir ${APP}
 cp -r lua ${APP}
+rm -f ${APP}/lua/app/*
 mkdir ${APP}/main
 cp main/main ${APP}/main/
 cp main/run_dist.sh ${APP}/main/run.sh
-cp main/config.yaml ${APP}/main/
+cp main/sample.yaml ${APP}/main/config.yaml
 
 mkdir ${APP}/native
 cp native/*.so ${APP}/native
