@@ -10,29 +10,25 @@ require("eclass")
 local pystring = require("pystring")
 local sockerUrl = require("socket.url")
 
-local ChttpComm = class("httpComm")
+local concat = table.concat
+local split = pystring.split
+local url_unescape = sockerUrl.unescape
+local url_parse = sockerUrl.parse
+local os_date = os.date
 
-local cjson = require("cjson.safe")
-
-function ChttpComm:jencode(t)
-    return cjson.encode(t)
-end
-
-function ChttpComm:jdecode(s)
-    return cjson.decode(s)
-end
+local mt = {}
 
 local function parseParam(param)
-    local tParam = pystring.split(param, "&")
+    local tParam = split(param, "&")
     local res = {}
     for _, s in ipairs(tParam) do
-        local kv = pystring.split(s, "=")
+        local kv = split(s, "=")
         if #kv ~= 2 then
             print("bad param " .. s)
             return nil
         end
-        local k = sockerUrl.unescape(kv[1])
-        local v = sockerUrl.unescape(kv[2])
+        local k = url_unescape(kv[1])
+        local v = url_unescape(kv[2])
         res[k] = v
     end
     return res
@@ -48,8 +44,8 @@ local function parseParams(tUrl)
     return tUrl
 end
 
-function ChttpComm:parsePath(path)
-    local res = sockerUrl.parse(path)
+function mt.parsePath(path)
+    local res = url_parse(path)
     return parseParams(res)
 end
 
@@ -74,13 +70,13 @@ local codeStrTable = {
 }
 local function packStat(code)   -- only for server.
     local t = {"HTTP/1.1", tostring(code), codeStrTable[code]}
-    return table.concat(t, " ")
+    return concat(t, " ")
 end
 
 local function originServerHeader()
     return {
         server = "beaver/0.1.0",
-        date = os.date("%a, %d %b %Y %H:%M:%S %Z", os.time()),
+        date = os_date("%a, %d %b %Y %H:%M:%S %Z", os.time()),
     }
 end
 
@@ -99,19 +95,19 @@ local function packServerHeaders(headers, len) -- just for http out.
 
     local c = 1
     for k, v in pairs(origin) do
-        heads[c] = table.concat({k, v}, ": ")
+        heads[c] = concat({k, v}, ": ")
         c = c + 1
     end
 
     for k, v in pairs(headers) do
-        heads[c] = table.concat({k, v}, ": ")
+        heads[c] = concat({k, v}, ": ")
         c = c + 1
     end
 
-    return table.concat(heads, "\r\n")
+    return concat(heads, "\r\n")
 end
 
-function ChttpComm:packServerFrame(res)
+function mt.packServerFrame(res)
     local body = res.body
     if body and type(body) ~= "string" then
         body = tostring(body)
@@ -122,12 +118,12 @@ function ChttpComm:packServerFrame(res)
         "",
         body
     }
-    return table.concat(tHttp, "\r\n")
+    return concat(tHttp, "\r\n")
 end
 
 local function packCliLine(method, url)
     local t = {method, url, "HTTP/1.1"}
-    return table.concat(t, " ")
+    return concat(t, " ")
 end
 
 local originCliHeader = {
@@ -151,25 +147,25 @@ local function packCliHeaders(headers, len)
     local c = 0
     for k, v in pairs(origin) do
         c = c + 1
-        heads[c] = table.concat({k, v}, ": ")
+        heads[c] = concat({k, v}, ": ")
     end
 
     for k, v in pairs(headers) do
         c = c + 1
-        heads[c] = table.concat({k, v}, ": ")
+        heads[c] = concat({k, v}, ": ")
     end
 
-    return table.concat(heads, "\r\n")
+    return concat(heads, "\r\n")
 end
 
-function ChttpComm:packClientFrame(res)
+function mt.packClientFrame(res)
     local tHttp = {
         packCliLine(res.method, res.url),
         packCliHeaders(res.headers, #res.body),
         "",
         res.body
     }
-    return table.concat(tHttp, "\r\n")
+    return concat(tHttp, "\r\n")
 end
 
-return ChttpComm
+return mt

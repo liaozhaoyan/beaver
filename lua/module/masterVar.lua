@@ -59,30 +59,32 @@ local function pipeCtrlReg(arg)
 
         local thread = var.thread
         local yaml = thread.yaml
-        for _, worker in ipairs(yaml.worker) do
-            for i = 1, worker.number do
-                local r, w, errno = unistd.pipe()
-                if not r then
-                    error(string.format("create pipe failed, %s, errno %d", w, errno))
-                end
-
-                local config = {worker = worker}
-                local pid = c_api.create_beaver(r, var.masterIn, worker.name or "worker", lyaml.dump({config}))
-
-                local co = coroutine.create(workerPipeOut)
-                res, msg = coroutine.resume(co, thread.beaver, w)
-                system.coReport(co, res, msg)
-                var.workers[w] = {false, pid, r, co}   -- use w pipe to record single thread.
-
-                local func = {
-                    func = "regThreadId",
-                    arg = {
-                        id = w,
+        if yaml.worker then
+            for _, worker in ipairs(yaml.worker) do
+                for i = 1, worker.number do
+                    local r, w, errno = unistd.pipe()
+                    if not r then
+                        error(string.format("create pipe failed, %s, errno %d", w, errno))
+                    end
+    
+                    local config = {worker = worker}
+                    local pid = c_api.create_beaver(r, var.masterIn, worker.name or "worker", lyaml.dump({config}))
+    
+                    local co = coroutine.create(workerPipeOut)
+                    res, msg = coroutine.resume(co, thread.beaver, w)
+                    system.coReport(co, res, msg)
+                    var.workers[w] = {false, pid, r, co}   -- use w pipe to record single thread.
+    
+                    local func = {
+                        func = "regThreadId",
+                        arg = {
+                            id = w,
+                        }
                     }
-                }
-
-                res, msg = coroutine.resume(co, cjson.encode(func))
-                system.coReport(var.coOut, res, msg)
+    
+                    res, msg = coroutine.resume(co, cjson.encode(func))
+                    system.coReport(var.coOut, res, msg)
+                end
             end
         end
 
@@ -188,7 +190,9 @@ local funcTable = {
 }
 
 function M.call(arg)
-    return funcTable[arg.func](arg.arg)
+    if arg then
+        return funcTable[arg.func](arg.arg)
+    end
 end
 
 local function periodWakeGetId()

@@ -47,6 +47,7 @@ local function pipeIn(b, conf)  --> to receive call function
     while true do
         local s = r:read()
         local arg = cjson.decode(s)
+        assert(arg, format("decode arg failed. %s, len: %d", s, #s))
         masterVar.call(arg)
     end
 end

@@ -11,14 +11,13 @@ local CasyncClient = require("async.asyncClient")
 local workVar = require("module.workVar")
 local sockComm = require("common.sockComm")
 local httpRead = require("http.httpRead")
-local ChttpComm = require("http.httpComm")
+local httpComm = require("http.httpComm")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
 local format = string.format
 
 local httpConnectTmo = 10
-local httpCommInst = ChttpComm.new()
 
 local ChttpReq = class("request", CasyncClient)
 
@@ -115,6 +114,7 @@ local function checkKeepAlive(res)
     return true
 end
 
+local commPackClientFrame = httpComm.packClientFrame
 function ChttpReq:_req(verb, uri, headers, body, reuse)
     if self._status ~= 1 then
         return {body = format("connected %s status is %d, should be 1.", self._domain, self._status), 
@@ -128,7 +128,7 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
         headers = setupHeader(headers),
         body = body or "",
     }
-    local stream = httpCommInst:packClientFrame(res)
+    local stream = commPackClientFrame(res)
     local res, msg = self:_waitData(stream)
     assert(res, msg)
     if type(res) ~= "table" then

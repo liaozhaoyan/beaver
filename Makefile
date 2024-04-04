@@ -4,14 +4,15 @@ all:
 	make -C native
 	make -C main
 
-rm:
-	rm -rf beaver/
-
 dist:
 	sh pack.sh ./
+	rm -f beaver.tar.gz
 	tar zcv -f beaver.tar.gz beaver/
+	rm -rf beaver/
 
 clean:
 	make -C lib clean
 	make -C native clean
 	make -C main clean
+	rm -f beaver.tar.gz
+	rm -rf beaver/

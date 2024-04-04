@@ -8,10 +8,10 @@ require("eclass")
 
 local pystring = require("pystring")
 local system = require("common.system")
-local ChttpComm = require("http.httpComm")
+local httpComm = require("http.httpComm")
 local httpRead = require("http.httpRead")
 
-local ChttpInst = class("httpInst", ChttpComm)
+local ChttpInst = class("httpInst")
 
 function ChttpInst:_init_()
     self._cbs = {
@@ -32,8 +32,6 @@ function ChttpInst:_init_()
             urlRe = {}
         }
     }
-
-    ChttpComm._init_(self)
 end
 
 local function containsReservedCharacters(s)
@@ -143,6 +141,11 @@ local function _proc(cbs, verb, tReq)
         end
     end
     return echo501()
+end
+
+local commPackServerFrame = httpComm.packServerFrame
+function ChttpInst:packServerFrame(tReq)
+    return commPackServerFrame(tReq)
 end
 
 function ChttpInst:proc(fread, session, beaver, fd)
