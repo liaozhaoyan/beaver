@@ -33,14 +33,17 @@ function ChttpServer:_setup(fd, tmo)
     local session = {}
 
     workVar.clientAdd(module, self._bfd, fd, coroutine.running(), self._addr)
+    local fread = beaver:reads(fd)
     while true do
-        local fread = beaver:reads(fd)
-        local tReq = inst:proc(fread, session, beaver, fd)
+        local tRes = inst:proc(fread, session, beaver, fd)
 
-        if tReq then
+        if tRes then
             beaver:co_set_tmo(fd, tmo)
-            local s = inst:packServerFrame(tReq)
+            local s = inst:packServerFrame(tRes)
             beaver:write(fd, s)
+            if tRes.keep == false then  -- do not keep alive any more.
+                break
+            end
         else
             break
         end

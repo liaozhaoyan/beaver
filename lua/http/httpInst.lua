@@ -10,6 +10,7 @@ local pystring = require("pystring")
 local system = require("common.system")
 local httpComm = require("http.httpComm")
 local httpRead = require("http.httpRead")
+local lower = string.lower
 
 local ChttpInst = class("httpInst")
 
@@ -85,7 +86,7 @@ local function echo404(path)
             ["Content-Type"] = "text/plain",
         },
         body = string.format("Oops! Beaver may have forgotten %s on Mars!!!\n", path),
-        keep = true
+        keep = false
     }
 end
 
@@ -154,7 +155,16 @@ function ChttpInst:proc(fread, session, beaver, fd)
         tReq.session = session
         tReq.beaver = beaver
         tReq.fd = fd
-        return _proc(self._cbs, tReq.verb, tReq)
+        local tRes = _proc(self._cbs, tReq.verb, tReq)
+        local keep = true
+        if tReq.headers and tReq.headers.connection then
+            local con = tReq.headers.connection
+            if lower(con) ~= 'keep-alive' then
+                keep = false
+            end
+        end
+        tRes.keep = keep
+        return tRes
     end
     return nil
 end
