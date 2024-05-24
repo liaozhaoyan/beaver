@@ -31,6 +31,8 @@ function Cdownstream:_init_(beaver, uplink, bfd, addr, conf, tmo)
         tPort = {family=psocket.AF_INET, addr=conf.upIP, port=conf.upPort}
     elseif conf.upUniSock then
         tPort = {family=psocket.AF_UNIX, path=conf.upUniSock}
+    elseif conf.upVsock then
+        tPort = {vsock=conf.upVsock}
     end
 
     local fd = sockComm.connectSetup(tPort)

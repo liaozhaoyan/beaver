@@ -11,8 +11,18 @@ local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
 local format = string.format
+local type = type
+local assert = assert
+local error = error
+local yield = coroutine.yield
+local liteAssert = system.liteAssert
 local newSocket = psocket.socket
 local connect = psocket.connect
+local vsock_socket = c_api.vsock_socket
+local vsock_connect = c_api.vsock_connect
+local vsock_bind = c_api.vsock_bind
+local setsockopt_reuse_port = c_api.setsockopt_reuse_port
+local check_connected = c_api.check_connected
 
 local M = {}
 
@@ -20,25 +30,34 @@ function M.setupSocket(conf)
     local res, fd, err, errno
     if conf.port then
         fd, err, errno = newSocket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
-        assert(fd, err)
+        liteAssert(fd, err)
         local tPort = {family=psocket.AF_INET, addr=conf.bind, port=conf.port}
-        res = c_api.setsockopt_reuse_port(fd)
-        assert(res == 0, format("reuse port failed, return %d.", res))
+        res = setsockopt_reuse_port(fd)
+        liteAssert(res == 0, format("reuse port failed, return %d.", res))
         res, err, errno = psocket.bind(fd, tPort)
-        assert(res, err)
+        liteAssert(res, err)
     elseif conf.uniSock then
         unistd.unlink(conf.uniSock)
         fd, err, errno = newSocket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
-        assert(fd, err)
+        liteAssert(fd, err)
         local tPort = {family=psocket.AF_UNIX, path=conf.uniSock}
         res, err, errno = psocket.bind(fd, tPort)
-        assert(res, err)
+        liteAssert(res, err)
+    elseif conf.vsock then
+        fd = vsock_socket(psocket.SOCK_STREAM, 0)
+        if fd < 0 then
+            error(format("vsock_socket failed, return %d.", fd))
+        end
+        res = vsock_bind(fd, conf.vsock.cid, conf.vsock.port)
+        if res < 0 then
+            error(format("vsock_bind failed, return %d.", res))
+        end
     else
         error("bad bind mode.")
     end
     local backlog = conf.backlog or 100
     res, err, errno = psocket.listen(fd, backlog)
-    assert(res, err)
+    liteAssert(res, err)
     return fd
 end
 
@@ -46,11 +65,16 @@ function M.connectSetup(tPort)
     local fd, err, errno
     if tPort.port then
         fd, err, errno = newSocket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
-        assert(fd, err)
+        liteAssert(fd, err)
     elseif tPort.path then
         fd, err, errno = newSocket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
-        assert(fd, err)
+        liteAssert(fd, err)
         tPort.family = psocket.AF_UNIX
+    elseif tPort.vsock then
+        fd = vsock_socket(psocket.SOCK_STREAM, 0)
+        if fd < 0 then
+            error(format("vsock_socket failed, return %d.", fd))
+        end
     else
         error("bad connect mode.")
     end
@@ -60,7 +84,16 @@ end
 local function tryConnect(fd, tPort)
     local res, err, errno
 
-    res, err, errno = connect(fd, tPort)
+    if tPort.vsock then
+        res = vsock_connect(fd, tPort.vsock.cid, tPort.vsock.port)
+        if res > 0 then   -- connect not ready.
+            errno = res
+            err = format("vsock is not ready, report:%d.", errno)
+            res = nil
+        end
+    else
+        res, err, errno = connect(fd, tPort)
+    end
     if not res then
         if errno == 115 then  -- need to wait.
             return 2  -- refer to aysync.asyncClient _init_ 2 connecting
@@ -85,11 +118,11 @@ function M.connect(fd, tPort, beaver)
         beaver:mod_fd(fd, 1)  -- modify fd to writeable
         local connected = false
         repeat
-            local e = coroutine.yield()
+            local e = yield()
             if type(e) == "nil" then
                 return 3 -- connected failed  refer to aysync.asyncClient _init_
             elseif e.ev_out > 0 then
-                if c_api.check_connected(fd) == 0 then
+                if check_connected(fd) == 0 then
                     connected = true
                     beaver:mod_fd(fd, 0)   -- modify fd to readonly
                     return 1  -- connected success  refer to aysync.asyncClient _init_

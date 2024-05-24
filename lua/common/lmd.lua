@@ -9,130 +9,140 @@
 require("eclass")
 local pystring = require("pystring")
 
+local class = class
 local Clmd = class("lmd")
+local error = error
+local unpack = unpack
+local ipairs = ipairs
+local format = string.format
+local sub = string.sub
+local gsub = string.gsub
+local find = string.find
+local byte = string.byte
+local insert = table.insert
+local join = pystring.join
+local split = pystring.split
+local strip = pystring.strip
+local startswith = pystring.startswith
+local endswith = pystring.endswith
 local srcPath = ""
 
 function Clmd:_init_()
-    self._escs = '\\`*_{}[]()>#+-.!'
-    self._cStr = "#+->_`|"
-    self._cbs = {
-        ["#"] = function(s)  return self:pTitle(s) end,
-    }
 end
 
 function Clmd:pTitle(s)
-    local res = pystring.split(s, " ", 1)
+    local res = split(s, " ", 1)
     if #res < 2 then
         error("bad markdown: "..s)
     end
     local head, value = unpack(res)
     local level = #head
-    local tag = string.format("<h%d>", level)
-    local etag = string.format("</h%d>", level)
-    return pystring.join("", {tag, value, etag})
+    local tag = format("<h%d>", level)
+    local etag = format("</h%d>", level)
+    return join("", {tag, value, etag})
 end
 
 local function boldItalic(s)
-    if string.sub(s, -4, -4) == "\\" then
+    if sub(s, -4, -4) == "\\" then
         return s
     end
-    return pystring.join("", {"<strong><em>", string.sub(s, 4, -4), "</em></strong>"})
+    return join("", {"<strong><em>", sub(s, 4, -4), "</em></strong>"})
 end
 
 local function bold(s)
-    if string.sub(s, -3, -3) == "\\" then
+    if sub(s, -3, -3) == "\\" then
         return s
     end
-    return pystring.join("", {"<strong>", string.sub(s, 3, -3), "</strong>"})
+    return join("", {"<strong>", sub(s, 3, -3), "</strong>"})
 end
 
 local function italic(s)
-    if string.sub(s, -2, -2) == "\\" then
+    if sub(s, -2, -2) == "\\" then
         return s
     end
-    return pystring.join("", {"<em>", string.sub(s, 2, -2), "</em>"})
+    return join("", {"<em>", sub(s, 2, -2), "</em>"})
 end
 
 local function delete(s)
-    if string.sub(s, -3, -3) == "\\" then
+    if sub(s, -3, -3) == "\\" then
         return s
     end
-    return pystring.join("", {"<s>", string.sub(s, 3, -3), "</s>"})
+    return join("", {"<s>", sub(s, 3, -3), "</s>"})
 end
 
 local function code1(s)
-    return pystring.join("", {"<code>", string.sub(s, 2, -2), "</code>"})
+    return join("", {"<code>", sub(s, 2, -2), "</code>"})
 end
 
 local function code2(s)
-    return pystring.join("", {"<code>", string.sub(s, 3, -3), "</code>"})
+    return join("", {"<code>", sub(s, 3, -3), "</code>"})
 end
 
 local function pBI(s)
-    return string.gsub(s, "[%*_][%*_][%*_]%S.-%S-[%*_][%*_][%*_]", function(s) return boldItalic(s) end)
+    return gsub(s, "[%*_][%*_][%*_]%S.-%S-[%*_][%*_][%*_]", function(ss) return boldItalic(ss) end)
 end
 
 local function pBold(s)
-    return string.gsub(s, "[%*_][%*_]%S.-%S-[%*_][%*_]", function(s) return bold(s) end)
+    return gsub(s, "[%*_][%*_]%S.-%S-[%*_][%*_]", function(ss) return bold(ss) end)
 end
 
 local function pItalic(s)
-    return string.gsub(s, "[%*_]%S.-%S-[%*_]", function(s) return italic(s) end)
+    return gsub(s, "[%*_]%S.-%S-[%*_]", function(ss) return italic(ss) end)
 end
 
 local function pDelete(s)
-    return string.gsub(s, "~~%S.-%S~~", function(s) return delete(s) end)
+    return gsub(s, "~~%S.-%S~~", function(ss) return delete(ss) end)
 end
 
 local function pEnter(s)
-    return string.gsub(s, "%s%s+$", "<br>")
+    return gsub(s, "%s%s+$", "<br>")
 end
 
 local function pCode(s)
-    if string.find(s, "``") then
-        return string.gsub(s, "``.-``", function(s) return code2(s)  end)
+    if find(s, "``") then
+        return gsub(s, "``.-``", function(ss) return code2(ss)  end)
     else
-        if string.sub(s, -2, -2) == "\\" then
+        if sub(s, -2, -2) == "\\" then
             return s
         end
-        return string.gsub(s, "`.-`", function(s) return code1(s)  end)
+        return gsub(s, "`.-`", function(ss) return code1(ss)  end)
     end
 end
 
 local function images(s)
-    local name, link = unpack(pystring.split(s, "](", 1))
-    name = string.sub(name, 3)  -- ![]()
-    link = string.sub(link, 1, -2)
+    local name, link = unpack(split(s, "](", 1))
+    name = sub(name, 3)  -- ![]()
+    link = sub(link, 1, -2)
 
-    if string.sub(name, -1, -1) == "\\" then
+    if sub(name, -1, -1) == "\\" then
         return s
     end
-    if string.sub(link, -1, -1) == "\\" then
+    if sub(link, -1, -1) == "\\" then
         return s
     end
     local path = srcPath .. link
-    return string.format('<img src="%s" alt="%s"/>', path, name)
+    return format('<img src="%s" alt="%s"/>', path, name)
 end
 
 local function links(s)
-    local name, link = unpack(pystring.split(s, "](", 1))
-    name = string.sub(name, 2)  -- []()
-    link = string.sub(link, 1, -2)
-    if string.sub(name, -1, -1) == "\\" then
+    local name, link = unpack(split(s, "](", 1))
+    name = sub(name, 2)  -- []()
+    link = sub(link, 1, -2)
+    if sub(name, -1, -1) == "\\" then
         return s
     end
-    if string.sub(link, -1, -1) == "\\" then
+    if sub(link, -1, -1) == "\\" then
         return s
     end
-    return string.format('<a href="%s">%s</a>', link, name)
+    return format('<a href="%s">%s</a>', link, name)
 end
 
 local function pImages(s)
-    return string.gsub(s, "!%[.-%]%(.-%)", function(s) return images(s)  end)
+    return gsub(s, "!%[.-%]%(.-%)", function(ss) return images(ss)  end)
 end
 
 local function pLink(s)
-    return string.gsub(s, "%[.-%]%(.-%)", function(s) return links(s)  end)
+    return gsub(s, "%[.-%]%(.-%)", function(ss) return links(ss)  end)
 end
 
 local function Quotes(quotes, res)
@@ -140,39 +150,39 @@ local function Quotes(quotes, res)
     local start = 1
     local level = 1
     for i = start, len do
-        local levels, body = unpack(pystring.split(quotes[i], " ", 1))
+        local levels, body = unpack(split(quotes[i], " ", 1))
         local v = #levels
         if v > level then
             while v > level do
-                table.insert(res, "<blockquote>")
+                insert(res, "<blockquote>")
                 level = level + 1
             end
         elseif v < level then
             while v < level do
-                table.insert(res, "</blockquote>")
+                insert(res, "</blockquote>")
                 level = level - 1
             end
         end
-        local line = pystring.join("", {"<p>", body, "</p>"})
-        table.insert(res, line)
+        local line = join("", {"<p>", body, "</p>"})
+        insert(res, line)
     end
     while level > 1 do
-        table.insert(res, "</blockquote>")
+        insert(res, "</blockquote>")
         level = level - 1
     end
 end
 
 local function pQuote(quotes, res)
-    table.insert(res, "<blockquote>")
+    insert(res, "<blockquote>")
     Quotes(quotes, res)
-    table.insert(res, "</blockquote>")
+    insert(res, "</blockquote>")
 end
 
 local function countBlankTab(s)
     local blank = 0
     local tab = 0
     for i = 1, #s do
-        local ch = string.byte(s, i)
+        local ch = byte(s, i)
         if ch == 0x20 then   -- for blank
             blank = blank + 1
         elseif ch == 0x09 then   -- for tab
@@ -193,41 +203,41 @@ function Clmd:ol(ols, res)
     local level = 0
 
     for i = start, len do
-        local levels, body = unpack(pystring.split(ols[i], ".", 1))
+        local levels, body = unpack(split(ols[i], ".", 1))
         local v = level4BT(levels)
         if v > level then
             while v > level do
-                table.insert(res, "<ol>")
+                insert(res, "<ol>")
                 level = level + 1
             end
         elseif v < level then
             while v < level do
-                table.insert(res, "</ol>")
+                insert(res, "</ol>")
                 level = level - 1
             end
         end
-        local line = pystring.join("", {"<li>", self:seg(string.sub(body, 2)), "</li>"})
-        table.insert(res, line)
+        local line = join("", {"<li>", self:seg(sub(body, 2)), "</li>"})
+        insert(res, line)
     end
 
     while level > 0 do
-        table.insert(res, "</ol>")
+        insert(res, "</ol>")
         level = level - 1
     end
 end
 
 function Clmd:pOl(ols, res)
-    table.insert(res, "<ol>")
+    insert(res, "<ol>")
     self:ol(ols, res)
-    table.insert(res, "</ol>")
+    insert(res, "</ol>")
 end
 
 local function splitUl(s)
-    if pystring.startswith(s, " ") then
-        local pos = string.find(s, "%S", 1)
-        return string.sub(s, 1, pos + 1), string.sub(s, pos + 2)
+    if startswith(s, " ") then
+        local pos = find(s, "%S", 1)
+        return sub(s, 1, pos + 1), sub(s, pos + 2)
     else
-        return unpack(pystring.split(s, " ", 1))
+        return unpack(split(s, " ", 1))
     end
 end
 
@@ -241,71 +251,71 @@ function Clmd:ul(uls, res)
         local v = level4BT(levels)
         if v > level then
             while v > level do
-                table.insert(res, "<ul>")
+                insert(res, "<ul>")
                 level = level + 1
             end
         elseif v < level then
             while v < level do
-                table.insert(res, "</ul>")
+                insert(res, "</ul>")
                 level = level - 1
             end
         end
-        local line = pystring.join("", {"<li>", self:seg(body), "</li>"})
-        table.insert(res, line)
+        local line = join("", {"<li>", self:seg(body), "</li>"})
+        insert(res, line)
     end
 
     while level > 0 do
-        table.insert(res, "</ul>")
+        insert(res, "</ul>")
         level = level - 1
     end
 end
 
 function Clmd:pUl(uls, res)
-    table.insert(res, "<ul>")
+    insert(res, "<ul>")
     self:ul(uls, res)
-    table.insert(res, "</ul>")
+    insert(res, "</ul>")
 end
 
 local function pCodeTab(codes, res)
-    table.insert(res, "<pre><code>")
+    insert(res, "<pre><code>")
     for _, line in ipairs(codes) do
-        table.insert(res, string.sub(line, 2))
+        insert(res, sub(line, 2))
     end
-    table.insert(res, "</code></pre>")
+    insert(res, "</code></pre>")
 end
 
 local function pCodeBlank(codes, res)
-    table.insert(res, "<pre><code>")
+    insert(res, "<pre><code>")
     for _, line in ipairs(codes) do
-        table.insert(res, string.sub(line, 5))
+        insert(res, sub(line, 5))
     end
-    table.insert(res, "</code></pre>")
+    insert(res, "</code></pre>")
 end
 
 local function pCodeFence(codes, res)
-    table.insert(res, "<pre><code>")
+    insert(res, "<pre><code>")
     for _, line in ipairs(codes) do
-        table.insert(res, line)
+        insert(res, line)
     end
-    table.insert(res, "</code></pre>")
+    insert(res, "</code></pre>")
 end
 
 local function tableAligns(line)
-    local aligns = pystring.split(line, "|")
+    local aligns = split(line, "|")
     local res = {}
     for i=2, #aligns - 1 do
-        local cell = pystring.strip(aligns[i])
-        if pystring.startswith(cell, ":") then
-            if pystring.endswith(cell, ":") then
-                table.insert(res, "center")
+        local cell = strip(aligns[i])
+        if startswith(cell, ":") then
+            if endswith(cell, ":") then
+                insert(res, "center")
             else
-                table.insert(res, "left")
+                insert(res, "left")
             end
         else
-            if pystring.endswith(cell, ":") then
-                table.insert(res, "right")
+            if endswith(cell, ":") then
+                insert(res, "right")
             else
-                table.insert(res, "nil")
+                insert(res, "nil")
             end
         end
     end
@@ -321,50 +331,50 @@ function Clmd:pTable(codes, res)
     end
 
     local aligns = tableAligns(codes[2])
-    table.insert(res, '<table border="1">')
+    insert(res, '<table border="1">')
 
-    local heads = pystring.split(codes[1], "|")
-    table.insert(res, "<tr>")
+    local heads = split(codes[1], "|")
+    insert(res, "<tr>")
     for j=2, #heads - 1 do
-        local cell = pystring.strip(heads[j])
+        local cell = strip(heads[j])
         cell = self:seg(cell)
         local line
         if aligns[j - 1] == nil or aligns[j - 1] == "nil" then
-            line = pystring.join("", {"<th>", cell, "</th>"})
+            line = join("", {"<th>", cell, "</th>"})
         else
-            line = pystring.join("", {string.format('<th align="%s">', aligns[j - 1]),
+            line = join("", {format('<th align="%s">', aligns[j - 1]),
                                             cell, "</th>"})
         end
-        table.insert(res, line)
+        insert(res, line)
     end
-    table.insert(res, "</tr>")
+    insert(res, "</tr>")
 
     for i = start, len do
-        local cells = pystring.split(codes[i], "|")
-        table.insert(res, "<tr>")
+        local cells = split(codes[i], "|")
+        insert(res, "<tr>")
         for j=2, #heads - 1 do
-            local cell = pystring.strip(cells[j])
+            local cell = strip(cells[j])
             cell = self:seg(cell)
             local line
             if aligns[j - 1] == nil or aligns[j - 1] == "nil" then
-                line = pystring.join("", {"<td>", cell, "</td>"})
+                line = join("", {"<td>", cell, "</td>"})
             else
-                line = pystring.join("", {string.format('<td align="%s">', aligns[j - 1]),
+                line = join("", {format('<td align="%s">', aligns[j - 1]),
                                           cell, "</td>"})
             end
-            table.insert(res, line)
+            insert(res, line)
         end
-        table.insert(res, "</tr>")
+        insert(res, "</tr>")
     end
-    table.insert(res, "</table>")
+    insert(res, "</table>")
 end
 
 local function escape(s)
-    return string.sub(s, 2)
+    return sub(s, 2)
 end
 
 local function pEscape(s)
-    return string.gsub(s, "\\.", function(s) return escape(s)  end)
+    return gsub(s, "\\.", function(ss) return escape(ss)  end)
 end
 
 function Clmd:seg(s)
@@ -380,11 +390,11 @@ end
 
 function Clmd:pSeg(s)
     s = self:seg(s)
-    return pystring.join("", {"<p>", pEnter(s), "</p>"})
+    return join("", {"<p>", pEnter(s), "</p>"})
 end
 
 function Clmd:toHtml(md, path)
-    local mds = pystring.split(md, '\n')
+    local mds = split(md, '\n')
     local res = {}
     local len = #mds
     local stop = 0
@@ -397,84 +407,84 @@ function Clmd:toHtml(md, path)
             goto continue
         end
 
-        if string.find(line, "#+%s") then
-            table.insert(res, self:pTitle(line))
-        elseif string.find(line, ">%s") then   -- for block quote
+        if find(line, "#+%s") then
+            insert(res, self:pTitle(line))
+        elseif find(line, ">%s") then   -- for block quote
             local j = i + 1
             local quotes = {line}
-            while j <= len and string.find(mds[j], ">+%s") do
-                table.insert(quotes, mds[j])
+            while j <= len and find(mds[j], ">+%s") do
+                insert(quotes, mds[j])
                 j = j + 1
             end
             pQuote(quotes, res)
             stop = j
-        elseif string.find(line, "^%d%.%s") then
+        elseif find(line, "^%d%.%s") then
             local j = i + 1
             local ols = {line}
-            while j <= len and string.find(mds[j], "[\t%s]*%d%.%s") do
-                table.insert(ols, mds[j])
+            while j <= len and find(mds[j], "[\t%s]*%d%.%s") do
+                insert(ols, mds[j])
                 j = j + 1
             end
             self:pOl(ols, res)
             stop = j
-        elseif string.find(line, "^[%-%*%+]%s") then
+        elseif find(line, "^[%-%*%+]%s") then
             local j = i + 1
             local uls = {line}
-            while j <= len and string.find(mds[j], "[\t%s]*[%-%*%+]%s") do
-                table.insert(uls, mds[j])
+            while j <= len and find(mds[j], "[\t%s]*[%-%*%+]%s") do
+                insert(uls, mds[j])
                 j = j + 1
             end
             self:pUl(uls, res)
             stop = j
-        elseif string.find(line, "^\t") then
+        elseif find(line, "^\t") then
             local j = i + 1
             local codes = {line}
-            while j <= len and string.find(mds[j], "^\t") do
-                table.insert(codes, mds[j])
+            while j <= len and find(mds[j], "^\t") do
+                insert(codes, mds[j])
                 j = j + 1
             end
             pCodeTab(codes, res)
             stop = j
-        elseif string.find(line, "^%s%s%s%s") then
+        elseif find(line, "^%s%s%s%s") then
             local j = i + 1
             local codes = {line}
-            while j <= len and string.find(mds[j], "^%s%s%s%s") do
-                table.insert(codes, mds[j])
+            while j <= len and find(mds[j], "^%s%s%s%s") do
+                insert(codes, mds[j])
                 j = j + 1
             end
             pCodeBlank(codes, res)
             stop = j
-        elseif string.find(line, "^```") then
+        elseif find(line, "^```") then
             local j = i + 1
             local codes = {}
-            while j <= len and not string.find(mds[j], "^```") do
-                table.insert(codes, mds[j])
+            while j <= len and not find(mds[j], "^```") do
+                insert(codes, mds[j])
                 j = j + 1
             end
             pCodeFence(codes, res)
             stop = j + 1
-        elseif string.find(line, "^|") then
+        elseif find(line, "^|") then
             local j = i + 1
             local codes = {line}
-            while j <= len and string.find(mds[j], "^|") do
-                table.insert(codes, mds[j])
+            while j <= len and find(mds[j], "^|") do
+                insert(codes, mds[j])
                 j = j + 1
             end
             self:pTable(codes, res)
             stop = j
-        elseif string.find(line, "^[%*%-_][%*%-_][%*%-_]") then
-            table.insert(res, "<hr>")
+        elseif find(line, "^[%*%-_][%*%-_][%*%-_]") then
+            insert(res, "<hr>")
         else
             if #line > 0 then
-                table.insert(res, self:pSeg(line))
+                insert(res, self:pSeg(line))
             else
-                table.insert(res, line)
+                insert(res, line)
             end
         end
 
         ::continue::
     end
-    return pystring.join("\n", res)
+    return join("\n", res)
 end
 
 return Clmd

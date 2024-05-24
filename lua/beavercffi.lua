@@ -47,6 +47,10 @@ unsigned long timer_io_now();
 unsigned long time_io_calc(unsigned long offset);
 int timer_io_set(int fd, unsigned long ms);
 int timer_io_get(int fd);
+
+int vsock_socket(int type, int protocol);
+int vsock_bind(int sockfd, unsigned int cid, unsigned short port);
+int vsock_connect(int sockfd, unsigned int cid, unsigned short port);
 ]]
 
 return {type = c_type, api=c_api}

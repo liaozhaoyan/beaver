@@ -5,33 +5,50 @@
 ---
 
 local serpent = require("common.serpent")
+local block = serpent.block
 local system = {}
+local type = type
+local print = print
+local pairs = pairs
+local ipairs = ipairs
+local xpcall = xpcall
+local assert = assert
+local setmetatable = setmetatable
+local getmetatable = getmetatable
+local error = error
+local traceback = debug.traceback
+local concat = table.concat
+local sub = string.sub
+local gsub = string.gsub
+local format = string.format
+local byte = string.byte
+local rep = string.rep
 
 function system.deepcopy(object)
     local lookup_table = {}
-    local function _copy(object)
-        if type(object) ~= "table" then
-            return object
-        elseif lookup_table[object] then
-            return lookup_table[object]
+    local function _copy(obj)
+        if type(obj) ~= "table" then
+            return obj
+        elseif lookup_table[obj] then
+            return lookup_table[obj]
         end
         local new_table = {}
-        lookup_table[object] = new_table
-        for index, value in pairs(object) do
+        lookup_table[obj] = new_table
+        for index, value in pairs(obj) do
             new_table[_copy(index)] = _copy(value)
         end
-        return setmetatable(new_table, getmetatable(object))
+        return setmetatable(new_table, getmetatable(obj))
     end
 
     return _copy(object)
 end
 
 function system.dump(t)
-    return serpent.block(t)
+    return block(t)
 end
 
 function system.dumps(t)
-    print(serpent.block(t))
+    print(block(t))
 end
 
 local function _coReport(co, msg)
@@ -41,7 +58,13 @@ local function _coReport(co, msg)
         --"\ncallback list:",
         --debug.traceback(co)
     }
-    return table.concat(cells, "\n")
+    return concat(cells, "\n")
+end
+
+function system.liteAssert(cond, ...)
+    if not cond then
+        error(format(...))
+    end
 end
 
 function system.coReport(co, res, msg)
@@ -50,7 +73,7 @@ end
 
 local lastStack = ""
 local function funcReport(err)
-    lastStack = err .. debug.traceback()
+    lastStack = err .. traceback()
     print("call error: ", lastStack)
 end
 
@@ -137,23 +160,23 @@ function system.listMerge(...)
 end
 
 function system.hex2ups(hex)
-    return (string.gsub(hex, ".", function (c)
-        return string.format("%02X", string.byte(c))
+    return (gsub(hex, ".", function (c)
+        return format("%02X", byte(c))
     end))
 end
 
 function system.hex2lows(hex)
-    return (string.gsub(hex, ".", function (c)
-        return string.format("%02x", string.byte(c))
+    return (gsub(hex, ".", function (c)
+        return format("%02x", byte(c))
     end))
 end
 
 function system.hexdump(buf)
     for byte=1, #buf, 16 do
         local chunk = buf:sub(byte, byte+15)
-        io.write(string.format('%08X  ',byte-1))
-        chunk:gsub('.', function (c) io.write(string.format('%02X ',string.byte(c))) end)
-        io.write(string.rep(' ',3*(16-#chunk)))
+        io.write(format('%08X  ',byte-1))
+        chunk:gsub('.', function (c) io.write(string.format('%02X ',byte(c))) end)
+        io.write(rep(' ',3*(16-#chunk)))
         io.write(' ',chunk:gsub('%c','.'),"\n")
     end
 end
@@ -172,7 +195,7 @@ end
 
 function system.escHtml(s)
     local reHtml = '[<>&"\t]'
-    return string.gsub(s, reHtml, function(s) return esc_html(s)  end)
+    return gsub(s, reHtml, function(s) return esc_html(s)  end)
 end
 
 local function esc_md(s)
@@ -181,17 +204,20 @@ end
 
 function system.escMd(s)
     local reFmt = "[\\`%*_%{%}%[%]%(%)#%+%-%.!|]"
-    return string.gsub(s, reFmt, function(s) return esc_md(s)  end)
+    return gsub(s, reFmt, function(s) return esc_md(s)  end)
 end
 
+local time = os.time
+local date = os.date
 function system.timeRfc1123(t)
-    t = t or os.time()
-    return os.date("!%a, %d %b %Y %H:%M:%S GMT", t)
+    t = t or time()
+    return date("!%a, %d %b %Y %H:%M:%S GMT", t)
 end
 
+local lyaml = require("lyaml")
+local io_open = io.open
 function system.parseYaml(fYaml)
-    local lyaml = require("lyaml")
-    local f = io.open(fYaml,"r")
+    local f = io_open(fYaml,"r")
     if not f then
         error("file: " .. fYaml .. " is not exist.")
     end
@@ -201,21 +227,23 @@ function system.parseYaml(fYaml)
     return lyaml.load(s)
 end
 
+local randomseed = math.randomseed
+local random = math.random
 function system.guid()
-    math.randomseed(os.time())
-    local seed={'e','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'}
+    randomseed(time())
+    local seed={'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'}
     local tb={}
     for i = 1,32 do
-        table.insert(tb,seed[math.random(1,16)])
+        tb[i] = seed[random(1,16)]
     end
 
-    local sid = table.concat(tb)
-    return string.format('%s-%s-%s-%s-%s',
-            string.sub(sid,1,8),
-            string.sub(sid,9,12),
-            string.sub(sid,13,16),
-            string.sub(sid,17,20),
-            string.sub(sid,21,32)
+    local sid = concat(tb)
+    return format('%s-%s-%s-%s-%s',
+            sub(sid,1,8),
+            sub(sid,9,12),
+            sub(sid,13,16),
+            sub(sid,17,20),
+            sub(sid,21,32)
     )
 end
 
@@ -228,9 +256,9 @@ function system.randomStr(n)
     local tSize = #t
     local s = {}
     for i = 1, n do
-        s[i] = t[math.random(tSize)]
+        s[i] = t[random(tSize)]
     end
-    return table.concat(s)
+    return concat(s)
 end
 
 return system

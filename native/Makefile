@@ -1,7 +1,7 @@
 CC := gcc
 CFLAG := -g -fpic
 LDFLAG := -g -fpic -shared -lssl -lcrypto -lpthread -lluajit-5.1
-OBJS := beaver.o ctrl_io.o lua_api.o local_beaver.o async_ssl.o timer_io.o
+OBJS := beaver.o ctrl_io.o lua_api.o local_beaver.o async_ssl.o timer_io.o vsock.o
 SO := liblbeaver.so
 
 all: $(SO)
