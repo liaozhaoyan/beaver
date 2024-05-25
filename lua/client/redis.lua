@@ -60,12 +60,24 @@ local unsub_commands = {
     "unsubscribe", "punsubscribe"
 }
 
-local sub = string.sub
-local find = string.find
-
 local defaultRedisReadOvertime = 15
 
+local class = class
 local Credis = class("redis", CasyncClient)
+
+local sub = string.sub
+local find = string.find
+local tostring = tostring
+local ipairs = ipairs
+local tonumber = tonumber
+local unpack = unpack
+local type = type
+local concat = table.concat
+local insert = table.insert
+local running = coroutine.running
+local yield = coroutine.yield
+local liteAssert = system.liteAssert
+local c_api_b_close = c_api.b_close
 
 local function exec_cmd(cmd, ...)
     local args = {...}
@@ -83,7 +95,7 @@ local function exec_cmd(cmd, ...)
     end
     c = c + 1
     res[c] = ""
-    return table.concat(res, "\r\n")
+    return concat(res, "\r\n")
 end
 
 
@@ -101,7 +113,7 @@ function Credis:_init_(tReq, host, port, tmo)
         self[cmd] = function(obj, ...)
             local s = exec_cmd(cmd, ...)
             local res, msg = obj:send(s)
-            assert(res, msg)
+            liteAssert(res, msg)
             return res
         end
     end
@@ -149,7 +161,7 @@ end
 local syms_tab
 
 local function exec_sym(s, fread)
-    local code = string.sub(s, 1, 1)
+    local code = sub(s, 1, 1)
     local func = syms_tab[code]
     if func then
         return func(sub(s, 2), fread)
@@ -363,7 +375,7 @@ function Credis:pipeline()
     for _, cmd in ipairs(common_cmds) do
         pipeRedis[cmd] = function(obj, ...)
             local s = exec_cmd(cmd, ...)
-            table.insert(pipeRedis._cmds, s)
+            insert(pipeRedis._cmds, s)
         end
     end
     pipeRedis.send = function(obj)
@@ -379,7 +391,7 @@ function Credis:_setup(fd, tmo)
     local e, t, lastType
     local maxLen = 4 * 1024 * 1024
 
-    workVar.connectAdd("redis", fd, coroutine.running())
+    workVar.connectAdd("redis", fd, running())
 
     self._status = 2  -- connecting
     beaver:co_set_tmo(fd, tmo)  -- set connect timeout
@@ -390,7 +402,7 @@ function Credis:_setup(fd, tmo)
 
     while status == 1 do
         if not e then
-            e = coroutine.yield()
+            e = yield()
         end
         t = type(e)
         if t == "string" then -- single cmd
@@ -403,7 +415,7 @@ function Credis:_setup(fd, tmo)
             lastType = "string"
             beaver:co_set_tmo(fd, -1)
         elseif t == "table" then
-            local s = table.concat(e)  -- contract all syms.
+            local s = concat(e)  -- contract all syms.
             beaver:co_set_tmo(fd, tmo)
             res = beaver:write(fd, s)
             if not res then
@@ -429,7 +441,7 @@ function Credis:_setup(fd, tmo)
                 e = self:wake(co, res)
                 t = type(e)
                 if t == "cdata" then -->upstream need to close.
-                    assert(e.ev_close > 0)
+                    liteAssert(e.ev_close > 0)
                     self:wake(co, nil)  -->let upstream to do next working.
                     break
                 elseif t == "number" then  -->upstream reuse connect
@@ -444,7 +456,7 @@ function Credis:_setup(fd, tmo)
 
     self._status = 0  -- closed
     self:stop()
-    c_api.b_close(fd)
+    c_api_b_close(fd)
     workVar.connectDel("redis", fd)
 end
 

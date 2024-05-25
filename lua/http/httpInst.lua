@@ -10,8 +10,14 @@ local pystring = require("pystring")
 local system = require("common.system")
 local httpComm = require("http.httpComm")
 local httpRead = require("http.httpRead")
+local liteAssert = system.liteAssert
+local ipairs = ipairs
+local pairs = pairs
 local lower = string.lower
+local find = string.find
+local format = string.format
 
+local class = class
 local ChttpInst = class("httpInst")
 
 function ChttpInst:_init_()
@@ -37,19 +43,19 @@ end
 
 local function containsReservedCharacters(s)
     local reservedPattern = "[%.%+%-%*%?%[%]%^%$%(%)%%]"
-    return string.find(s, reservedPattern) == nil
+    return find(s, reservedPattern) == nil
 end
 
 function ChttpInst:_verbRegister(verb, path, func)
     local cb = self._cbs[verb]
 
-    assert(cb, "bad verb mode: " .. verb)
+    liteAssert(cb, "bad verb mode: " .. verb)
 
     if containsReservedCharacters(path) then
-        assert(not cb.url[path], "the " .. path .. " is already registered.")
+        liteAssert(not cb.url[path], "the " .. path .. " is already registered.")
         cb.url[path] = func
     else
-        assert(not cb.urlRe[path], "the " .. path .. " is already registered.")
+        liteAssert(not cb.urlRe[path], "the " .. path .. " is already registered.")
         cb.urlRe[path] = func
     end
 end
@@ -72,7 +78,7 @@ end
 
 local function reSearch(urlRe, path)
     for re, func in pairs(urlRe) do
-        if string.find(path, re) then
+        if find(path, re) then
             return func
         end
     end
@@ -85,7 +91,7 @@ local function echo404(path)
         headers = {
             ["Content-Type"] = "text/plain",
         },
-        body = string.format("Oops! Beaver may have forgotten %s on Mars!!!\n", path),
+        body = format("Oops! Beaver may have forgotten %s on Mars!!!\n", path),
         keep = false
     }
 end
@@ -102,7 +108,7 @@ local function echo501()
 end
 
 local function echo503(path, msg)
-    local body = string.format("Oh! beaver may have a bad stomach!!!\nhe eat %s, report: %s\n", path, msg)
+    local body = format("Oh! beaver may have a bad stomach!!!\nhe eat %s, report: %s\n", path, msg)
     return {
         code = 503,
         headers = {

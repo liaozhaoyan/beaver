@@ -11,43 +11,59 @@ require("struct")
 local CbeaverIO = class("beaverIO")
 local buffer = require("string.buffer")
 local cffi = require("beavercffi")
+local system = require("common.system")
 local format = string.format
 
 local ioBlockSize = 65536
 
 local c_type, c_api = cffi.type, cffi.api
 
+local s_unpack = struct.unpack
+local s_pack = struct.pack
+local concat = table.concat
+local buffer_new = buffer.new
+local liteAssert = system.liteAssert
+local c_api_init = c_api.init
+local c_api_deinit = c_api.deinit
+local c_api_mod_fd = c_api.mod_fd
+local c_api_del_fd = c_api.del_fd
+local c_api_add_fd = c_api.add_fd
+local c_api_b_read = c_api.b_read
+local c_api_b_write = c_api.b_write
+local c_api_b_yield = c_api.b_yield
+local yield = coroutine.yield
+
 function CbeaverIO:_init_()
-    local efd = c_api.init(-1)
-    assert(efd > 0)
+    local efd = c_api_init(-1)
+    liteAssert(efd > 0)
     self._efd = efd
 end
 
 function CbeaverIO:_del_()
     if self._efd then
-        c_api.deinit(self._efd)
+        c_api_deinit(self._efd)
     end
 end
 
 function CbeaverIO:remove(fd)
-    assert(c_api.del_fd(self._efd, fd) >= 0)
+    liteAssert(c_api_del_fd(self._efd, fd) >= 0)
 end
 
 function CbeaverIO:add(fd)
-    assert(c_api.add_fd(self._efd, fd) >= 0)
+    liteAssert(c_api_add_fd(self._efd, fd) >= 0)
 end
 
 function CbeaverIO:mod_fd(fd, wr)
-    assert(c_api.mod_fd(self._efd, fd, wr) == 0)
+    liteAssert(c_api_mod_fd(self._efd, fd, wr) == 0)
 end
 
 function CbeaverIO:read(fd, size)
     size = size or ioBlockSize
-    local buf = buffer.new(size)
+    local buf = buffer_new(size)
     local ptr, len = buf:reserve(size)
 
     len = len < size and len or size
-    local ret = c_api.b_read(fd, ptr, len)
+    local ret = c_api_b_read(fd, ptr, len)
 
     if ret == 0 then
         return nil, "fd closed",  64
@@ -55,11 +71,11 @@ function CbeaverIO:read(fd, size)
         buf:commit(ret)
         return buf:tostring()
     elseif ret == -11 then
-        local e = coroutine.yield()
+        local e = yield()
         if e.ev_close > 0 then
             return nil, format("fd %d is already closed.", fd), 32
         elseif e.ev_in > 0 then
-            ret = c_api.b_read(fd, ptr, len)
+            ret = c_api_b_read(fd, ptr, len)
             if ret > 0 then
                 buf:commit(ret)
                 return buf:tostring()
@@ -84,7 +100,7 @@ function CbeaverIO:reads(fd, maxLen)
         tmo = tmo or -1
 
         len = len < bufSize and len or bufSize   -- buffer min is 32, if maxLen little than 32,
-        local ret = c_api.b_read(fd, ptr, len)
+        local ret = c_api_b_read(fd, ptr, len)
 
         if ret == 0 then
             return nil, "fd closed",  64
@@ -93,11 +109,11 @@ function CbeaverIO:reads(fd, maxLen)
             return buf:tostring()
         elseif ret == -11 then
             self:co_set_tmo(fd, tmo)
-            local e = coroutine.yield()
+            local e = yield()
             if e.ev_close > 0 then
                 return nil, format("fd %d is already closed.", fd), 32
             elseif e.ev_in > 0 then
-                ret = c_api.b_read(fd, ptr, len)
+                ret = c_api_b_read(fd, ptr, len)
                 if ret > 0 then
                     maxLen = maxLen - ret
                     buf:commit(ret)
@@ -119,32 +135,32 @@ function CbeaverIO:write(fd, stream)
     local res
     local ret
 
-    local buf = buffer.new()
+    local buf = buffer_new()
     buf:put(stream)
     local ptr, len = buf:ref()
-    ret = c_api.b_write(fd, ptr, len)
+    ret = c_api_b_write(fd, ptr, len)
     if ret == -11 then  -- full EAGAIN ?
         ret = 0
     end
 
     if ret >= 0 then
         if ret < len then
-            res = c_api.mod_fd(self._efd, fd, 1)  -- epoll write ev
+            res = c_api_mod_fd(self._efd, fd, 1)  -- epoll write ev
             if res < 0 then
                 return nil, "epoll mod_fd failed.", -res
             end
             
             while ret < len do
-                local e = coroutine.yield()
+                local e = yield()
 
                 if e.ev_close > 0 then
                     return nil, format("write fd %d is already closed.", fd), 32
                 elseif e.ev_out then
-                    print("write fd %d need  to write %d.", fd, len - ret)
+                    -- print("write fd %d need  to write %d.", fd, len - ret)
                     buf:skip(ret)  -- move to next
 
                     ptr, len = buf:ref()
-                    ret = c_api.b_write(fd, ptr, len)
+                    ret = c_api_b_write(fd, ptr, len)
                     if ret < 0 then
                         if ret == -11 then  -- EAGAIN ?
                             ret = 0
@@ -159,7 +175,7 @@ function CbeaverIO:write(fd, stream)
             end
 
             ::done::
-            res = c_api.mod_fd(self._efd, fd, 0)  -- epoll read ev only
+            res = c_api_mod_fd(self._efd, fd, 0)  -- epoll read ev only
             if res < 0 then
                 return nil, "epoll mod_fd failed.", -res
             end
@@ -187,7 +203,7 @@ function CbeaverIO:readBySize(fd, size)
             return res, err, errno
         end
     until len >= size
-    return table.concat(buffs)
+    return concat(buffs)
 end
 
 function CbeaverIO:pipeRead(fd)
@@ -195,7 +211,7 @@ function CbeaverIO:pipeRead(fd)
 
     res, err, errno = self:readBySize(fd, 4)
     if res then
-        local len = struct.unpack("<i", res)
+        local len = s_unpack("<i", res)
         res, err, errno = self:readBySize(fd, len)
     end
     return res, err, errno
@@ -207,14 +223,12 @@ local function blockeWrite(func, fd, stream)
     buf:put(stream)
     local ptr, len = buf:ref()
 
-    local write = c_api.b_write
-    local yield = c_api.b_yield
     repeat
-        res = write(fd, ptr, len)
+        res = c_api_b_write(fd, ptr, len)
         if res < 0 then
             if res == -11 then  -- EAGAIN ?
                 res = 0
-                yield()
+                c_api_b_yield()  -- thread should yield
             else
                return nil, "innner write IO Error.", -res 
             end
@@ -228,7 +242,7 @@ end
 
 function CbeaverIO:pipeWrite(fd, stream)
     local len = #stream
-    local buff = struct.pack("<i", len) .. stream
+    local buff = s_pack("<i", len) .. stream
     return blockeWrite(c_api.b_write, fd, buff)
 end
 

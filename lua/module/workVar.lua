@@ -10,6 +10,19 @@ local CasyncAccept = require("async.asyncAccept")
 local sockComm = require("common.sockComm")
 local cjson = require("cjson.safe")
 
+local require = require
+local pairs = pairs
+local tonumber = tonumber
+local error = error
+local format = string.format
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local create = coroutine.create
+local running = coroutine.running
+local yield = coroutine.yield
+local resume = coroutine.resume
+local jencode = cjson.encode
+
 local var = {
     -- for server module manage.
     pingpong = {},
@@ -51,7 +64,7 @@ function M.getIp(host)
         ip = host
     else
         domain, ip = M.dnsReq(host)
-        assert(domain == host, "bad dns request.")
+        liteAssert(domain == host, "bad dns request.")
     end
     return ip
 end
@@ -69,8 +82,8 @@ local function regThreadId(arg)
         }
     }
 
-    local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
-    system.coReport(var.coOut, res, msg)
+    local res, msg = resume(var.coOut, jencode(func))
+    coReport(var.coOut, res, msg)
 
     if var.setupCb then
         local call = var.setupCb.func
@@ -84,8 +97,8 @@ local function echoDns(arg)
     local coId = arg.coId
     local co = var.dnsWait[coId]
 
-    local res, msg =  coroutine.resume(co, arg.domain, arg.ip)
-    system.coReport(co, res, msg)
+    local res, msg =  resume(co, arg.domain, arg.ip)
+    coReport(co, res, msg)
     var.dnsWait[coId] = nil   -- free wait.
 end
 
@@ -94,8 +107,8 @@ local function echoWake(arg)
     local coId = arg.coId
     local co = var.periodWakeCo[coId]
 
-    res, msg = coroutine.resume(co, arg.period)
-    system.coReport(co, res, msg)
+    res, msg = resume(co, arg.period)
+    coReport(co, res, msg)
     if arg.loop == 0 then
         var.periodWakeCo[coId] = nil   -- free wait.
     end
@@ -124,7 +137,7 @@ function M.workerGetVar()
 end
 
 function M.bindAdd(m, fd, co)
-    assert(not var[m][fd], string.format("%s bind socket is already in use.", m))
+    liteAssert(not var[m][fd], format("%s bind socket is already in use.", m))
     var[m][fd] = {
         co = co,
         addrs = {},
@@ -133,7 +146,7 @@ function M.bindAdd(m, fd, co)
 end
 
 function M.clientAdd(m, bfd, fd, co, addr)
-    assert(not var[m][bfd].cos[fd], string.format("%s work socket is already in use.", m))
+    liteAssert(not var[m][bfd].cos[fd], format("%s work socket is already in use.", m))
     var[m][bfd].cos[fd] = co
     var[m][bfd].addrs[fd] = addr
 end
@@ -149,22 +162,22 @@ function M.clientDel(m, fd)
         end
     end
     system.dumps(var[m])
-    error(string.format("fd: %d is not register.", fd))
+    error(format("fd: %d is not register.", fd))
 end
 
 function M.connectAdd(m, fd, co)
-    assert(not var[m][fd], string.format("%s connect socket is already working.", m))
+    liteAssert(not var[m][fd], format("%s connect socket is already working.", m))
     var[m][fd] = co
 end
 
 function M.connectDel(m, fd)
-    assert(var[m][fd], "%s connect socket is not working.", m)
+    liteAssert(var[m][fd], format("%s connect socket is not working.", m))
     var[m][fd] = nil
 end
 
 local function dnsGetCoId()
     local ret = var.dnsId
-    var.dnsWait[ret] = coroutine.running()
+    var.dnsWait[ret] = running()
     var.dnsId = var.dnsId + 1
     return ret
 end
@@ -179,22 +192,22 @@ function M.dnsReq(domain)
         }
     }
 
-    local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
-    system.coReport(var.coOut, res, msg)
-    local domain, ip = coroutine.yield()
+    local res, msg = resume(var.coOut, cjson.encode(func))
+    coReport(var.coOut, res, msg)
+    local domain, ip = yield()
     return domain, ip
 end
 
 local function periodWakeGetId()
     local ret = var.periodWakeId
-    var.periodWakeCo[ret] = coroutine.running()
+    var.periodWakeCo[ret] = running()
     var.periodWakeId = var.periodWakeId + 1
     return ret
 end
 
 function M.periodWake(period, loop)
-    assert(period >= 1, "period arg should greater than 1.")
-    assert(loop >= 1, "loop should greater than 1.")
+    liteAssert(period >= 1, "period arg should greater than 1.")
+    liteAssert(loop >= 1, "loop should greater than 1.")
     local func = {
         func = "reqPeriodWake",
         arg = {
@@ -205,9 +218,9 @@ function M.periodWake(period, loop)
         }
     }
 
-    local res, msg = coroutine.resume(var.coOut, cjson.encode(func))
-    system.coReport(var.coOut, res, msg)
-    return coroutine.yield()
+    local res, msg = resume(var.coOut, jencode(func))
+    coReport(var.coOut, res, msg)
+    return yield()
 end
 
 function M.msleep(ms)
@@ -247,22 +260,22 @@ end
 
 local function acceptServer(obj, conf, beaver, bfd, bindAdd)
     if bindAdd then
-        bindAdd(conf.func, bfd, coroutine.running())
+        bindAdd(conf.func, bfd, running())
     end
     local inst = setupInst(conf)
     CasyncAccept.new(beaver, bfd, -1)
     while true do
-        local nfd, addr = coroutine.yield()
+        local nfd, addr = yield()
         obj.new(beaver, nfd, bfd, addr, conf, inst)
     end
 end
 
 function M.acceptSetup(obj, beaver, conf, bindAdd)
-    assert(conf.mode == "TCP", "bad accept mode: " .. conf.mode)
+    liteAssert(conf.mode == "TCP", "bad accept mode: " .. conf.mode)
     local fd = sockComm.setupSocket(conf)
-    local co = coroutine.create(acceptServer)
-    local res, msg = coroutine.resume(co, obj, conf, beaver, fd, bindAdd)
-    system.coReport(co, res, msg)
+    local co = create(acceptServer)
+    local res, msg = resume(co, obj, conf, beaver, fd, bindAdd)
+    coReport(co, res, msg)
 end
 
 return M

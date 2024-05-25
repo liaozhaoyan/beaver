@@ -13,7 +13,16 @@ local CasyncTimer = require("async.asyncTimer")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local class = class
 local CmasterTimer = class("masterTimer")
+
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local create = coroutine.create
+local yield = coroutine.yield
+local resume = coroutine.resume
+local status = coroutine.status
+local time_io_calc = c_api.time_io_calc
 
 local function rbCmp(node1, node2)
     return node1.ms >= node2.ms and 1 or -1
@@ -21,7 +30,7 @@ end
 
 function CmasterTimer:_init_(beaver, cbWake)
     self._tree = lrbtree.new(rbCmp)
-    self._co = coroutine.create(self.run)
+    self._co = create(self.run)
     self._timer = CasyncTimer.new(beaver, self._co)
     self._cbWake = cbWake
 end
@@ -41,17 +50,17 @@ function CmasterTimer:add(node)
     local res, msg
     local loop = node.loop
     local period = node.period
-    assert(loop % 1 == 0, "illegal loop value.")
-    assert(period >= 1 and period % 1 == 0, "illegal ms value.")
+    liteAssert(loop % 1 == 0, "illegal loop value.")
+    liteAssert(period >= 1 and period % 1 == 0, "illegal ms value.")
 
     local first = tree:first()  -- caution：tree may empty
-    node.ms = c_api.time_io_calc(period)
+    node.ms = time_io_calc(period)
     res = tree:insert(node)
-    assert(res, "insert to rbtree failed.")
+    liteAssert(res, "insert to rbtree failed.")
     if not first then  -- empty tree, wake coroutine， in func else wakeup from empty.
-        if coroutine.status(self._co) == "suspended" then
-            res, msg = coroutine.resume(self._co)
-            system.coReport(self._co, res, msg)
+        if status(self._co) == "suspended" then
+            res, msg = resume(self._co)
+            coReport(self._co, res, msg)
         else
             return
         end
@@ -62,8 +71,8 @@ end
 
 function CmasterTimer:start()  -- the tree should at least one node
     local res, msg
-    res, msg = coroutine.resume(self._co, self)
-    system.coReport(self._co, res, msg)
+    res, msg = resume(self._co, self)
+    coReport(self._co, res, msg)
 end
 
 function CmasterTimer:run()
@@ -71,7 +80,7 @@ function CmasterTimer:run()
     local node
     local tree = self._tree
     local timer = self._timer
-    local lastMs, ms = 0
+    local lastMs, ms = 0, nil
     local cbWake = self._cbWake
 
     while true do
@@ -80,7 +89,7 @@ function CmasterTimer:run()
             ms = node.ms
             if lastMs ~= ms then  -- last time update
                 res = timer:update(ms)
-                coroutine.yield()  -- wait for timer_fd wake.
+                yield()  -- wait for timer_fd wake.
             end
 
             node = tree:pop() -- node may change after yield.
@@ -89,12 +98,12 @@ function CmasterTimer:run()
             cbWake(node)
 
             if node.loop > 0 then
-                node.ms = c_api.time_io_calc(node.period)
+                node.ms = time_io_calc(node.period)
                 res = tree:insert(node)
-                assert(res, "insert to rbtree failed.")
+                liteAssert(res, "insert to rbtree failed.")
             end
         else  -- wake up from empty.
-            coroutine.yield()
+            yield()
         end
     end
 end

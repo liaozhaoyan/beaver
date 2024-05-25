@@ -12,10 +12,21 @@ local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local class = class
 local CasyncAccept = class("asyncAccept", CasyncBase)
 
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local running = coroutine.running
+local yield = coroutine.yield
+local resume = coroutine.resume
+local assert = assert
+local paccept = psocket.accept
+local c_api_b_close = c_api.b_close
+local print = print
+
 function CasyncAccept:_init_(beaver, fd, tmo)
-    self._toWake = coroutine.running()
+    self._toWake = running()
     CasyncBase._init_(self, beaver, fd)  -- accept never overtime.
 end
 
@@ -23,19 +34,19 @@ function CasyncAccept:_setup(fd, tmo)
     local co = self._toWake
 
     while true do
-        local e = coroutine.yield()
+        local e = yield()
         if e.ev_close > 0 then
             print("bind closed.")
             break
         else
-            local nfd, addr, errno = assert(psocket.accept(fd))
-            assert(nfd, addr)
-            local res, msg = coroutine.resume(co, nfd, addr)
-            system.coReport(co, res, msg)
+            local nfd, addr, errno = assert(paccept(fd))
+            liteAssert(nfd, addr)
+            local res, msg = resume(co, nfd, addr)
+            coReport(co, res, msg)
         end
     end
     self:stop()
-    c_api.b_close(fd)
+    c_api_b_close(fd)
 end
 
 return CasyncAccept

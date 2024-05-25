@@ -14,13 +14,32 @@ local masterVar = require("module.masterVar")
 
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
-local format = string.format
 
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
 
 
+local class = class
 local Cmaster = class("master")
+
+local ipairs = ipairs
+local print = print
+local time = os.time
+local io_open = io.open
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local create = coroutine.create
+local running = coroutine.running
+local yield = coroutine.yield
+local resume = coroutine.resume
+local char = string.char
+local len = string.len
+local format = string.format
+local byte = string.byte
+local concat = table.concat
+local c_api_b_close = c_api.b_close
+local jencode = cjson.encode
+local jdecode = cjson.decode
 
 function Cmaster:_init_(conf)
     self._conf = conf
@@ -30,36 +49,36 @@ local function pipeOut(beaver, fOut)
     local w = CasyncPipeWrite.new(beaver, fOut, 10)
 
     while true do
-        local stream = coroutine.yield()
+        local stream = yield()
         local res, err, errno = w:write(stream)
-        assert(res, err)
+        liteAssert(res, err)
     end
 end
 
 local function pipeIn(b, conf)  --> to receive call function
     local r = CasyncPipeRead.new(b, conf.fIn, -1)
 
-    local coOut = coroutine.create(pipeOut)
-    local res, msg = coroutine.resume(coOut, b, conf.fOut)
-    system.coReport(coOut, res, msg)
+    local coOut = create(pipeOut)
+    local res, msg = resume(coOut, b, conf.fOut)
+    coReport(coOut, res, msg)
     masterVar.masterSetPipeOut(coOut)
 
     while true do
         local s = r:read()
-        local arg = cjson.decode(s)
-        assert(arg, format("decode arg failed. %s, len: %d", s, #s))
+        local arg = jdecode(s)
+        liteAssert(arg, format("decode arg failed. %s, len: %d", s, #s))
         masterVar.call(arg)
     end
 end
 
 local function check(last, hope)
-    local now = os.time()
-    assert(now - last == hope or now - last == hope + 1, format("check var failed. hope: %d, now: %d", hope, now - last))
+    local now = time()
+    liteAssert(now - last == hope or now - last == hope + 1, format("check var failed. hope: %d, now: %d", hope, now - last))
     return now
 end
 
 local function testTimer()
-    local last = os.time()
+    local last = time()
     local loop = 1
     while true do
         masterVar.msleep(3000)
@@ -75,13 +94,13 @@ function Cmaster:proc()
 
     masterVar.masterSetVar(beaver, self._conf, lyaml.load(self._conf.config))
 
-    local co = coroutine.create(pipeIn)
-    local res, msg = coroutine.resume(co, beaver, self._conf)
-    system.coReport(co, res, msg)
+    local co = create(pipeIn)
+    local res, msg = resume(co, beaver, self._conf)
+    coReport(co, res, msg)
 
-    co = coroutine.create(testTimer)
-    res, msg = coroutine.resume(co)
-    system.coReport(co, res, msg)
+    co = create(testTimer)
+    res, msg = resume(co)
+    coReport(co, res, msg)
 
     beaver:poll()
     return 0

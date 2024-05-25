@@ -19,6 +19,20 @@ local cjson = require("cjson.safe")
 
 local M = {}
 
+local ipairs = ipairs
+local print = print
+local error = error
+local time = os.time
+local pipe = unistd.pipe
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local create = coroutine.create
+local yield = coroutine.yield
+local resume = coroutine.resume
+local format = string.format
+local create_beaver = c_api.create_beaver
+local jencode = cjson.encode
+
 local var = {
     setup = false,
     workers = {},   -- masters children
@@ -39,9 +53,9 @@ local function workerPipeOut(beaver, fOut)
     local w = CasyncPipeWrite.new(beaver, fOut, 10)
 
     while true do
-        local stream = coroutine.yield()
+        local stream = yield()
         local res, err, errno = w:write(stream)
-        assert(res, err)
+        liteAssert(res, err)
     end
 end
 
@@ -62,17 +76,17 @@ local function pipeCtrlReg(arg)
         if yaml.worker then
             for _, worker in ipairs(yaml.worker) do
                 for i = 1, worker.number do
-                    local r, w, errno = unistd.pipe()
+                    local r, w, errno = pipe()
                     if not r then
-                        error(string.format("create pipe failed, %s, errno %d", w, errno))
+                        error(format("create pipe failed, %s, errno %d", w, errno))
                     end
     
                     local config = {worker = worker}
-                    local pid = c_api.create_beaver(r, var.masterIn, worker.name or "worker", lyaml.dump({config}))
+                    local pid = create_beaver(r, var.masterIn, worker.name or "worker", lyaml.dump({config}))
     
-                    local co = coroutine.create(workerPipeOut)
-                    res, msg = coroutine.resume(co, thread.beaver, w)
-                    system.coReport(co, res, msg)
+                    local co = create(workerPipeOut)
+                    res, msg = resume(co, thread.beaver, w)
+                    coReport(co, res, msg)
                     var.workers[w] = {false, pid, r, co}   -- use w pipe to record single thread.
     
                     local func = {
@@ -82,8 +96,8 @@ local function pipeCtrlReg(arg)
                         }
                     }
     
-                    res, msg = coroutine.resume(co, cjson.encode(func))
-                    system.coReport(var.coOut, res, msg)
+                    res, msg = resume(co, jencode(func))
+                    coReport(var.coOut, res, msg)
                 end
             end
         end
@@ -96,11 +110,11 @@ local function pipeCtrlReg(arg)
                 end
 
                 local config = {user = cell}
-                local pid = c_api.create_beaver(r, var.masterIn, "userModule", lyaml.dump({config}))
+                local pid = create_beaver(r, var.masterIn, "userModule", lyaml.dump({config}))
 
-                local co = coroutine.create(workerPipeOut)
-                res, msg = coroutine.resume(co, thread.beaver, w)
-                system.coReport(co, res, msg)
+                local co = create(workerPipeOut)
+                res, msg = resume(co, thread.beaver, w)
+                coReport(co, res, msg)
                 var.workers[w] = {false, pid, r, co}   -- use w pipe to record single thread.
 
                 local func = {
@@ -110,28 +124,28 @@ local function pipeCtrlReg(arg)
                     }
                 }
 
-                res, msg = coroutine.resume(co, cjson.encode(func))
-                system.coReport(var.coOut, res, msg)
+                res, msg = resume(co, jencode(func))
+                coReport(var.coOut, res, msg)
             end
         end
 
         var.setup = true
         local ret = {ret = 0}
-        res, msg = coroutine.resume(var.coOut, cjson.encode(ret))
-        system.coReport(var.coOut, res, msg)
+        res, msg = resume(var.coOut, jencode(ret))
+        coReport(var.coOut, res, msg)
     end
     return 0
 end
 
 local function workerReg(arg)
     local w = arg.id
-    print(string.format("thread %d is already online", w))
+    print(format("thread %d is already online", w))
     var.workers[w][1] = true
 end
 
 local function checkDns(domain)
     local buf = var.dnsBuf[domain]
-    local now = os.time()
+    local now = time()
 
     if buf then
         local t = buf[2]
@@ -167,8 +181,8 @@ local function reqDns(arg)
         }
     }
     local co = var.workers[fid][4]  -- refer to pipeCtrlReg
-    local res, msg = coroutine.resume(co, cjson.encode(func))
-    system.coReport(co, res, msg)
+    local res, msg = resume(co, jencode(func))
+    coReport(co, res, msg)
 end
 
 local function reqPeriodWake(arg)
@@ -216,12 +230,12 @@ local function timerWake(node) -- call in masterTimer.
             }
         }
         co = var.workers[fid][4]  -- refer to pipeCtrlReg
-        res, msg = coroutine.resume(co, cjson.encode(func))
+        res, msg = resume(co, jencode(func))
         system.coReport(co, res, msg)
     else
         co = var.periodWakeCo[node.coId]
-        res, msg = coroutine.resume(co, node)
-        system.coReport(co, res, msg)
+        res, msg = resume(co, node)
+        coReport(co, res, msg)
         if node.loop == 0 then
             var.periodWakeCo[node.coId] = nil
         end
@@ -229,8 +243,8 @@ local function timerWake(node) -- call in masterTimer.
 end
 
 function M.periodWake(period, loop)
-    assert(period >= 1, "period arg should greater than 1.")
-    assert(loop >= 1, "loop should greater than 1.")
+    liteAssert(period >= 1, "period arg should greater than 1.")
+    liteAssert(loop >= 1, "loop should greater than 1.")
     local node = {
         id = 0,
         coId = periodWakeGetId(),
@@ -239,7 +253,7 @@ function M.periodWake(period, loop)
     }
 
     var.timer:add(node)
-    coroutine.yield()
+    yield()
 end
 
 function M.msleep(ms)

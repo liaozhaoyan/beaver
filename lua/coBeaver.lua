@@ -15,13 +15,27 @@ local CbeaverIO = require("beaverIO")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local class = class
 local CcoBeaver = class("coBeaver", CbeaverIO)
+
+local c_new = c_type.new
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local c_api_poll_fds = c_api.poll_fds
+local format = string.format
+local time = os.time
+local pairs = pairs
+local error = error
+local print = print
+local create = coroutine.create
+local resume = coroutine.resume
+local status = coroutine.status
 
 function CcoBeaver:_init_()
     CbeaverIO._init_(self)
 
     self._cos = {}
-    self._last = os.time()
+    self._last = time()
     self._tmoCos = {}
     self._tmoFd = {}
 end
@@ -31,10 +45,10 @@ function CcoBeaver:_del_()
 end
 
 function CcoBeaver:co_set_tmo(fd, tmo)
-    assert(tmo < 0 or tmo >= 10, "illegal tmo value.")
+    liteAssert(tmo < 0 or tmo >= 10, format("illegal tmo value: %d, should >= 10.", tmo))
     self._tmoFd[fd] = tmo
     if tmo > 0 then
-        self._tmoCos[fd] = os.time()
+        self._tmoCos[fd] = time()
     end
 end
 
@@ -45,16 +59,16 @@ end
 function CcoBeaver:co_add(obj, cb, fd, tmo)
     tmo = tmo or 60   -- default tmo time is 60s, -1 means never overtime.
     if tmo > 0 then
-        assert(tmo >= 10)
+        liteAssert(tmo >= 10, "illegal tmo value, must >= 10.")
     end
     self._tmoFd[fd] = tmo  -- record fd time out
 
     self:add(fd)  -- add to epoll fd
-    local co = coroutine.create(function(o, obj, fd, tmo)  cb(o, obj, fd, tmo) end)
+    local co = create(function(o, obj, fd, tmo)  cb(o, obj, fd, tmo) end)
     self._cos[fd] = co
 
-    local res, msg = coroutine.resume(co, obj, fd, tmo)
-    system.coReport(co, res, msg)
+    local res, msg = resume(co, obj, fd, tmo)
+    coReport(co, res, msg)
     return co
 end
 
@@ -64,17 +78,6 @@ function CcoBeaver:co_exit(fd)
     self._tmoFd[fd] = nil
     self._cos[fd] = nil
     self._tmoCos[fd] = nil
-end
-
-
-local function dictCopy(tbl)
-    local cp = {}
-    assert(type(tbl) == "table")
-
-    for k, v in pairs(tbl) do
-        cp[k] = v
-    end
-    return cp
 end
 
 function CcoBeaver:_co_check(now, checkedFd)
@@ -89,13 +92,13 @@ function CcoBeaver:_co_check(now, checkedFd)
             local tmoFd = self._tmoFd[fd]  -- tmoFd record the socket fd set over time
             if tmoFd and tmoFd > 0 and now - tmo >= tmoFd then  -- overtime
                 local co = self._cos[fd]
-                if co and coroutine.status(co) == "suspended" then
+                if co and status(co) == "suspended" then
                     local e = c_type.new("native_event_t")  -- need to close this fd
                     e.ev_close = 1
                     e.fd = fd
                     print(fd, "is over time.", tmo, now - tmo)
-                    res, msg = coroutine.resume(co, e)
-                    system.coReport(co, res, msg)
+                    res, msg = resume(co, e)
+                    coReport(co, res, msg)
                 end
             end
             ::continue::
@@ -105,7 +108,7 @@ function CcoBeaver:_co_check(now, checkedFd)
 end
 
 function CcoBeaver:_pollFd(nes)
-    local now_time = os.time()
+    local now_time = time()
     local checkedFd = {}
     for i = 0, nes.num - 1 do
         local e = nes.evs[i];
@@ -116,7 +119,7 @@ function CcoBeaver:_pollFd(nes)
         if co then -- coroutine event may closed.
             self._tmoCos[fd] = now_time
             checkedFd[fd] = now_time
-            local res, msg = coroutine.resume(co, e)
+            local res, msg = resume(co, e)
             system.coReport(co, res, msg)
         end
     end
@@ -126,11 +129,11 @@ end
 function CcoBeaver:poll()
     local efd = self._efd
     while true do
-        local nes = c_type.new("native_events_t")
-        local res = c_api.poll_fds(efd, 1, nes)
+        local nes = c_new("native_events_t")
+        local res = c_api_poll_fds(efd, 1, nes)
 
         if res < 0 then
-            error(string.format("epoll failed, errno: %d", -res))
+            error(format("epoll failed, errno: %d", -res))
         end
 
         self:_pollFd(nes)

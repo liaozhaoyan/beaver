@@ -11,10 +11,22 @@ local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local class = class
 local CasyncPipeWrite = class("asyncPipeWrite", CasyncBase)
 
+local ipairs = ipairs
+local type = type
+local print = print
+local coReport = system.coReport
+local running = coroutine.running
+local yield = coroutine.yield
+local resume = coroutine.resume
+local status = coroutine.status
+local format = string.format
+local c_api_b_close = c_api.b_close
+
 function CasyncPipeWrite:_init_(beaver, fd, tmo)
-    self._toWake = coroutine.running()
+    self._toWake = running()
     self._tmo = tmo
     CasyncBase._init_(self, beaver, fd, -1)
 end
@@ -22,47 +34,47 @@ end
 function CasyncPipeWrite:_setup(fd, tmo)
     local res, msg
     local co = self._toWake
-    self._coSelf = coroutine.running()
+    self._coSelf = running()
 
     local beaver = self._beaver
     tmo = self._tmo
     while true do
-        local stream = coroutine.yield()
+        local stream = yield()
         if type(stream) == "string" then
             beaver:co_set_tmo(fd, tmo)
             local ret, err, errno = beaver:pipeWrite(fd, stream)  -->pipe write may yield out
-            if coroutine.status(co) == "normal" then  --> write not yield
-                coroutine.yield(ret, err, errno)
+            if status(co) == "normal" then  --> write not yield
+                yield(ret, err, errno)
             else
-                res, msg = coroutine.resume(co, ret, err, errno)
-                system.coReport(co, res, msg)
+                res, msg = resume(co, ret, err, errno)
+                coReport(co, res, msg)
             end
 
             beaver:co_set_tmo(fd, -1)
 
             if not ret then -- fd close event?
-                print(string.format("pipe write fd %d closed.", fd))
+                print(format("pipe write fd %d closed.", fd))
                 break
             end
         else  -- fd close event?
-            print(string.format("write fd %d closed. for event", fd))
+            print(format("write fd %d closed. for event", fd))
             break
         end
     end
     self:stop()
-    c_api._bclose(fd)
+    c_api_b_close(fd)
 end
 
 function CasyncPipeWrite:write(stream)
-    local res, msg, err, errno = coroutine.resume(self._coSelf, stream)
-    system.coReport(self._coSelf, res, msg)
+    local res, msg, err, errno = resume(self._coSelf, stream)
+    coReport(self._coSelf, res, msg)
     if msg then  -- write function may write to pipe, if stream is short enough, write will return at once
         local ret = msg
-        res, msg = coroutine.resume(self._coSelf)  -->task will yield after write success.
-        system.coReport(self._coSelf, res, msg)
+        res, msg = resume(self._coSelf)  -->task will yield after write success.
+        coReport(self._coSelf, res, msg)
         return ret, err, errno
     else --> the pipe call from if stream is too long, the task may be yield.
-        return coroutine.yield()
+        return yield()
     end
 end
 

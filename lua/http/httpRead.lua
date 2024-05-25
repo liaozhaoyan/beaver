@@ -10,13 +10,25 @@ local M = {}
 local sockerUrl = require("socket.url")
 local pystring = require("pystring")
 
+local split = pystring.split
+local lstrip = pystring.lstrip
+local ipairs = ipairs
+local print = print
+local unpack = unpack
+local tonumber = tonumber
+local find = string.find
+local sub = string.sub
+local lower = string.lower
+local concat = table.concat
+local insert = table.insert
+
 local defaultHttpReadOvertime = 30
 
 local function parseParam(param)
-    local tParam = pystring.split(param, "&")
+    local tParam = split(param, "&")
     local res = {}
     for _, s in ipairs(tParam) do
-        local kv = pystring.split(s, "=")
+        local kv = split(s, "=")
         if #kv ~= 2 then
             print("bad param " .. s)
             return nil
@@ -61,7 +73,7 @@ local function waitDataRest(fread, rest, tReq)
             return -1
         end
     end
-    tReq.body = table.concat(tStream)
+    tReq.body = concat(tStream)
     return 0
 end
 
@@ -81,7 +93,7 @@ end
 
 local function waitChuckSize(fread, s)
     while true do
-        if string.find(s, "\r\n") then
+        if find(s, "\r\n") then
             return s
         end
         local add = fread(defaultHttpReadOvertime)
@@ -111,9 +123,9 @@ local function readChunks(fread, tReq)
             if len then
                 bodies = waitChuckData(fread, s, len)
                 if bodies then
-                    body = string.sub(bodies, 1, len)
-                    s = string.sub(bodies, len + 2)
-                    table.insert(cells, body)
+                    body = sub(bodies, 1, len)
+                    s = sub(bodies, len + 2)
+                    insert(cells, body)
                 else
                     return -2
                 end
@@ -124,7 +136,7 @@ local function readChunks(fread, tReq)
             return -1
         end
     end
-    tReq.body = table.concat(cells)
+    tReq.body = concat(cells)
     return 0
 end
 
@@ -162,7 +174,7 @@ local function waitHttpHead(fread, tmo)
         if s then
             stream = stream .. s
             tmo = defaultHttpReadOvertime
-            if string.find(stream, "\r\n\r\n") then
+            if find(stream, "\r\n\r\n") then
                 return stream
             end
         else
@@ -172,14 +184,14 @@ local function waitHttpHead(fread, tmo)
 end
 
 local function serverParse(fread, stream, parseParam)
-    local tStatus = pystring.split(stream, "\r\n", 1)
+    local tStatus = split(stream, "\r\n", 1)
     if #tStatus < 2 then
         print("bad stream format.")
         return nil
     end
 
     local stat, heads = unpack(tStatus)
-    local tStat = pystring.split(stat, " ", 2)
+    local tStat = split(stat, " ", 2)
     if #tStat < 3 then
         print("bad stat: "..stat)
         return nil
@@ -188,27 +200,27 @@ local function serverParse(fread, stream, parseParam)
     local verb, url, version = unpack(tStat)
     local tReq
     tReq = M.parseUrl(url, parseParam)
-    tReq.verb = string.lower(verb)
+    tReq.verb = lower(verb)
     tReq.version = version
     tReq.origUrl = url
 
-    local tHead = pystring.split(heads, "\r\n\r\n", 1)
+    local tHead = split(heads, "\r\n\r\n", 1)
     if #tHead < 2 then
         print("bad head: " .. heads)
         return nil
     end
     local headerStr, body = unpack(tHead)
-    local tHeader = pystring.split(headerStr, "\r\n")
+    local tHeader = split(headerStr, "\r\n")
     local headers = {}
     for _, s in ipairs(tHeader) do
-        local tKv = pystring.split(s, ":", 1)
+        local tKv = split(s, ":", 1)
         if #tKv < 2 then
             print("bad head kv value: " .. s)
             return nil
         end
         local k, v = unpack(tKv)
-        k = string.lower(k)
-        headers[k] = pystring.lstrip(v)
+        k = lower(k)
+        headers[k] = lstrip(v)
     end
 
     tReq.headers = headers
@@ -228,14 +240,14 @@ function M.serverRead(fread, parseParam)
 end
 
 local function clientParse(fread, stream)
-    local tStatus = pystring.split(stream, "\r\n", 1)
+    local tStatus = split(stream, "\r\n", 1)
     if #tStatus < 2 then
         print("bad stream format.")
         return nil
     end
 
     local stat, heads = unpack(tStatus)
-    local tStat = pystring.split(stat, " ", 2)
+    local tStat = split(stat, " ", 2)
     if #tStat < 3 then
         print("bad stat: " .. stat)
         return nil
@@ -248,23 +260,23 @@ local function clientParse(fread, stream)
         descr = descr
     }
 
-    local tHead = pystring.split(heads, "\r\n\r\n", 1)
+    local tHead = split(heads, "\r\n\r\n", 1)
     if #tHead < 2 then
         print("bad head: " .. heads)
         return nil
     end
     local headerStr, body = unpack(tHead)
-    local tHeader = pystring.split(headerStr, "\r\n")
+    local tHeader = split(headerStr, "\r\n")
     local headers = {}
     for _, s in ipairs(tHeader) do
-        local tKv = pystring.split(s, ":", 1)
+        local tKv = split(s, ":", 1)
         if #tKv < 2 then
             print("bad head kv value: " .. s)
             return nil
         end
         local k, v = unpack(tKv)
-        k = string.lower(k)
-        headers[k] = pystring.lstrip(v)
+        k = lower(k)
+        headers[k] = lstrip(v)
     end
     tRes.headers = headers
     tRes.body = body

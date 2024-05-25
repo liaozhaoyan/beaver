@@ -1,10 +1,17 @@
 require("eclass")
+local system = require("common.system")
 local asyncClient = require("async.asyncClient")
-local sockComm = require("common.sockComm")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local class = class
 local cliBase = class("cliBase", asyncClient)
+
+local print = print
+local type = type
+local liteAssert = system.liteAssert
+local yield = coroutine.yield
+local c_api_b_close = c_api.b_close
 
 function cliBase:_init_(beaver, tPort, tmo)
     tmo = tmo or 10
@@ -15,7 +22,7 @@ end
 
 function cliBase:echo(s)
     local res, msg = self:_waitData(s)
-    assert(res, msg)
+    liteAssert(res, msg)
     if type(res) ~= "string" then
         return nil
     end
@@ -32,7 +39,7 @@ function cliBase:_setup(fd, tmo)
 
     while status == 1 do
         if not e then
-            e = coroutine.yield()
+            e = yield()
         end
         local t = type(e)
         if t == "string" then -- has data to send
@@ -54,7 +61,7 @@ function cliBase:_setup(fd, tmo)
                 e = self:wake(co, s)
                 t = type(e)
                 if t == "cdata" then -->upstream need to close.
-                    assert(e.ev_close > 0)
+                    liteAssert(e.ev_close > 0)
                     self:wake(co, nil)  -->let upstream to do next working.
                     break
                 elseif t == "number" then  -->upstream reuse connect
@@ -69,7 +76,7 @@ function cliBase:_setup(fd, tmo)
 
     self._status = 0  -- closed
     self:stop()
-    c_api.b_close(fd)
+    c_api_b_close(fd)
 end
 
 return cliBase

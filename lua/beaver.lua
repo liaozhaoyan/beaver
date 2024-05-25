@@ -11,6 +11,8 @@ local CasyncPipeRead = require("async.asyncPipeRead")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local conf
 
+local print = print
+
 function init(fIn, fOut, name, config)
     conf = {
         fIn = fIn,

@@ -11,11 +11,22 @@ local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local class = class
 local CasyncTimer = class("asyncTimer", CasyncBase)
 
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local running = coroutine.running
+local yield = coroutine.yield
+local resume = coroutine.resume
+local c_api_b_close = c_api.b_close
+local timer_io_init = c_api.timer_io_init
+local timer_io_get = c_api.timer_io_get
+local timer_io_set = c_api.timer_io_set
+
 function CasyncTimer:_init_(beaver, toWake)
-    local fd = c_api.timer_io_init()
-    assert(fd > 0, "setup timer io failed.")
+    local fd = timer_io_init()
+    liteAssert(fd > 0, "setup timer io failed.")
     self._toWake = toWake
 
     CasyncBase._init_(self, beaver, fd, -1)
@@ -28,34 +39,34 @@ function CasyncTimer:_setup(fd, tmo)
 
     beaver:co_set_tmo(fd, tmo)
     while true do
-        local e = coroutine.yield()
+        local e = yield()
 
         if e.ev_close > 0 then  -- should never occur.
             break
         end
 
-        res = c_api.timer_io_get(fd)
-        assert(res >= 0, "get timer_io value failed.")
-        res, msg = coroutine.resume(co, 0)  -- to wake up masterTimer.
-        system.coReport(co, res, msg)
+        res = timer_io_get(fd)
+        liteAssert(res >= 0, "get timer_io value failed.")
+        res, msg = resume(co, 0)  -- to wake up masterTimer.
+        coReport(co, res, msg)
     end
     self:stop()
-    c_api.b_close(fd)
+    c_api_b_close(fd)
 end
 
 function CasyncTimer:update(ms)
     local res
-    res = c_api.timer_io_set(self._fd, ms)
-    assert(res >= 0, "set timer_io value failed " .. tonumber(ms))
+    res = timer_io_set(self._fd, ms)
+    liteAssert(res >= 0, "set timer_io value failed " .. tonumber(ms))
 end
 
 function CasyncTimer:wait(ms)
     local res, msg
-    local co = coroutine.running()
+    local co = running()
 
-    res, msg = coroutine.resume(self._co, co, ms)
-    system.coReport(self._co, res, msg)
-    return coroutine.yield()
+    res, msg = resume(self._co, co, ms)
+    coReport(self._co, res, msg)
+    return yield()
 end
 
 return CasyncTimer

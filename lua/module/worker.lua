@@ -15,7 +15,18 @@ local workVar = require("module.workVar")
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
 
+local class = class
 local Cworker = class("master")
+
+local require = require
+local pairs = pairs
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local create = coroutine.create
+local running = coroutine.running
+local yield = coroutine.yield
+local resume = coroutine.resume
+local jdecode = cjson.decode
 
 function Cworker:_init_(conf)
     self._conf = conf
@@ -25,23 +36,23 @@ local function pipeOut(b, fOut)
     local w = CasyncPipeWrite.new(b, fOut, 10)
 
     while true do
-        local stream = coroutine.yield()
+        local stream = yield()
         local res, err = w:write(stream)
-        assert(res, err)
+        liteAssert(res, err)
     end
 end
 
 local function pipeIn(b, conf)
     local r = CasyncPipeRead.new(b, conf.fIn, -1)
 
-    local coOut = coroutine.create(pipeOut)
-    local res, msg = coroutine.resume(coOut, b, conf.fOut)
-    system.coReport(coOut, res, msg)
+    local coOut = create(pipeOut)
+    local res, msg = resume(coOut, b, conf.fOut)
+    coReport(coOut, res, msg)
     workVar.workerSetPipeOut(coOut)
 
     while true do
         local s = r:read()
-        local arg = cjson.decode(s)
+        local arg = jdecode(s)
         workVar.call(arg)
     end
 end
@@ -61,9 +72,9 @@ function Cworker:proc()
     workVar.workerSetVar(b, self._conf, lyaml.load(self._conf.config))
     workVar.setCb(setupFuncs, workVar.workerGetVar())
 
-    local co = coroutine.create(pipeIn)
-    local res, msg = coroutine.resume(co, b, self._conf)
-    system.coReport(co, res, msg)
+    local co = create(pipeIn)
+    local res, msg = resume(co, b, self._conf)
+    coReport(co, res, msg)
     b:poll()
     return 0
 end

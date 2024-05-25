@@ -13,14 +13,35 @@ local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 local CasyncBase = require("async.asyncBase")
 
+local class = class
 local CasyncDns = class("asyncDns", CasyncBase)
 
+local ipairs = ipairs
+local print = print
+local io_open = io.open
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local running = coroutine.running
+local yield = coroutine.yield
+local resume = coroutine.resume
+local startswith = pystring.startswith
+local split = pystring.split
+local new_socket = psocket.socket
+local psendto = psocket.sendto
+local char = string.char
+local len = string.len
+local format = string.format
+local byte = string.byte
+local concat = table.concat
+local c_api_b_close = c_api.b_close
+
 local function lookup_server()
-    local f = io.open("/etc/resolv.conf")
+    local f = io_open("/etc/resolv.conf")
     local server
+    liteAssert(f, "dns config not found.")
     for line in f:lines() do
-        if pystring.startswith(line, "nameserver") then
-            local res = pystring.split(line)
+        if startswith(line, "nameserver") then
+            local res = split(line)
             server = res[2]
             break
         end
@@ -32,10 +53,10 @@ end
 
 function CasyncDns:_init_(beaver)
     self._serverIP = lookup_server()
-    assert(self._serverIP)
+    liteAssert(self._serverIP)
 
-    local fd, err, errno = psocket.socket(psocket.AF_INET, psocket.SOCK_DGRAM, 0)
-    assert(fd, err)
+    local fd, err, errno = new_socket(psocket.AF_INET, psocket.SOCK_DGRAM, 0)
+    liteAssert(fd, err)
 
 
     CasyncBase._init_(self, beaver, fd, 10)  -- accept never overtime.
@@ -44,7 +65,7 @@ end
 local function packQuery(domain)
     local cnt = 0
     local queries = {}
-    local head = string.char(
+    local head = char(
             0x12, 0x34, -- Query ID
             0x01, 0x00, -- Standard query
             0x00, 0x01, -- Number of questions
@@ -55,22 +76,22 @@ local function packQuery(domain)
     cnt = cnt + 1
     queries[cnt] = head
 
-    local names = pystring.split(domain, ".")
+    local names = split(domain, ".")
     for _, name in ipairs(names) do
         cnt = cnt + 1
-        queries[cnt] = string.char(string.len(name))
+        queries[cnt] = char(len(name))
         cnt = cnt + 1
         queries[cnt] = name
     end
     cnt = cnt + 1
-    local tail = string.char(
+    local tail = char(
             0x00, -- End of domain name
             0x00, 0x01, -- Type A record
             0x00, 0x01 -- Class IN
     )
     queries[cnt] = tail
 
-    local query = table.concat(queries)
+    local query = concat(queries)
     return query
 end
 
@@ -83,14 +104,14 @@ function CasyncDns:_setup(fd, tmo)
 
     while true do
         beaver:co_set_tmo(fd, -1)
-        local co, domain = coroutine.yield()
+        local co, domain = yield()
 
         local query = packQuery(domain)
-        len, err, errno = psocket.sendto(fd, query, tDist)
+        len, err, errno = psendto(fd, query, tDist)
         if not len then
             print(err, errno)
-            res, msg = coroutine.resume(co, nil)
-            system.coReport(co, res, msg)
+            res, msg = resume(co, nil)
+            coReport(co, res, msg)
             break
         end
 
@@ -98,25 +119,25 @@ function CasyncDns:_setup(fd, tmo)
         res, err, errno = beaver:read(fd, 512)
         if not res then
             print(err, errno)
-            res, msg = coroutine.resume(co, nil)
+            res, msg = resume(co, nil)
             system.coReport(co, res, msg)
             break
         else
-            local ip = string.format("%d.%d.%d.%d", string.byte(res, -4, -1))
-            res, msg = coroutine.resume(co, ip)
-            system.coReport(co, res, msg)
+            local ip = format("%d.%d.%d.%d", byte(res, -4, -1))
+            res, msg = resume(co, ip)
+            coReport(co, res, msg)
         end
     end
     self:stop()
-    c_api.b_close(fd)
+    c_api_b_close(fd)
 end
 
 function CasyncDns:request(domain)
     local res, msg
-    local co = coroutine.running()
-    res, msg = coroutine.resume(self._co, co, domain)
-    system.coReport(self._co, res, msg)
-    return coroutine.yield()
+    local co = running()
+    res, msg = resume(self._co, co, domain)
+    coReport(self._co, res, msg)
+    return yield()
 end
 
 return CasyncDns

@@ -8,6 +8,7 @@ require("eclass")
 
 local psocket = require("posix.sys.socket")
 local CasyncClient = require("async.asyncClient")
+local system = require("common.system")
 local workVar = require("module.workVar")
 local sockComm = require("common.sockComm")
 local httpRead = require("http.httpRead")
@@ -16,9 +17,15 @@ local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
 local format = string.format
+local liteAssert = system.liteAssert
+local type = type
+local print = print
+local running = coroutine.running
+local yield = coroutine.yield
 
 local httpConnectTmo = 10
 
+local class = class
 local ChttpReq = class("request", CasyncClient)
 
 function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
@@ -45,13 +52,13 @@ function ChttpReq:_setup(fd, tmo)
     local status, res
     local e
 
-    workVar.connectAdd("httpReq", fd, coroutine.running())
+    workVar.connectAdd("httpReq", fd, running())
 
     status, e = self:cliConnect(fd, tmo)
 
     while status == 1 do
         if not e then
-            e = coroutine.yield()
+            e = yield()
         end
         local t = type(e)
         if t == "string" then -- has data to send
@@ -74,7 +81,7 @@ function ChttpReq:_setup(fd, tmo)
                 e = self:wake(co, tRes)
                 t = type(e)
                 if t == "cdata" then -->upstream need to close.
-                    assert(e.ev_close > 0)
+                    liteAssert(e.ev_close > 0, "cdata should be ev_close")
                     self:wake(co, nil)  -->let upstream to do next working.
                     break
                 elseif t == "number" then  -->upstream reuse connect
@@ -130,7 +137,7 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
     }
     local stream = commPackClientFrame(res)
     local res, msg = self:_waitData(stream)
-    assert(res, msg)
+    liteAssert(res, msg)
     if type(res) ~= "table" then
         -- closed by remote server.
         return nil

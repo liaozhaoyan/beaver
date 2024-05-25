@@ -11,7 +11,11 @@ local workVar = require("module.workVar")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local class = class
 local ChttpServer = class("httpServer", CasyncBase)
+
+local running = coroutine.running
+local c_api_b_close = c_api.b_close
 
 function ChttpServer:_init_(beaver, fd, bfd, addr, conf, inst, tmo)
     self._beaver = beaver
@@ -32,7 +36,7 @@ function ChttpServer:_setup(fd, tmo)
     local inst = self._inst
     local session = {}
 
-    workVar.clientAdd(module, self._bfd, fd, coroutine.running(), self._addr)
+    workVar.clientAdd(module, self._bfd, fd, running(), self._addr)
     local fread = beaver:reads(fd)
     while true do
         local tRes = inst:proc(fread, session, beaver, fd)
@@ -49,7 +53,7 @@ function ChttpServer:_setup(fd, tmo)
         end
     end
     self:stop()
-    c_api.b_close(fd)
+    c_api_b_close(fd)
     workVar.clientDel(module, fd)
 end
 

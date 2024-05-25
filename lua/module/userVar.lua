@@ -10,6 +10,15 @@ local CasyncAccept = require("async.asyncAccept")
 local sockComm = require("common.sockComm")
 local cjson = require("cjson.safe")
 
+local print = print
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local create = coroutine.create
+local running = coroutine.running
+local yield = coroutine.yield
+local resume = coroutine.resume
+local jencode = cjson.encode
+
 local var = {
     -- for multi delay, loop >= 1
     periodWakeCo = {},   -- multi delayed,
@@ -21,11 +30,11 @@ function M.setPipeOut(coOut)
 end
 
 local function sendCoOut(stream)
-    local res, msg = coroutine.resume(var.coOut, stream)
-    system.coReport(var.coOut, res, msg)
+    local res, msg = resume(var.coOut, stream)
+    coReport(var.coOut, res, msg)
     if msg == false then  -- send buffer full, wait for write wake.
         print("neend to sleep.")
-        coroutine.yield()
+        yield()
         print("wake from sleep.")
     end
 end
@@ -39,7 +48,7 @@ local function regThreadId(arg)
         }
     }
 
-    sendCoOut(cjson.encode(func))
+    sendCoOut(jencode(func))
 
     if var.setupCb then
         local call = var.setupCb.func
@@ -54,8 +63,8 @@ local function echoWake(arg)
     local coId = arg.coId
     local co = var.periodWakeCo[coId]
 
-    res, msg = coroutine.resume(co, arg.period)
-    system.coReport(co, res, msg)
+    res, msg = resume(co, arg.period)
+    coReport(co, res, msg)
     if arg.loop == 0 then
         var.periodWakeCo[coId] = nil   -- free wait.
     end
@@ -97,8 +106,8 @@ local function periodWakeGetId()
 end
 
 function M.periodWake(period, loop)
-    assert(period >= 1, "period arg should greater than 1.")
-    assert(loop >= 1, "loop should greater than 1.")
+    liteAssert(period >= 1, "period arg should greater than 1.")
+    liteAssert(loop >= 1, "loop should greater than 1.")
     local func = {
         func = "reqPeriodWake",
         arg = {
@@ -108,8 +117,8 @@ function M.periodWake(period, loop)
             loop = loop,
         }
     }
-    sendCoOut(cjson.encode(func))
-    return coroutine.yield()
+    sendCoOut(jencode(func))
+    return yield()
 end
 
 function M.msleep(ms)
@@ -121,21 +130,21 @@ end
 
 local function acceptServer(obj, conf, beaver, bfd, bindAdd)
     if bindAdd then
-        bindAdd(conf.func, bfd, coroutine.running())
+        bindAdd(conf.func, bfd, running())
     end
     CasyncAccept.new(beaver, bfd, -1)
     while true do
-        local nfd, addr = coroutine.yield()
+        local nfd, addr = yield()
         obj.new(beaver, nfd, bfd, addr, conf)
     end
 end
 
 function M.acceptSetup(obj, beaver, conf, bindAdd)
-    assert(conf.mode == "TCP", "bad accept mode: " .. conf.mode)
+    liteAssert(conf.mode == "TCP", "bad accept mode: " .. conf.mode)
     local fd = sockComm.setupSocket(conf)
-    local co = coroutine.create(acceptServer)
-    local res, msg = coroutine.resume(co, obj, conf, beaver, fd, bindAdd)
-    system.coReport(co, res, msg)
+    local co = create(acceptServer)
+    local res, msg = resume(co, obj, conf, beaver, fd, bindAdd)
+    coReport(co, res, msg)
 end
 
 return M

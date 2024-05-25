@@ -14,7 +14,24 @@ local sockComm = require("common.sockComm")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local class = class
 local Cdownstream = class("nextstream", CasyncBase)
+
+local type = type
+local print = print
+local require = require
+local pairs = pairs
+local tonumber = tonumber
+local error = error
+local format = string.format
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local create = coroutine.create
+local status = coroutine.status
+local running = coroutine.running
+local yield = coroutine.yield
+local resume = coroutine.resume
+local c_api_b_close = c_api.b_close
 
 function Cdownstream:_init_(beaver, uplink, bfd, addr, conf, tmo)
     self._status = 0  -- 0:disconnect, 1 connected, 2 connecting
@@ -47,7 +64,7 @@ function Cdownstream:_setup(fd, tmo)
     local uplink = self._uplink
     local res
 
-    workVar.clientAdd(conf.func, self._bfd, fd, coroutine.running(), self._addr)
+    workVar.clientAdd(conf.func, self._bfd, fd, running(), self._addr)
 
     self._status = 2  -- connecting
     beaver:co_set_tmo(fd, tmo)  -- set connect timeout
@@ -61,7 +78,7 @@ function Cdownstream:_setup(fd, tmo)
     end
 
     while true do
-        local e = coroutine.yield()
+        local e = yield()
         local t = type(e)
         if t == "string" then -- read stream from uplink
             beaver:co_set_tmo(fd, tmo)
@@ -92,24 +109,24 @@ function Cdownstream:_setup(fd, tmo)
     self._status = 0
     uplink:shutdown()
     self:stop()
-    c_api.b_close(fd)
+    c_api_b_close(fd)
     workVar.clientDel(conf.func, fd)
 end
 
 function Cdownstream:send(s)
     local res, msg
     local co = self._co
-    if coroutine.status(co) == "suspended" then
-        res, msg = coroutine.resume(co, s)
-        system.coReport(co, res, msg)
+    if status(co) == "suspended" then
+        res, msg = resume(co, s)
+        coReport(co, res, msg)
     end
 end
 
 function Cdownstream:shutdown()  -- send a nil message
     local res, msg
     local co = self._co
-    if coroutine.status(co) == "suspended" then
-        res, msg = coroutine.resume(co, nil)
+    if status(co) == "suspended" then
+        res, msg = resume(co, nil)
         system.coReport(co, res, msg)
     end
 end
@@ -135,7 +152,7 @@ local function waitConnect(beaver, fd, down)
         return true
     elseif res == 2 then -- connecting
         beaver:mod_fd(fd, -1)  -- mask io event, other close event is working.
-        local w = coroutine.yield()
+        local w = yield()
         local t = type(w)
         if t == "number" and w == 1 then  -- 0 is ok
             beaver:mod_fd(fd, 0)  -- back to read mode
@@ -156,7 +173,7 @@ function Cupstream:_setup(fd, tmo)
     local conf = self._conf
     local res
 
-    workVar.clientAdd(conf.func, self._bfd, fd, coroutine.running(), self._addr)
+    workVar.clientAdd(conf.func, self._bfd, fd, running(), self._addr)
 
     local down = Cdownstream.new(beaver, self, self._bfd, self._addr, conf)
     if not waitConnect(beaver, fd, down) then
@@ -164,7 +181,7 @@ function Cupstream:_setup(fd, tmo)
     end
 
     while true do
-        local e = coroutine.yield()
+        local e = yield()
         local t = type(e)
         if t == "string" then -- read stream from uplink
             beaver:co_set_tmo(fd, tmo)
@@ -201,27 +218,27 @@ end
 function Cupstream:send(s)
     local res, msg
     local co = self._co
-    if coroutine.status(co) == "suspended" then
-        res, msg = coroutine.resume(co, s)
-        system.coReport(co, res, msg)
+    if status(co) == "suspended" then
+        res, msg = resume(co, s)
+        coReport(co, res, msg)
     end
 end
 
 function Cupstream:shutdown()  -- send a nil message
     local res, msg
     local co = self._co
-    if coroutine.status(co) == "suspended" then
-        res, msg = coroutine.resume(co, nil)
-        system.coReport(co, res, msg)
+    if status(co) == "suspended" then
+        res, msg = resume(co, nil)
+        coReport(co, res, msg)
     end
 end
 
 function Cupstream:connectWake(v)  -- send a nil message
     local res, msg
     local co = self._co
-    if coroutine.status(co) == "suspended" then
-        res, msg = coroutine.resume(co, v)
-        system.coReport(co, res, msg)
+    if status(co) == "suspended" then
+        res, msg = resume(co, v)
+        coReport(co, res, msg)
     end
 end
 

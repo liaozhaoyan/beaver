@@ -13,6 +13,9 @@ local c_type, c_api = cffi.type, cffi.api
 
 local Cpingpong = class("pinngpong", CasyncBase)
 
+local running = coroutine.running
+local c_api_b_close = c_api.b_close
+
 function Cpingpong:_init_(beaver, fd, bfd, addr, conf, inst, tmo)
     self._beaver = beaver
     tmo = tmo or 10
@@ -26,7 +29,7 @@ function Cpingpong:_setup(fd, tmo)
     local beaver = self._beaver
     local module = self._conf.func
 
-    workVar.clientAdd(module, self._bfd, fd, coroutine.running(), self._addr)
+    workVar.clientAdd(module, self._bfd, fd, running(), self._addr)
     while true do
         beaver:co_set_tmo(fd, -1)
         local s = beaver:read(fd)
@@ -40,7 +43,7 @@ function Cpingpong:_setup(fd, tmo)
         end
     end
     self:stop()
-    c_api.b_close(fd)
+    c_api_b_close(fd)
     workVar.clientDel(module, fd)
 end
 

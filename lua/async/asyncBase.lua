@@ -6,6 +6,7 @@
 
 require("eclass")
 
+local class = class
 local CasyncBase = class("asyncBase")
 
 function CasyncBase:_init_(beaver, fd, tmo)

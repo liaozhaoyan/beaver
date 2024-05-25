@@ -5,14 +5,24 @@ local sockComm = require("common.sockComm")
 local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
-local format = string.format
 
+local class = class
 local CasyncClient = class("asyncClient", CasyncBase)
+
+local type = type
+local format = string.format
+local c_new = c_type.new
+local running = coroutine.running
+local yield = coroutine.yield
+local resume = coroutine.resume
+local status = coroutine.status
+local coReport = system.coReport
+local error = error
 
 function CasyncClient:_init_(beaver, hostFd, tPort, tmo)
     local fd = sockComm.connectSetup(tPort)
     self._tPort = tPort
-    self._coWake = coroutine.running()
+    self._coWake = running()
     self._status = 0
     -- 0:disconnect, 1 connected, 2 connecting, 3 connect failed.
 
@@ -32,9 +42,9 @@ end
 
 function CasyncClient:wake(co, v)
     local res, msg
-    if coroutine.status(co) == "suspended" then
-        res, msg = coroutine.resume(co, v)
-        system.coReport(co, res, msg)
+    if status(co) == "suspended" then
+        res, msg = resume(co, v)
+        coReport(co, res, msg)
         return msg
     end
 end
@@ -47,10 +57,10 @@ function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
         local w
         if hostFd then
             beaver:mod_fd(hostFd, -1)  -- mask io event, only close event is working.
-            w = coroutine.yield()
+            w = yield()
             beaver:mod_fd(hostFd, 0)  -- back host fd to read mode
         else
-            w = coroutine.yield()
+            w = yield()
         end
         
         local t = type(w)
@@ -90,32 +100,32 @@ function CasyncClient:_waitData(stream)
     local coWake = self._co
     local selfFd = self._hostFd
 
-    local status = self._status
+    local stat = self._status
 
-    if status == 1 then -- connect ok.
+    if stat == 1 then -- connect ok.
         local res, msg
         local e
 
-        local statCo = coroutine.status(coWake)
+        local statCo = status(coWake)
         if statCo == "suspended" then
-            res, msg = coroutine.resume(coWake, stream)
-            system.coReport(coWake, res, msg)
+            res, msg = resume(coWake, stream)
+            coReport(coWake, res, msg)
             if selfFd then
                 beaver:mod_fd(selfFd, -1)  -- to block fd other event, mask io event, only close event is working. 
-                e = coroutine.yield()
+                e = yield()
                 if type(e) == "cdata" then
                     if e.ev_close == 1 and e.fd == selfFd then
                         return nil, "local socket closeed."
                     else
-                        error(string.format("beaver report bug: fd: %d, in: %d, out: %d", e.fd, e.ev_in, e.ev_out))
+                        error(format("beaver report bug: fd: %d, in: %d, out: %d", e.fd, e.ev_in, e.ev_out))
                     end
                 end
                 beaver:mod_fd(selfFd, 0)  -- back to read mode
             else
-                e = coroutine.yield()
+                e = yield()
             end
         elseif statCo == "normal" then    -- wake from http client.
-            e = coroutine.yield(stream)
+            e = yield(stream)
         else
             error(format("beaver report bug: co status: %s", statCo))
         end
@@ -133,7 +143,7 @@ end
 
 function CasyncClient:close()
     if self._status > 0 then
-        local e = c_type.new("native_event_t")
+        local e = c_new("native_event_t")
         e.ev_close = 1
         e.fd = self._fd
         self:_waitData(e)

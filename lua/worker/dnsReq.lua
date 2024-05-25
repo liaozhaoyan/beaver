@@ -12,7 +12,21 @@ local workVar = require("module.workVar")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local class = class
 local CdnsReq = class("CdnsReq", CasyncBase)
+
+local require = require
+local pairs = pairs
+local tonumber = tonumber
+local error = error
+local format = string.format
+local liteAssert = system.liteAssert
+local coReport = system.coReport
+local create = coroutine.create
+local running = coroutine.running
+local yield = coroutine.yield
+local resume = coroutine.resume
+local c_api_b_close = c_api.b_close
 
 function CdnsReq:_init_(beaver, fd, bfd, addr, conf, tmo)
     self._beaver = beaver
@@ -27,7 +41,7 @@ function CdnsReq:_setup(fd, tmo)
     local beaver = self._beaver
     local module = self._conf.func
 
-    workVar.clientAdd(module, self._bfd, fd, coroutine.running(), self._addr)
+    workVar.clientAdd(module, self._bfd, fd, running(), self._addr)
 
     repeat
         beaver:co_set_tmo(fd, -1)
@@ -37,7 +51,7 @@ function CdnsReq:_setup(fd, tmo)
         end
 
         local domain, ip = workVar.dnsReq(s)
-        assert(domain == s, "bad echo.")
+        liteAssert(domain == s, "bad echo.")
 
         beaver:co_set_tmo(fd, tmo)
         local res = beaver:write(fd, domain .. ":" .. ip)
@@ -47,7 +61,7 @@ function CdnsReq:_setup(fd, tmo)
     until false
 
     self:stop()
-    c_api.b_close(fd)
+    c_api_b_close(fd)
     workVar.clientDel(module, fd)
 end
 
