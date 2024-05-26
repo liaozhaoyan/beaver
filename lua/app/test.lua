@@ -14,6 +14,7 @@ local httpRead = require("http.httpRead")
 local Credis = require("client.redis")
 local CcliBase = require("client.cliBase")
 
+local class = class
 local Ctest = class("test")
 
 local counter = 0

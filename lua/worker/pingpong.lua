@@ -11,6 +11,7 @@ local workVar = require("module.workVar")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local class = class
 local Cpingpong = class("pinngpong", CasyncBase)
 
 local running = coroutine.running

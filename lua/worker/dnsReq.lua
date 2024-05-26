@@ -15,17 +15,8 @@ local c_type, c_api = cffi.type, cffi.api
 local class = class
 local CdnsReq = class("CdnsReq", CasyncBase)
 
-local require = require
-local pairs = pairs
-local tonumber = tonumber
-local error = error
-local format = string.format
 local liteAssert = system.liteAssert
-local coReport = system.coReport
-local create = coroutine.create
 local running = coroutine.running
-local yield = coroutine.yield
-local resume = coroutine.resume
 local c_api_b_close = c_api.b_close
 
 function CdnsReq:_init_(beaver, fd, bfd, addr, conf, tmo)

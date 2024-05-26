@@ -19,14 +19,7 @@ local Cdownstream = class("nextstream", CasyncBase)
 
 local type = type
 local print = print
-local require = require
-local pairs = pairs
-local tonumber = tonumber
-local error = error
-local format = string.format
-local liteAssert = system.liteAssert
 local coReport = system.coReport
-local create = coroutine.create
 local status = coroutine.status
 local running = coroutine.running
 local yield = coroutine.yield

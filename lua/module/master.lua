@@ -22,23 +22,13 @@ local cjson = require("cjson.safe")
 local class = class
 local Cmaster = class("master")
 
-local ipairs = ipairs
-local print = print
 local time = os.time
-local io_open = io.open
 local liteAssert = system.liteAssert
 local coReport = system.coReport
 local create = coroutine.create
-local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
-local char = string.char
-local len = string.len
 local format = string.format
-local byte = string.byte
-local concat = table.concat
-local c_api_b_close = c_api.b_close
-local jencode = cjson.encode
 local jdecode = cjson.decode
 
 function Cmaster:_init_(conf)
