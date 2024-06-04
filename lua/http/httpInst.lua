@@ -16,6 +16,7 @@ local pairs = pairs
 local lower = string.lower
 local find = string.find
 local format = string.format
+local serverRead = httpRead.serverRead
 
 local class = class
 local ChttpInst = class("httpInst")
@@ -96,13 +97,13 @@ local function echo404(path)
     }
 end
 
-local function echo501()
+local function echo501(verb)
     return {
         code = 501,
         headers = {
             ["Content-Type"] = "text/plain",
         },
-        body = "Oops! Beaver may have gotten lost!!!\n",
+        body = format("Oops! Beaver may have gotten lost for %s!!!\n", verb),
         keep = false
     }
 end
@@ -147,7 +148,7 @@ local function _proc(cbs, verb, tReq)
             return echo503(tReq.path, system.lastError())
         end
     end
-    return echo501()
+    return echo501(verb)
 end
 
 local commPackServerFrame = httpComm.packServerFrame
@@ -156,7 +157,7 @@ function ChttpInst:packServerFrame(tReq)
 end
 
 function ChttpInst:proc(fread, session, beaver, fd)
-    local tReq = httpRead.serverRead(fread)
+    local tReq = serverRead(fread)
     if tReq then
         tReq.session = session
         tReq.beaver = beaver

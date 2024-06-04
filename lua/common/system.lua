@@ -3,7 +3,7 @@
 --- Created by liaozhaoyan.
 --- DateTime: 2022/12/16 10:58 PM
 ---
-
+local require = require
 local serpent = require("common.serpent")
 local block = serpent.block
 local system = {}

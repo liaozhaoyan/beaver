@@ -4,9 +4,11 @@
 --- DateTime: 2024/1/19 12:26 AM
 ---
 
+local require = require
 require("eclass")
 
 local psocket = require("posix.sys.socket")
+local posix = require("posix")
 local CasyncClient = require("async.asyncClient")
 local system = require("common.system")
 local workVar = require("module.workVar")
@@ -15,6 +17,7 @@ local httpRead = require("http.httpRead")
 local httpComm = require("http.httpComm")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
+local stat = posix.sys.stat
 
 local format = string.format
 local liteAssert = system.liteAssert
@@ -22,6 +25,9 @@ local type = type
 local print = print
 local running = coroutine.running
 local yield = coroutine.yield
+local error = error
+local assert = assert
+local fstat = stat.stat
 
 local httpConnectTmo = 10
 
@@ -29,19 +35,39 @@ local class = class
 local ChttpReq = class("request", CasyncClient)
 
 function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
-    self._domain = host
     local ip
+    local tPort
+    local host_t = type(host)
 
-    if proxy then
-        ip, port = proxy.ip, proxy.port
+    if host_t == "table" then   -- is a table , may uds or kata socket.
+        local path
+        if host.path then
+            path = host.path
+            assert(fstat(path))
+            self._domain = path
+        else
+            error("not support socket type.")
+        end
+
+        if host.kata and port then
+           self._kataPort = port
+        end
+        tPort = {family=psocket.AF_UNIX, path=host.path}
+    elseif host_t == "string" then
+        self._domain = host
+        if proxy then
+            ip, port = proxy.ip, proxy.port
+        else
+            ip, port = workVar.getIp(host), port or 80
+        end
+        tPort = {family=psocket.AF_INET, addr=ip, port=port}
     else
-        ip, port = workVar.getIp(host), port or 80
+        error(format("host type: %s", host_t))
     end
 
     tmo = tmo or 60
     self._maxLen = maxLen or 2 * 1024 * 1024
 
-    local tPort = {family=psocket.AF_INET, addr=ip, port=port}
     CasyncClient._init_(self, tReq.beaver, tReq.fd, tPort, tmo)
 end
 
@@ -55,6 +81,16 @@ function ChttpReq:_setup(fd, tmo)
     workVar.connectAdd("httpReq", fd, running())
 
     status, e = self:cliConnect(fd, tmo)
+
+    if status == 1 and self._kataPort then
+        status = self:_connKata(fd, beaver, co)
+        self._status = status  -- 当期状况可能会去唤醒 等待co，co可能会在get等方法中访问self._status状态，必须要提前设置
+        if status == 1 then
+            e = self:wake(co, true) -- 连接成功, 接下来的数据将会通过co 传递过来。
+        else
+            self:wake(co, false)  -- 连接失败
+        end
+    end
 
     while status == 1 do
         if not e then
@@ -100,6 +136,43 @@ function ChttpReq:_setup(fd, tmo)
     workVar.connectDel("httpReq", fd)
 end
 
+function ChttpReq:_connKata(fd, beaver, co)
+    local port = self._kataPort
+    local res = beaver:write(fd, format("connect %d\n", port))
+    if not res then
+        return 0
+    end
+
+    beaver:co_set_tmo(fd, httpConnectTmo)
+
+    local e = yield()
+    local t = type(e)
+    if t == "nil" then  -- fd has closed.
+        return 0
+    elseif t == "cdata" then  -- has data to read
+        if e.ev_close > 0 then   -- fd closed.
+            return 0
+        elseif e.ev_in > 0 then  -- has data to read
+            res = beaver:read(fd, 1024)
+            if not res then
+                return 0
+            end
+            beaver:co_set_tmo(fd, -1)
+            return 1
+        else
+            print("IO Error.")
+        end
+    else
+        print(format("type: %s, undknown error.", t))
+    end
+    return 0
+end
+
+function ChttpReq:kataReady()
+    local ok = yield()  --only kata need to wait
+    return ok
+end
+
 local function setupHeader(headers)
     headers = headers or {}
     if not headers.Accept then
@@ -129,13 +202,13 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
     end
     headers = headers or {}
     headers.Host = self._domain
-    local res = {
+    local sendTable = {
         url = uri,
         method = verb,
         headers = setupHeader(headers),
         body = body or "",
     }
-    local stream = commPackClientFrame(res)
+    local stream = commPackClientFrame(sendTable)
     local res, msg = self:_waitData(stream)
     liteAssert(res, msg)
     if type(res) ~= "table" then

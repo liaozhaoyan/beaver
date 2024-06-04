@@ -85,14 +85,14 @@ end
 
 function CasyncClient:cliConnect(fd, tmo)
     local beaver = self._beaver
-    local status
+    local stat
 
     self._status = 2  -- connecting
     beaver:co_set_tmo(fd, tmo)  -- set connect timeout
-    status = sockComm.connect(fd, self._tPort, beaver)  -- 
+    stat = sockComm.connect(fd, self._tPort, beaver)  -- 
     beaver:co_set_tmo(fd, -1)   -- back
-    self._status = status  -- connected
-    return status, self:wake(self._coWake, status)  -- wake up to wake, set in asyncClient.
+    self._status = stat  -- connected
+    return stat, self:wake(self._coWake, stat)  -- wake up to wake, set in asyncClient.
 end
 
 function CasyncClient:_waitData(stream)
