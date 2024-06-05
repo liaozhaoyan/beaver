@@ -5,12 +5,13 @@
 ---
 
 local M = {}
+local require = require
 local system = require("common.system")
 local CasyncAccept = require("async.asyncAccept")
 local sockComm = require("common.sockComm")
 local cjson = require("cjson.safe")
 
-local require = require
+local type = type
 local pairs = pairs
 local tonumber = tonumber
 local error = error
@@ -21,6 +22,7 @@ local create = coroutine.create
 local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
+local status = coroutine.status
 local jencode = cjson.encode
 
 local var = {
@@ -97,8 +99,10 @@ local function echoDns(arg)
     local coId = arg.coId
     local co = var.dnsWait[coId]
 
-    local res, msg =  resume(co, arg.domain, arg.ip)
-    coReport(co, res, msg)
+    if status(co) == "suspended" then
+        local res, msg = resume(co, arg.domain, arg.ip)
+        coReport(co, res, msg)
+    end
     var.dnsWait[coId] = nil   -- free wait.
 end
 
@@ -107,10 +111,14 @@ local function echoWake(arg)
     local coId = arg.coId
     local co = var.periodWakeCo[coId]
 
-    res, msg = resume(co, arg.period)  -- wake to M.periodWake
-    coReport(co, res, msg)
-    if arg.loop == 0 then
-        var.periodWakeCo[coId] = nil   -- free wait.
+    if type(co) == "thread" and status(co) == "suspended" then  -- co may set to nil
+        res, msg = resume(co, arg.period)  -- wake to M.periodWake
+        coReport(co, res, msg)
+        if arg.loop == 0 then
+            var.periodWakeCo[coId] = nil   -- free wait.
+        end
+    else
+        var.periodWakeCo[coId] = nil   -- dead.
     end
 end
 
@@ -220,7 +228,7 @@ function M.periodWake(period, loop)
 
     local res, msg = resume(var.coOut, jencode(func))
     coReport(var.coOut, res, msg)
-    return yield()  -- will return loop time.
+    return yield()  -- will return loop time, wake from echoWake function.
 end
 
 function M.msleep(ms)

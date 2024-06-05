@@ -5,18 +5,21 @@
 ---
 
 local M = {}
+local require = require
 local system = require("common.system")
 local CasyncAccept = require("async.asyncAccept")
 local sockComm = require("common.sockComm")
 local cjson = require("cjson.safe")
 
 local print = print
+local type = type
 local liteAssert = system.liteAssert
 local coReport = system.coReport
 local create = coroutine.create
 local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
+local status = coroutine.status
 local jencode = cjson.encode
 
 local var = {
@@ -63,10 +66,14 @@ local function echoWake(arg)
     local coId = arg.coId
     local co = var.periodWakeCo[coId]
 
-    res, msg = resume(co, arg.period)
-    coReport(co, res, msg)
-    if arg.loop == 0 then
-        var.periodWakeCo[coId] = nil   -- free wait.
+    if type(co) == "thread" and status(co) == "suspended" then  -- co may set to nil
+        res, msg = resume(co, arg.period)  -- wake to M.periodWake
+        coReport(co, res, msg)
+        if arg.loop == 0 then
+            var.periodWakeCo[coId] = nil   -- free wait.
+        end
+    else
+        var.periodWakeCo[coId] = nil  -- dead.
     end
 end
 
