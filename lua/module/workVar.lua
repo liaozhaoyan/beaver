@@ -107,7 +107,7 @@ local function echoWake(arg)
     local coId = arg.coId
     local co = var.periodWakeCo[coId]
 
-    res, msg = resume(co, arg.period)
+    res, msg = resume(co, arg.period)  -- wake to M.periodWake
     coReport(co, res, msg)
     if arg.loop == 0 then
         var.periodWakeCo[coId] = nil   -- free wait.
@@ -220,7 +220,7 @@ function M.periodWake(period, loop)
 
     local res, msg = resume(var.coOut, jencode(func))
     coReport(var.coOut, res, msg)
-    return yield()
+    return yield()  -- will return loop time.
 end
 
 function M.msleep(ms)

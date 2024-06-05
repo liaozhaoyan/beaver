@@ -109,7 +109,7 @@ local function echo501(verb)
 end
 
 local function echo503(path, msg)
-    local body = format("Oh! beaver may have a bad stomach!!!\nhe eat %s, report: %s\n", path, msg)
+    local body = format("Oh! Beaver may have a bad stomach!!!\nhe eat %s, report: %s\n", path, msg)
     return {
         code = 503,
         headers = {
