@@ -28,6 +28,7 @@ local yield = coroutine.yield
 local error = error
 local assert = assert
 local fstat = stat.stat
+local clientRead = httpRead.clientRead
 
 local httpConnectTmo = 10
 
@@ -67,6 +68,7 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
 
     tmo = tmo or 60
     self._maxLen = maxLen or 2 * 1024 * 1024
+    self._reuse = false   -- not reuse connect in default condition.
 
     CasyncClient._init_(self, tReq.beaver, tReq.fd, tPort, tmo)
 end
@@ -113,7 +115,7 @@ function ChttpReq:_setup(fd, tmo)
                 break
             elseif e.ev_in > 0 then
                 local fread = beaver:reads(fd, maxLen)
-                local tRes = httpRead.clientRead(fread)
+                local tRes = clientRead(fread)
                 e = self:wake(co, tRes)
                 t = type(e)
                 if t == "cdata" then -->upstream need to close.
@@ -173,6 +175,10 @@ function ChttpReq:kataReady()
     return ok
 end
 
+function ChttpReq:reuse(resue)
+    self._reuse = resue
+end
+
 local function setupHeader(headers)
     headers = headers or {}
     if not headers.Accept then
@@ -215,7 +221,7 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
         -- closed by remote server.
         return nil
     end
-    if not reuse or not checkKeepAlive(res) then
+    if not reuse or not self._reuse or not checkKeepAlive(res) then
         self:close()
     end
     return res

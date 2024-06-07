@@ -66,7 +66,7 @@ function M.getIp(host)
         ip = host
     else
         domain, ip = M.dnsReq(host)
-        liteAssert(domain == host, "bad dns request.")
+        return nil, format("bad dns: host %s, domain %s", host, domain)
     end
     return ip
 end
