@@ -20,6 +20,7 @@ local Cworker = class("master")
 
 local require = require
 local pairs = pairs
+local format = string.format
 local liteAssert = system.liteAssert
 local coReport = system.coReport
 local create = coroutine.create
@@ -60,7 +61,7 @@ end
 local function setupFuncs(thread)
     local b = thread.beaver
     for _, cell in pairs(thread.yaml.worker.funcs) do
-        local module = require("worker." .. cell.func)
+        local module = require(format("worker.%s", cell.func))
         local bindAdd = workVar.bindAdd
         workVar.acceptSetup(module, b, cell, bindAdd)
     end

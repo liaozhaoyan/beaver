@@ -33,7 +33,7 @@ end
 function Clmd:pTitle(s)
     local res = split(s, " ", 1)
     if #res < 2 then
-        error("bad markdown: "..s)
+        error(format("bad markdown: %s", s))
     end
     local head, value = unpack(res)
     local level = #head
@@ -120,7 +120,7 @@ local function images(s)
     if sub(link, -1, -1) == "\\" then
         return s
     end
-    local path = srcPath .. link
+    local path = format("%s%s", srcPath, link)
     return format('<img src="%s" alt="%s"/>', path, name)
 end
 

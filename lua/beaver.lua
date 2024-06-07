@@ -4,6 +4,7 @@
 --- DateTime: 2023/12/31 8:06 AM
 ---
 
+local require = require
 local unistd = require("posix.unistd")
 local cffi = require("beavercffi")
 local CcoBeaver = require("coBeaver")
@@ -12,6 +13,7 @@ local CasyncPipeWrite = require("async.asyncPipeWrite")
 local conf
 
 local print = print
+local format = string.format
 
 function init(fIn, fOut, name, config)
     conf = {
@@ -25,7 +27,7 @@ end
 
 function work()
     print(conf.name)
-    local module = require("module." .. conf.name)
+    local module = require(format("module.%s", conf.name))
     local m = module.new(conf)
     m:proc()
     return 0

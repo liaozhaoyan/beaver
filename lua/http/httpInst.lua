@@ -50,13 +50,13 @@ end
 function ChttpInst:_verbRegister(verb, path, func)
     local cb = self._cbs[verb]
 
-    liteAssert(cb, "bad verb mode: " .. verb)
+    liteAssert(cb, format("bad verb mode: %s", verb))
 
     if containsReservedCharacters(path) then
-        liteAssert(not cb.url[path], "the " .. path .. " is already registered.")
+        liteAssert(not cb.url[path], format("the %s is already registered.", path))
         cb.url[path] = func
     else
-        liteAssert(not cb.urlRe[path], "the " .. path .. " is already registered.")
+        liteAssert(not cb.urlRe[path], format("the %s is already registered.", path))
         cb.urlRe[path] = func
     end
 end

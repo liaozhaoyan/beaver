@@ -72,6 +72,7 @@ local ipairs = ipairs
 local tonumber = tonumber
 local unpack = unpack
 local type = type
+local format = string.format
 local concat = table.concat
 local insert = table.insert
 local running = coroutine.running
@@ -82,14 +83,14 @@ local c_api_b_close = c_api.b_close
 local function exec_cmd(cmd, ...)
     local args = {...}
     local res = {}
-    res[1] = "*" .. tostring(#args + 1)
-    res[2] = "$" .. tostring(#cmd)
+    res[1] = format("*%d", #args + 1)
+    res[2] = format("$%s", #cmd)
     res[3] = cmd
     
     local c = 3
     for _, arg in ipairs(args) do
         c = c + 1
-        res[c] = "$" .. tostring(#arg)
+        res[c] = format("$%d", #arg)
         c = c + 1
         res[c] = arg
     end
@@ -139,7 +140,7 @@ local function waitBlock(s, fread)
         end
         local add = fread(defaultRedisReadOvertime)
         if add then
-            s = s .. add
+            s = concat({s, add})
         else
             return nil
         end
@@ -150,7 +151,7 @@ local function waitLength(s, fread, length)
     while #s < length do
         local add = fread(defaultRedisReadOvertime)
         if add then
-            s = s .. add
+            s = concat({s, add})
         else
             return nil
         end

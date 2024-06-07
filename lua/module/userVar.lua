@@ -13,6 +13,7 @@ local cjson = require("cjson.safe")
 
 local print = print
 local type = type
+local format = string.format
 local liteAssert = system.liteAssert
 local coReport = system.coReport
 local create = coroutine.create
@@ -147,7 +148,7 @@ local function acceptServer(obj, conf, beaver, bfd, bindAdd)
 end
 
 function M.acceptSetup(obj, beaver, conf, bindAdd)
-    liteAssert(conf.mode == "TCP", "bad accept mode: " .. conf.mode)
+    liteAssert(conf.mode == "TCP", format("bad accept mode: %s", conf.mode))
     local fd = sockComm.setupSocket(conf)
     local co = create(acceptServer)
     local res, msg = resume(co, obj, conf, beaver, fd, bindAdd)

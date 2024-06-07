@@ -219,7 +219,7 @@ local io_open = io.open
 function system.parseYaml(fYaml)
     local f = io_open(fYaml,"r")
     if not f then
-        error("file: " .. fYaml .. " is not exist.")
+        error(format("file: %s is not exist.", fYaml))
     end
     local s = f:read("*all")
     f:close()

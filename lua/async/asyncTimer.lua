@@ -19,6 +19,7 @@ local coReport = system.coReport
 local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
+local format = string.format
 local c_api_b_close = c_api.b_close
 local timer_io_init = c_api.timer_io_init
 local timer_io_get = c_api.timer_io_get
@@ -57,7 +58,7 @@ end
 function CasyncTimer:update(ms)
     local res
     res = timer_io_set(self._fd, ms)
-    liteAssert(res >= 0, "set timer_io value failed " .. tonumber(ms))
+    liteAssert(res >= 0, format("set timer_io value failed %d", ms))
 end
 
 function CasyncTimer:wait(ms)

@@ -5,16 +5,18 @@
 ---
 
 --- refer to https://blog.csdn.net/a19881029/article/details/14002273
-
+local require = require
 local pystring = require("pystring")
 local sockerUrl = require("socket.url")
 
+local print = print
 local ipairs = ipairs
 local pairs = pairs
 local concat = table.concat
 local split = pystring.split
 local url_unescape = sockerUrl.unescape
 local url_parse = sockerUrl.parse
+local format = string.format
 local os_date = os.date
 local type = type
 
@@ -26,7 +28,7 @@ local function parseParam(param)
     for _, s in ipairs(tParam) do
         local kv = split(s, "=")
         if #kv ~= 2 then
-            print("bad param " .. s)
+            print(format("bad param %s", s))
             return nil
         end
         local k = url_unescape(kv[1])

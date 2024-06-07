@@ -16,8 +16,10 @@ local ipairs = ipairs
 local print = print
 local unpack = unpack
 local tonumber = tonumber
+local tostring = tostring
 local find = string.find
 local sub = string.sub
+local format = string.format
 local lower = string.lower
 local concat = table.concat
 local insert = table.insert
@@ -30,7 +32,7 @@ local function parseParam(param)
     for _, s in ipairs(tParam) do
         local kv = split(s, "=")
         if #kv ~= 2 then
-            print("bad param " .. s)
+            print(format("bad param %s", tostring(s)))
             return nil
         end
         local k = sockerUrl.unescape(kv[1])
@@ -84,7 +86,7 @@ local function waitChuckData(fread, s, size)
         end
         local add = fread(defaultHttpReadOvertime)
         if add then
-            s = s .. add
+            s = concat({s, add})
         else
             return nil
         end
@@ -98,7 +100,7 @@ local function waitChuckSize(fread, s)
         end
         local add = fread(defaultHttpReadOvertime)
         if add then
-            s = s .. add
+            s = concat({s, add})
         else
             return nil
         end
@@ -172,7 +174,7 @@ local function waitHttpHead(fread, tmo)
     while true do
         local s = fread(tmo)
         if s then
-            stream = stream .. s
+            stream = concat({stream, s})
             tmo = defaultHttpReadOvertime
             if find(stream, "\r\n\r\n") then
                 return stream
@@ -193,7 +195,7 @@ local function serverParse(fread, stream, parseParam)
     local stat, heads = unpack(tStatus)
     local tStat = split(stat, " ", 2)
     if #tStat < 3 then
-        print("bad stat: "..stat)
+        print(format("bad stat: %s", tostring(stat)))
         return nil
     end
 
@@ -206,7 +208,7 @@ local function serverParse(fread, stream, parseParam)
 
     local tHead = split(heads, "\r\n\r\n", 1)
     if #tHead < 2 then
-        print("bad head: " .. heads)
+        print(format("bad head: %s", tostring(heads)))
         return nil
     end
     local headerStr, body = unpack(tHead)
@@ -215,7 +217,7 @@ local function serverParse(fread, stream, parseParam)
     for _, s in ipairs(tHeader) do
         local tKv = split(s, ":", 1)
         if #tKv < 2 then
-            print("bad head kv value: " .. s)
+            print(format("bad head kv value: %s", tostring(s)))
             return nil
         end
         local k, v = unpack(tKv)
@@ -249,7 +251,7 @@ local function clientParse(fread, stream)
     local stat, heads = unpack(tStatus)
     local tStat = split(stat, " ", 2)
     if #tStat < 3 then
-        print("bad stat: " .. stat)
+        print(format("bad stat: %s", tostring(stat)))
         return nil
     end
 
@@ -262,7 +264,7 @@ local function clientParse(fread, stream)
 
     local tHead = split(heads, "\r\n\r\n", 1)
     if #tHead < 2 then
-        print("bad head: " .. heads)
+        print(format("bad head: %s", tostring(heads)))
         return nil
     end
     local headerStr, body = unpack(tHead)
@@ -271,7 +273,7 @@ local function clientParse(fread, stream)
     for _, s in ipairs(tHeader) do
         local tKv = split(s, ":", 1)
         if #tKv < 2 then
-            print("bad head kv value: " .. s)
+            print(format("bad head kv value: %s", tostring(s)))
             return nil
         end
         local k, v = unpack(tKv)

@@ -251,7 +251,7 @@ local ChttpInst = require("http.httpInst")
 
 local instTable = {
     httpServer = function(conf)
-        local app = require("app." .. conf.entry)
+        local app = require(format("app.%s", conf.entry))
         local inst = ChttpInst.new()
         app.new(inst, conf)
         return inst
@@ -279,7 +279,7 @@ local function acceptServer(obj, conf, beaver, bfd, bindAdd)
 end
 
 function M.acceptSetup(obj, beaver, conf, bindAdd)
-    liteAssert(conf.mode == "TCP", "bad accept mode: " .. conf.mode)
+    liteAssert(conf.mode == "TCP", format("bad accept mode: %s", conf.mode))
     local fd = sockComm.setupSocket(conf)
     local co = create(acceptServer)
     local res, msg = resume(co, obj, conf, beaver, fd, bindAdd)

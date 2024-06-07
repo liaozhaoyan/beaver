@@ -4,7 +4,7 @@
 --- DateTime: 2023/12/31 4:34 PM
 --- beaverIO manage all file io events.
 
-
+local require = require
 require("eclass")
 require("struct")
 
@@ -94,13 +94,14 @@ function CbeaverIO:reads(fd, maxLen)
     maxLen = maxLen or 10 * 1024 * 1024 -- signal conversation accept 2M stream max
 
     local function readFd(tmo)
-        local bufSize = maxLen < ioBlockSize and maxLen or ioBlockSize  -- min(maxLen, ioBlockSize)
+        local rfd, rMaxLen = fd, maxLen   -- local upvalue.
+        local bufSize = rMaxLen < ioBlockSize and rMaxLen or ioBlockSize  -- min(maxLen, ioBlockSize)
         local buf = buffer.new(bufSize)
         local ptr, len = buf:reserve(bufSize)
         tmo = tmo or -1
 
         len = len < bufSize and len or bufSize   -- buffer min is 32, if maxLen little than 32,
-        local ret = c_api_b_read(fd, ptr, len)
+        local ret = c_api_b_read(rfd, ptr, len)
 
         if ret == 0 then
             return nil, "fd closed",  64
@@ -108,14 +109,14 @@ function CbeaverIO:reads(fd, maxLen)
             buf:commit(ret)
             return buf:tostring()
         elseif ret == -11 then
-            self:co_set_tmo(fd, tmo)
+            self:co_set_tmo(rfd, tmo)
             local e = yield()
             if e.ev_close > 0 then
                 return nil, format("fd %d is already closed.", fd), 32
             elseif e.ev_in > 0 then
-                ret = c_api_b_read(fd, ptr, len)
+                ret = c_api_b_read(rfd, ptr, len)
                 if ret > 0 then
-                    maxLen = maxLen - ret
+                    rMaxLen = rMaxLen - ret
                     buf:commit(ret)
                     return buf:tostring()
                 elseif ret == 0 then
@@ -242,7 +243,7 @@ end
 
 function CbeaverIO:pipeWrite(fd, stream)
     local len = #stream
-    local buff = s_pack("<i", len) .. stream
+    local buff = concat({s_pack("<i", len), stream})
     return blockeWrite(c_api.b_write, fd, buff)
 end
 

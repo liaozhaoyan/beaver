@@ -15,6 +15,7 @@ local c_type, c_api = cffi.type, cffi.api
 local class = class
 local CdnsReq = class("CdnsReq", CasyncBase)
 
+local format = string.format
 local liteAssert = system.liteAssert
 local running = coroutine.running
 local c_api_b_close = c_api.b_close
@@ -45,7 +46,7 @@ function CdnsReq:_setup(fd, tmo)
         liteAssert(domain == s, "bad echo.")
 
         beaver:co_set_tmo(fd, tmo)
-        local res = beaver:write(fd, domain .. ":" .. ip)
+        local res = beaver:write(fd, format("%s:%s", domain, ip))
         if not res then
             break
         end

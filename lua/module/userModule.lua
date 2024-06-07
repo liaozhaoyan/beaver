@@ -13,6 +13,7 @@ local CuserModule = class("userModule")
 
 local require = require
 local print = print
+local format = string.format
 local liteAssert = system.liteAssert
 local coReport = system.coReport
 local create = coroutine.create
@@ -38,7 +39,7 @@ local function setupFuncs(var)
     -- body
     local func = var.yaml
     print(func.user.entry)
-    local mod = require("app." .. func.user.entry)
+    local mod = require(format("app.%s", func.user.entry))
     local r = mod.new(var)
     local co = create(mod.proc)
     local res, msg = resume(co, r)
