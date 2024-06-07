@@ -221,9 +221,10 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
         -- closed by remote server.
         return nil
     end
-    if not reuse or not self._reuse or not checkKeepAlive(res) then
-        self:close()
+    if reuse or self._reuse or checkKeepAlive(res) then
+        return res
     end
+    self:close()
     return res
 end
 
