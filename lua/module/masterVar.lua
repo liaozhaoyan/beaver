@@ -30,6 +30,7 @@ local create = coroutine.create
 local yield = coroutine.yield
 local resume = coroutine.resume
 local format = string.format
+local running = coroutine.running
 local create_beaver = c_api.create_beaver
 local jencode = cjson.encode
 
@@ -211,7 +212,7 @@ end
 
 local function periodWakeGetId()
     local ret = var.periodWakeId
-    var.periodWakeCo[ret] = coroutine.running()
+    var.periodWakeCo[ret] = running()
     var.periodWakeId = var.periodWakeId + 1
     return ret
 end
@@ -220,7 +221,7 @@ local function timerWake(node) -- call in masterTimer.
     local res, msg
     local co
     local fid = node.id
-    if fid > 0 then  -- wake worker
+    if fid and fid > 0 then  -- wake worker
         local func = {
             func = "echoWake",
             arg = {
@@ -234,10 +235,14 @@ local function timerWake(node) -- call in masterTimer.
         system.coReport(co, res, msg)
     else
         co = var.periodWakeCo[node.coId]
-        res, msg = resume(co, node)
-        coReport(co, res, msg)
-        if node.loop == 0 then
-            var.periodWakeCo[node.coId] = nil
+        if co then
+            res, msg = resume(co, node)
+            coReport(co, res, msg)
+            if node.loop == 0 then
+                var.periodWakeCo[node.coId] = nil
+            end
+        else
+            print(format("timerWake, but no co, coId: %d", node.coId))
         end
     end
 end

@@ -69,8 +69,9 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
     tmo = tmo or 60
     self._maxLen = maxLen or 2 * 1024 * 1024
     self._reuse = false   -- not reuse connect in default condition.
+    tReq.clients[self] = true
 
-    CasyncClient._init_(self, tReq.beaver, tReq.fd, tPort, tmo)
+    CasyncClient._init_(self, tReq, tReq.fd, tPort, tmo)
 end
 
 function ChttpReq:_setup(fd, tmo)
@@ -216,12 +217,12 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
     }
     local stream = commPackClientFrame(sendTable)
     local res, msg = self:_waitData(stream)
-    liteAssert(res, msg)
     if type(res) ~= "table" then
         -- closed by remote server.
+        print(format("closed by remote server: %s", msg))
         return nil
     end
-    if reuse or self._reuse or checkKeepAlive(res) then
+    if reuse or self._reuse then
         return res
     end
     self:close()

@@ -169,7 +169,7 @@ int mod_fd(int efd, int fd, int wr) {
 
     ret = epoll_ctl(efd, EPOLL_CTL_MOD, fd, &event);
     if (ret < 0) {
-        perror("error : can not add event to epoll!\n");
+        perror("error : can no mod event to epoll!\n");
         return -errno;
     }
     return ret;

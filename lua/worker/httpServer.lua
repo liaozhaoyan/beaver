@@ -14,6 +14,7 @@ local c_type, c_api = cffi.type, cffi.api
 local class = class
 local ChttpServer = class("httpServer", CasyncBase)
 
+local pairs = pairs
 local running = coroutine.running
 local c_api_b_close = c_api.b_close
 
@@ -35,11 +36,12 @@ function ChttpServer:_setup(fd, tmo)
 
     local inst = self._inst
     local session = {}
+    local clients = {}
 
     workVar.clientAdd(module, self._bfd, fd, running(), self._addr)
     local fread = beaver:reads(fd)
     while true do
-        local tRes = inst:proc(fread, session, beaver, fd)
+        local tRes = inst:proc(fread, session, clients, beaver, fd)
 
         if tRes then
             beaver:co_set_tmo(fd, tmo)
@@ -53,6 +55,10 @@ function ChttpServer:_setup(fd, tmo)
         end
     end
     self:stop()
+
+    for client, _ in pairs(clients) do
+        client:close()
+    end
     c_api_b_close(fd)
     workVar.clientDel(module, fd)
 end

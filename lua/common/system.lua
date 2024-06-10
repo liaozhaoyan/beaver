@@ -171,13 +171,14 @@ function system.hex2lows(hex)
     end))
 end
 
+local io_write = io.write
 function system.hexdump(buf)
-    for byte=1, #buf, 16 do
-        local chunk = buf:sub(byte, byte+15)
-        io.write(format('%08X  ',byte-1))
-        chunk:gsub('.', function (c) io.write(string.format('%02X ',byte(c))) end)
-        io.write(rep(' ',3*(16-#chunk)))
-        io.write(' ',chunk:gsub('%c','.'),"\n")
+    for Byte=1, #buf, 16 do
+        local chunk = buf:sub(Byte, Byte+15)
+        io_write(format('%08X  ',Byte-1))
+        chunk:gsub('.', function (c) io_write(format('%02X ',byte(c))) end)
+        io_write(rep(' ',3*(16-#chunk)))
+        io_write(' ',chunk:gsub('%c','.'),"\n")
     end
 end
 

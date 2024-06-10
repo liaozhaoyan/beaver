@@ -34,6 +34,8 @@ local function instance(tReq)
     local tRes = req:get("/latest/meta-data/instance-id")
     if tRes then
         return {body = tRes.body}
+    else
+        return {body = "unknown"}
     end
 end
 
@@ -42,6 +44,8 @@ local function bing(tReq)
     local tRes = req:get("HTTP://cn.bing.com/")
     if tRes then
         return {body = tRes.body}
+    else
+        return {body = "unknown"}
     end
 end
 
@@ -50,6 +54,8 @@ local function baidu(tReq)
     local tRes = req:get("HTTP://www.baidu.com/")
     if tRes then
         return {body = tRes.body}
+    else
+        return {body = "unknown"}
     end
 end
 

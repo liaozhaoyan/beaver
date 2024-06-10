@@ -156,10 +156,11 @@ function ChttpInst:packServerFrame(tReq)
     return commPackServerFrame(tReq)
 end
 
-function ChttpInst:proc(fread, session, beaver, fd)
+function ChttpInst:proc(fread, session, clients, beaver, fd)
     local tReq = serverRead(fread)
     if tReq then
         tReq.session = session
+        tReq.clients = clients
         tReq.beaver = beaver
         tReq.fd = fd
         local tRes = _proc(self._cbs, tReq.verb, tReq)

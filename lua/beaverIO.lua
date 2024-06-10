@@ -46,15 +46,15 @@ function CbeaverIO:_del_()
 end
 
 function CbeaverIO:remove(fd)
-    liteAssert(c_api_del_fd(self._efd, fd) >= 0)
+    liteAssert(c_api_del_fd(self._efd, fd) >= 0, "del fd failed.")
 end
 
 function CbeaverIO:add(fd)
-    liteAssert(c_api_add_fd(self._efd, fd) >= 0)
+    liteAssert(c_api_add_fd(self._efd, fd) >= 0, "add fd failed.")
 end
 
 function CbeaverIO:mod_fd(fd, wr)
-    liteAssert(c_api_mod_fd(self._efd, fd, wr) == 0)
+    liteAssert(c_api_mod_fd(self._efd, fd, wr) == 0, "mod_fd failed.")
 end
 
 function CbeaverIO:read(fd, size)

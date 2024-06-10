@@ -41,6 +41,7 @@ function CuniCli:proc()
         local res = cli:echo(s)
         assert(res == s, format("res:%s, v:%s", res, s))
         userVar.msleep(1000)
+        cli:close()
     end
 end
 

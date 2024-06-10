@@ -4,6 +4,7 @@ local system = require("common.system")
 local CasyncPipeRead = require("async.asyncPipeRead")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local userVar = require("module.userVar")
+local heartbeate = require("module.heartBeat")
 
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
@@ -44,6 +45,7 @@ local function setupFuncs(var)
     local co = create(mod.proc)
     local res, msg = resume(co, r)
     coReport(co, res, msg)
+    heartbeate.start(userVar.msleep, "user")
 end
 
 local function pipeIn(b, conf)

@@ -32,7 +32,7 @@ function Cpingpong:_setup(fd, tmo)
 
     workVar.clientAdd(module, self._bfd, fd, running(), self._addr)
     while true do
-        beaver:co_set_tmo(fd, -1)
+        beaver:co_set_tmo(fd, tmo)
         local s = beaver:read(fd)
         if not s then
             break

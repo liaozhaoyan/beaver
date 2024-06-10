@@ -12,12 +12,8 @@ local CasyncPipeRead = require("async.asyncPipeRead")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local masterVar = require("module.masterVar")
 
-local cffi = require("beavercffi")
-local c_type, c_api = cffi.type, cffi.api
-
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
-
 
 local class = class
 local Cmaster = class("master")
@@ -61,24 +57,6 @@ local function pipeIn(b, conf)  --> to receive call function
     end
 end
 
-local function check(last, hope)
-    local now = time()
-    liteAssert(now - last == hope or now - last == hope + 1, format("check var failed. hope: %d, now: %d", hope, now - last))
-    return now
-end
-
-local function testTimer()
-    local last = time()
-    local loop = 1
-    while true do
-        masterVar.msleep(3000)
-        last = check(last, 3)
-        masterVar.msleep(5000)
-        last = check(last, 5)
-        loop = loop + 1
-    end
-end
-
 function Cmaster:proc()
     local beaver = CcoBeaver.new()
 
@@ -86,10 +64,6 @@ function Cmaster:proc()
 
     local co = create(pipeIn)
     local res, msg = resume(co, beaver, self._conf)
-    coReport(co, res, msg)
-
-    co = create(testTimer)
-    res, msg = resume(co)
     coReport(co, res, msg)
 
     beaver:poll()

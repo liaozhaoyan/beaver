@@ -33,12 +33,10 @@ function CasyncTimer:_init_(beaver, toWake)
     CasyncBase._init_(self, beaver, fd, -1)
 end
 
-function CasyncTimer:_setup(fd, tmo)
+function CasyncTimer:_setup(fd)
     local res, msg
-    local beaver = self._beaver
     local co = self._toWake
 
-    beaver:co_set_tmo(fd, tmo)
     while true do
         local e = yield()
 
@@ -59,15 +57,6 @@ function CasyncTimer:update(ms)
     local res
     res = timer_io_set(self._fd, ms)
     liteAssert(res >= 0, format("set timer_io value failed %d", ms))
-end
-
-function CasyncTimer:wait(ms)
-    local res, msg
-    local co = running()
-
-    res, msg = resume(self._co, co, ms)
-    coReport(self._co, res, msg)
-    return yield()
 end
 
 return CasyncTimer

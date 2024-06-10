@@ -3,7 +3,7 @@
 --- Created by liaozhaoyan.
 --- DateTime: 2024/1/14 11:32 PM
 ---
-
+local require = require
 require("eclass")
 
 local system = require("common.system")

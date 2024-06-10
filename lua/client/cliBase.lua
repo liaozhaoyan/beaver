@@ -15,8 +15,10 @@ local c_api_b_close = c_api.b_close
 
 function cliBase:_init_(beaver, tPort, tmo)
     tmo = tmo or 10
-
-    asyncClient._init_(self, beaver, nil, tPort, tmo)
+    local tReq = {
+        beaver = beaver,
+    }
+    asyncClient._init_(self, tReq, nil, tPort, tmo)
     -- asyncClient will yield for connected
 end
 

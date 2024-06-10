@@ -108,7 +108,7 @@ function Credis:_init_(tReq, host, port, tmo)
 
     local tPort = {family=psocket.AF_INET, addr=ip, port=port}
     
-    CasyncClient._init_(self, tReq.beaver, tReq.fd, tPort, tmo)
+    CasyncClient._init_(self, tReq, tReq.fd, tPort, tmo)
 
     for _, cmd in ipairs(common_cmds) do
         self[cmd] = function(obj, ...)

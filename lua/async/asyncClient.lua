@@ -19,13 +19,19 @@ local status = coroutine.status
 local coReport = system.coReport
 local error = error
 
-function CasyncClient:_init_(beaver, hostFd, tPort, tmo)
+function CasyncClient:_init_(tReq, hostFd, tPort, tmo)
     local fd = sockComm.connectSetup(tPort)
     self._tPort = tPort
     self._coWake = running()
     self._status = 0
     -- 0:disconnect, 1 connected, 2 connecting, 3 connect failed.
 
+    
+    if tReq.clients then  -- will auto release when close host client.
+        tReq.clients[self] = true
+    end
+
+    local beaver = tReq.beaver
     CasyncBase._init_(self, beaver, fd, tmo)
     -- assert(self:_waitConnected(beaver, hostFd) == 0, "connect socket failed.")
     self._status = self:_waitConnected(beaver, hostFd)
@@ -74,7 +80,7 @@ function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
             if w.ev_close == 1 then  -- wake from remote stream.
                 return 3 -- 3 connect failed, refer to sockComm, 3 means connect failed.
             else
-                error(string.format("beaver report bug: fd: %d, in: %d, out: %d", w.fd, w.ev_in, w.ev_out))
+                error(format("beaver report bug: fd: %d, in: %d, out: %d", w.fd, w.ev_in, w.ev_out))
             end
             return 0
         end

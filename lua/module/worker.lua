@@ -11,6 +11,7 @@ local system = require("common.system")
 local CasyncPipeRead = require("async.asyncPipeRead")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local workVar = require("module.workVar")
+local heartbeate = require("module.heartBeat")
 
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
@@ -65,6 +66,7 @@ local function setupFuncs(thread)
         local bindAdd = workVar.bindAdd
         workVar.acceptSetup(module, b, cell, bindAdd)
     end
+    heartbeate.start(workVar.msleep, "worker")
 end
 
 function Cworker:proc()

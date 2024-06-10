@@ -108,7 +108,7 @@ end
 
 local function periodWakeGetId()
     local ret = var.periodWakeId
-    var.periodWakeCo[ret] = coroutine.running()
+    var.periodWakeCo[ret] = running()
     var.periodWakeId = var.periodWakeId + 1
     return ret
 end
