@@ -68,7 +68,7 @@ function system.liteAssert(cond, ...)
 end
 
 function system.coReport(co, res, msg)
-    return assert(res, res or _coReport(co, msg))  -- if res true, the 2nd var will return
+    return system.liteAssert(res, res or _coReport(co, msg))  -- if res true, the 2nd var will return
 end
 
 local lastStack = ""

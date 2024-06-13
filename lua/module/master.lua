@@ -26,6 +26,7 @@ local yield = coroutine.yield
 local resume = coroutine.resume
 local format = string.format
 local jdecode = cjson.decode
+local yload = lyaml.load
 
 function Cmaster:_init_(conf)
     self._conf = conf
@@ -60,7 +61,7 @@ end
 function Cmaster:proc()
     local beaver = CcoBeaver.new()
 
-    masterVar.masterSetVar(beaver, self._conf, lyaml.load(self._conf.config))
+    masterVar.masterSetVar(beaver, self._conf, yload(self._conf.config))
 
     local co = create(pipeIn)
     local res, msg = resume(co, beaver, self._conf)

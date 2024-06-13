@@ -29,6 +29,7 @@ local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
 local jdecode = cjson.decode
+local yload = lyaml.load
 
 function Cworker:_init_(conf)
     self._conf = conf
@@ -72,7 +73,7 @@ end
 function Cworker:proc()
     local b = CcoBeaver.new()
 
-    workVar.workerSetVar(b, self._conf, lyaml.load(self._conf.config))
+    workVar.workerSetVar(b, self._conf, yload(self._conf.config))
     workVar.setCb(setupFuncs, workVar.workerGetVar())
 
     local co = create(pipeIn)

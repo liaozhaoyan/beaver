@@ -105,13 +105,12 @@ static lua_State * app_init(struct beaver_init_args* args) {
         goto endCall;
     }
 
-    free(args);
+    
     return L;
     endCall:
     endLoad:
     lua_close(L);
     endNew:
-    free(args);
     return NULL;
 }
 
@@ -128,6 +127,8 @@ static void * beaver_app(void * arg) {
     if (L != NULL) {
         beaver_work(L);
     }
+    free(args->config);
+    free(args);
 
     if (ctrl_out) {
         char msg[MSG_BUF];
@@ -141,16 +142,27 @@ static void * beaver_app(void * arg) {
 
 static int _create_beaver(pthread_t *p_tid, struct beaver_init_args* args) {
     int ret;
+    char* config = malloc(strlen(args->config) + 1);  
+    //will free in beaver_app function.
 
-    //local arg will free in thread function.
+    if (config == NULL) {
+        errno = -ENOMEM;
+        perror("malloc for beaver config failed.");
+        goto endMalloc1;
+    }
+    memcpy(config, args->config, strlen(args->config) + 1);
+
+    //local arg will free in beaver_app function.
     struct beaver_init_args *local = malloc(sizeof (struct beaver_init_args));
     if (local == NULL) {
         errno = -ENOMEM;
         perror("malloc for beaver args failed.");
-        goto endMalloc;
+        goto endMalloc2;
     }
 
     memcpy(local, args, sizeof (struct beaver_init_args));
+    local->config = config;
+
 
     ret = pthread_create(p_tid, NULL, beaver_app, local);
     if (ret == 0) {
@@ -163,7 +175,9 @@ static int _create_beaver(pthread_t *p_tid, struct beaver_init_args* args) {
 
     endPthread:
     free(local);
-    endMalloc:
+    endMalloc2:
+    free(config);
+    endMalloc1:
     return ret;
 }
 

@@ -69,7 +69,6 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
     tmo = tmo or 60
     self._maxLen = maxLen or 2 * 1024 * 1024
     self._reuse = false   -- not reuse connect in default condition.
-    tReq.clients[self] = true
 
     CasyncClient._init_(self, tReq, tReq.fd, tPort, tmo)
 end

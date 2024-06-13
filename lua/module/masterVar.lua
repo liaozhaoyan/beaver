@@ -33,6 +33,8 @@ local format = string.format
 local running = coroutine.running
 local create_beaver = c_api.create_beaver
 local jencode = cjson.encode
+local ydump = lyaml.dump
+local deepcopy = system.deepcopy
 
 local var = {
     setup = false,
@@ -76,14 +78,19 @@ local function pipeCtrlReg(arg)
         local yaml = thread.yaml
         if yaml.worker then
             for _, worker in ipairs(yaml.worker) do
+                local workerSend = deepcopy(worker)
+                workerSend.number = nil
+                local config = {worker = workerSend}
+                local configStr= ydump({config})
                 for i = 1, worker.number do
                     local r, w, errno = pipe()
                     if not r then
                         error(format("create pipe failed, %s, errno %d", w, errno))
                     end
-    
-                    local config = {worker = worker}
-                    local pid = create_beaver(r, var.masterIn, worker.name or "worker", lyaml.dump({config}))
+                    
+                    workerSend.id = i
+                    configStr= ydump({config})
+                    local pid = create_beaver(r, var.masterIn, worker.name or "worker", configStr)
     
                     local co = create(workerPipeOut)
                     res, msg = resume(co, thread.beaver, w)
@@ -107,11 +114,11 @@ local function pipeCtrlReg(arg)
             for _, cell in ipairs(yaml.user) do
                 local r, w, errno = unistd.pipe()
                 if not r then
-                    error(string.format("create pipe failed, %s, errno %d", w, errno))
+                    error(format("create pipe failed, %s, errno %d", w, errno))
                 end
 
                 local config = {user = cell}
-                local pid = create_beaver(r, var.masterIn, "userModule", lyaml.dump({config}))
+                local pid = create_beaver(r, var.masterIn, "userModule", ydump({config}))
 
                 local co = create(workerPipeOut)
                 res, msg = resume(co, thread.beaver, w)
