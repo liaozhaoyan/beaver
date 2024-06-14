@@ -112,7 +112,7 @@ function CcoBeaver:_pollFd(nes, checkedFd)
 
         local co = self._cos[fd]
         -- assert(co, string.format("fd: %d not setup.", fd))
-        if co then -- coroutine event may closed.
+        if co and status(co) == "suspended" then -- coroutine event may closed.
             self._tmoCos[fd] = now_time
             checkedFd[fd] = now_time
             local res, msg = resume(co, e)
