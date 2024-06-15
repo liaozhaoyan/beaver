@@ -121,6 +121,9 @@ function M.connect(fd, tPort, beaver)
             local e = yield()
             if type(e) == "nil" then
                 return 3 -- connected failed  refer to aysync.asyncClient _init_
+            elseif type(e) ~= "cdata" then
+                print(type(e), e)
+                return 3 -- connected failed, unexpected event
             elseif e.ev_out > 0 then
                 if check_connected(fd) == 0 then
                     connected = true
