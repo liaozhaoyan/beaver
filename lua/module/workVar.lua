@@ -66,12 +66,11 @@ function M.getIp(host)
         ip = host
     else
         domain, ip = M.dnsReq(host)
-        if ip then
-           return ip
-        else
+        if not ip then
             return nil, format("bad dns: host %s, domain %s", host, domain)
         end
     end
+    return ip
 end
 
 function M.workerSetPipeOut(coOut)

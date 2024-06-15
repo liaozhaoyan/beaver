@@ -78,6 +78,9 @@ local insert = table.insert
 local running = coroutine.running
 local yield = coroutine.yield
 local liteAssert = system.liteAssert
+local getIp = workVar.getIp
+local connectAdd = workVar.connectAdd
+local connectDel = workVar.connectDel
 local c_api_b_close = c_api.b_close
 
 local function exec_cmd(cmd, ...)
@@ -103,7 +106,10 @@ end
 function Credis:_init_(tReq, host, port, tmo)
     local ip
 
-    ip, port = workVar.getIp(host), port or 6379
+    ip, port = getIp(host), port or 6379
+    if not ip then
+        return nil
+    end
     tmo = tmo or 10
 
     local tPort = {family=psocket.AF_INET, addr=ip, port=port}
@@ -301,7 +307,7 @@ local function prefixPercent(s, fread)     -- % for map
             end
         end
         return cells, rest
-    end 
+    end
     return nil
 end
 
@@ -322,7 +328,7 @@ local function prefixTilde(s, fread)       -- ~ for list
             end
         end
         return cells, rest
-    end 
+    end
     return nil
 end
 
@@ -392,7 +398,7 @@ function Credis:_setup(fd, tmo)
     local e, t, lastType
     local maxLen = 4 * 1024 * 1024
 
-    workVar.connectAdd("redis", fd, running())
+    connectAdd("redis", fd, running())
 
     self._status = 2  -- connecting
     beaver:co_set_tmo(fd, tmo)  -- set connect timeout
@@ -458,7 +464,7 @@ function Credis:_setup(fd, tmo)
     self._status = 0  -- closed
     self:stop()
     c_api_b_close(fd)
-    workVar.connectDel("redis", fd)
+    connectDel("redis", fd)
 end
 
 return Credis

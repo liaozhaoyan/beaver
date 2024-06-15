@@ -87,7 +87,7 @@ local function pipeCtrlReg(arg)
                     if not r then
                         error(format("create pipe failed, %s, errno %d", w, errno))
                     end
-                    
+                 
                     workerSend.id = i
                     configStr= ydump({config})
                     local pid = create_beaver(r, var.masterIn, worker.name or "worker", configStr)
@@ -208,7 +208,6 @@ local funcTable = {
     workerReg = function(arg) return workerReg(arg) end,
     reqDns = function(arg) return reqDns(arg)  end,
     reqPeriodWake = function(arg) return reqPeriodWake(arg)  end,
-    
 }
 
 function M.call(arg)

@@ -65,6 +65,7 @@ end
 
 function CuserModule:proc()
     local b = CcoBeaver.new()
+    b.var = userVar
 
     userVar.setVar(b, self._conf, lyaml.load(self._conf.config))
     local var = userVar.getVar()

@@ -61,18 +61,32 @@ local function pipeIn(b, conf)
 end
 
 local function setupFuncs(thread)
-    local b = thread.beaver
-    for _, cell in pairs(thread.yaml.worker.funcs) do
-        local module = require(format("worker.%s", cell.func))
-        local bindAdd = workVar.bindAdd
-        workVar.acceptSetup(module, b, cell, bindAdd)
+    local beaver = thread.beaver
+    local funcs = thread.yaml.worker.funcs
+    if funcs then
+        for _, cell in pairs(thread.yaml.worker.funcs) do
+            local module = require(format("worker.%s", cell.func))
+            local bindAdd = workVar.bindAdd
+            workVar.acceptSetup(module, beaver, cell, bindAdd)
+        end
     end
+    local entries = thread.yaml.worker.entries
+    if entries then
+        for _, cell in pairs(entries) do
+            local module = require(format("app.%s", cell.entry))
+            local co = create(module.call)
+            local res, msg = resume(co, beaver, cell)
+            coReport(co, res, msg)
+        end
+    end
+
     heartbeate.start(workVar.msleep, "worker")
 end
 
 function Cworker:proc()
     local b = CcoBeaver.new()
 
+    b.var = workVar
     workVar.workerSetVar(b, self._conf, yload(self._conf.config))
     workVar.setCb(setupFuncs, workVar.workerGetVar())
 
