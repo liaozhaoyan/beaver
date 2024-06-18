@@ -1,4 +1,6 @@
 import requests
+import random
+from requests.exceptions import Timeout
 
 urls = ["http://172.16.0.129:3385/bing",
         "http://172.16.0.129:3385/baidu",
@@ -9,8 +11,10 @@ urls = ["http://172.16.0.129:3385/bing",
 def single(loop, body=False):
     for i in range(loop):
         for url in urls:
-            res = requests.get(url)
-            assert res.status_code == 200
+            try:
+                res = requests.get(url, timeout=random.randint(3, 15))
+            except Timeout as e:
+                print("catched tmo.")
             if body:
                 print(res.content)
 

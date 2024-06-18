@@ -8,15 +8,12 @@ require("eclass")
 
 local CasyncBase = require("async.asyncBase")
 local workVar = require("module.workVar")
-local cffi = require("beavercffi")
-local c_type, c_api = cffi.type, cffi.api
 
 local class = class
 local ChttpServer = class("httpServer", CasyncBase)
 
 local pairs = pairs
 local running = coroutine.running
-local c_api_b_close = c_api.b_close
 
 function ChttpServer:_init_(beaver, fd, bfd, addr, conf, inst, tmo)
     self._beaver = beaver
@@ -54,12 +51,10 @@ function ChttpServer:_setup(fd, tmo)
             break
         end
     end
-    self:stop()
-
     for client, _ in pairs(clients) do
         client:close()
     end
-    c_api_b_close(fd)
+    self:stop()
     workVar.clientDel(module, fd)
 end
 

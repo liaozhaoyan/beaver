@@ -20,7 +20,6 @@ local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
 local format = string.format
-local c_api_b_close = c_api.b_close
 local timer_io_init = c_api.timer_io_init
 local timer_io_get = c_api.timer_io_get
 local timer_io_set = c_api.timer_io_set
@@ -50,7 +49,6 @@ function CasyncTimer:_setup(fd)
         coReport(co, res, msg)
     end
     self:stop()
-    c_api_b_close(fd)
 end
 
 function CasyncTimer:update(ms)

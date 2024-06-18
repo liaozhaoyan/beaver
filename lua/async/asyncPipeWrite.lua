@@ -8,8 +8,6 @@ require("eclass")
 
 local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
-local cffi = require("beavercffi")
-local c_type, c_api = cffi.type, cffi.api
 
 local class = class
 local CasyncPipeWrite = class("asyncPipeWrite", CasyncBase)
@@ -23,7 +21,6 @@ local yield = coroutine.yield
 local resume = coroutine.resume
 local status = coroutine.status
 local format = string.format
-local c_api_b_close = c_api.b_close
 
 function CasyncPipeWrite:_init_(beaver, fd, tmo)
     self._toWake = running()
@@ -62,7 +59,6 @@ function CasyncPipeWrite:_setup(fd, tmo)
         end
     end
     self:stop()
-    c_api_b_close(fd)
 end
 
 function CasyncPipeWrite:write(stream)

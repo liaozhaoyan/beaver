@@ -13,11 +13,11 @@ local cjson = require("cjson.safe")
 
 local type = type
 local pairs = pairs
-local tonumber = tonumber
 local error = error
 local format = string.format
 local liteAssert = system.liteAssert
 local coReport = system.coReport
+local isIPv4 = sockComm.isIPv4
 local create = coroutine.create
 local running = coroutine.running
 local yield = coroutine.yield
@@ -47,22 +47,9 @@ local var = {
     periodWakeId = 1,    -- index
 }
 
-local ip_pattern = "(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)%.(%d%d?%d?)"
-
-local function match_ip(ip)
-    local d1, d2, d3, d4 = ip:match(ip_pattern)
-    if d1 and d2 and d3 and d4 then
-        local num1, num2, num3, num4 = tonumber(d1), tonumber(d2), tonumber(d3), tonumber(d4)
-        if num1 >= 0 and num1 <= 255 and num2 >= 0 and num2 <= 255 and num3 >= 0 and num3 <= 255 and num4 >= 0 and num4 <= 255 then
-            return true
-        end
-    end
-    return false
-end
-
 function M.getIp(host)
     local domain, ip
-    if match_ip(host) then
+    if isIPv4(host) then
         ip = host
     else
         domain, ip = M.dnsReq(host)

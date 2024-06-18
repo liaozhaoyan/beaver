@@ -9,19 +9,20 @@ require("eclass")
 local system = require("common.system")
 local psocket = require("posix.sys.socket")
 local pystring = require("pystring")
-local cffi = require("beavercffi")
-local c_type, c_api = cffi.type, cffi.api
+local sockComm = require("common.sockComm")
 local CasyncBase = require("async.asyncBase")
 
 local class = class
 local CasyncDns = class("asyncDns", CasyncBase)
 
+local mathHuge = math.huge
+local pairs = pairs
 local ipairs = ipairs
+local time = os.time
 local print = print
 local io_open = io.open
 local liteAssert = system.liteAssert
 local coReport = system.coReport
-local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
 local startswith = pystring.startswith
@@ -33,9 +34,14 @@ local len = string.len
 local format = string.format
 local byte = string.byte
 local concat = table.concat
-local c_api_b_close = c_api.b_close
+local insert = table.insert
+local error = error
+local isIPv4 = sockComm.isIPv4
 
-local function lookup_server()
+local freshDns
+local wakeDns
+
+local function lookupServer()
     local f = io_open("/etc/resolv.conf")
     local server
     liteAssert(f, "dns config not found.")
@@ -51,13 +57,40 @@ local function lookup_server()
     return server
 end
 
-function CasyncDns:_init_(beaver)
-    self._serverIP = lookup_server()
+local function lookupLocal(path)
+    local res = {}
+    path = path or "/etc/hosts"
+    local f = io_open(path)
+    liteAssert(f, "dns config not found.")
+    for line in f:lines() do
+        local ss = split(line)
+        local ip = ss[1]
+        if isIPv4(ip) then
+            for i =2, #ss do
+                res[ss[i]] = {ip, mathHuge}
+                print(ip, ss[i])
+            end
+        end
+    end
+    f:close()
+    return res
+end
+
+function CasyncDns:_init_(beaver, fresh, wake)
+    self._serverIP = lookupServer()
     liteAssert(self._serverIP)
 
     local fd, err, errno = new_socket(psocket.AF_INET, psocket.SOCK_DGRAM, 0)
     liteAssert(fd, err)
 
+    self._requesting = {}  -- domain -> fid, coId
+    freshDns = fresh
+    wakeDns = wake
+
+    local res = lookupLocal()
+    for k, v in pairs(res) do
+        freshDns(k, v)
+    end
 
     CasyncBase._init_(self, beaver, fd, 10)  -- accept never overtime.
 end
@@ -95,49 +128,65 @@ local function packQuery(domain)
     return query
 end
 
+local function wakesDns(requesting, domain, ip)
+    local requests = requesting[domain]
+    for _, req in ipairs(requests) do  -- req contains {fid, coId}
+        wakeDns(domain, ip, req[1], req[2])
+    end
+    requesting[domain] = nil
+end
+
 function CasyncDns:_setup(fd, tmo)
-    local res, msg
+    local res
     local beaver = self._beaver
     local serverIP = self._serverIP
-    local len, err, errno
+    local size, err, errno
     local tDist = {family=psocket.AF_INET, addr=serverIP, port=53}
+    local failed = 0
 
     while true do
         beaver:co_set_tmo(fd, -1)
-        local co, domain = yield()
+        local domain, tVar = yield()   -- tVar contains {fid, coId}
 
         local query = packQuery(domain)
-        len, err, errno = psendto(fd, query, tDist)
-        if not len then
-            print(err, errno)
-            res, msg = resume(co, nil)
-            coReport(co, res, msg)
-            break
+        size, err, errno = psendto(fd, query, tDist)
+        if size then
+            beaver:co_set_tmo(fd, tmo)
+            res, err, errno = beaver:read(fd, 512)
+            local ip
+            if res then
+                ip = format("%d.%d.%d.%d", byte(res, -4, -1))
+                freshDns(domain, {ip, time()})
+                failed = 0
+            else
+                print("dns read fialed.", err, errno)
+                failed = failed + 1
+            end
+            wakesDns(self._requesting, domain, ip)
+        else
+            print("dns sentto fialed.", err, errno)
+            wakesDns(self._requesting, domain, nil)
+            failed = failed + 1
         end
 
-        beaver:co_set_tmo(fd, tmo)
-        res, err, errno = beaver:read(fd, 512)
-        if not res then
-            print(err, errno)
-            res, msg = resume(co, nil)
-            system.coReport(co, res, msg)
+        if failed > 100 then
             break
-        else
-            local ip = format("%d.%d.%d.%d", byte(res, -4, -1))
-            res, msg = resume(co, ip)
-            coReport(co, res, msg)
         end
     end
     self:stop()
-    c_api_b_close(fd)
+    error("dns failed.")
 end
 
-function CasyncDns:request(domain)
+function CasyncDns:request(domain, tVar) -- tVar contains {fid, coId}
+    if self._requesting[domain] then
+        insert(self._requesting[domain], tVar)
+        return
+    end
+
+    self._requesting[domain] = {tVar}
     local res, msg
-    local co = running()
-    res, msg = resume(self._co, co, domain)
+    res, msg = resume(self._co, domain, tVar)
     coReport(self._co, res, msg)
-    return yield()
 end
 
 return CasyncDns

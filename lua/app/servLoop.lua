@@ -2,9 +2,7 @@ require("eclass")
 
 local CasyncBase = require("async.asyncBase")
 
-local cffi = require("beavercffi")
-local c_type, c_api = cffi.type, cffi.api
-
+local class = class
 local CservLoop = class("servLoop", CasyncBase)
 
 function CservLoop:_init_(beaver, fd, bfd, addr, conf)
@@ -32,7 +30,6 @@ function CservLoop:_setup(fd, tmo)
         end
     end
     self:stop()
-    c_api.b_close(fd)
 end
 
 return CservLoop

@@ -5,15 +5,19 @@ local sockComm = require("common.sockComm")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
+local running = coroutine.running
+local resume = coroutine.resume
+local yield = coroutine.yield
+
 local CcliLoop = class("cliLoop", CasyncBase)
 
 function CcliLoop:_init_(beaver, fd, tPort, tmo)
     self._beaver = beaver
     self._tPort = tPort
-    self._toWake = coroutine.running()
+    self._toWake = running()
     tmo = tmo or 10
     CasyncBase._init_(self, beaver, fd, tmo)
-    coroutine.yield()
+    yield()
 end
 
 function CcliLoop:_setup(fd, tmo)
@@ -38,8 +42,7 @@ function CcliLoop:_setup(fd, tmo)
         assert(s == "hello.")
     end
     self:stop()
-    c_api.b_close(fd)
-    coroutine.resume(self._toWake)
+    resume(self._toWake)
 end
 
 return CcliLoop

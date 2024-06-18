@@ -11,8 +11,6 @@ local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
 local workVar = require("module.workVar")
 local sockComm = require("common.sockComm")
-local cffi = require("beavercffi")
-local c_type, c_api = cffi.type, cffi.api
 
 local class = class
 local Cdownstream = class("nextstream", CasyncBase)
@@ -24,7 +22,6 @@ local status = coroutine.status
 local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
-local c_api_b_close = c_api.b_close
 
 function Cdownstream:_init_(beaver, uplink, bfd, addr, conf, tmo)
     self._status = 0  -- 0:disconnect, 1 connected, 2 connecting
@@ -102,7 +99,6 @@ function Cdownstream:_setup(fd, tmo)
     self._status = 0
     uplink:shutdown()
     self:stop()
-    c_api_b_close(fd)
     workVar.clientDel(conf.func, fd)
 end
 
@@ -204,7 +200,6 @@ function Cupstream:_setup(fd, tmo)
     ::stopStream::
     down:shutdown()
     self:stop()
-    c_api.b_close(fd)
     workVar.clientDel(conf.func, fd)
 end
 

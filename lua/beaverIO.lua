@@ -28,14 +28,16 @@ local c_api_deinit = c_api.deinit
 local c_api_mod_fd = c_api.mod_fd
 local c_api_del_fd = c_api.del_fd
 local c_api_add_fd = c_api.add_fd
+local c_api_b_close = c_api.b_close
 local c_api_b_read = c_api.b_read
 local c_api_b_write = c_api.b_write
 local c_api_b_yield = c_api.b_yield
 local yield = coroutine.yield
+local traceback = debug.traceback
 
 function CbeaverIO:_init_()
     local efd = c_api_init(-1)
-    liteAssert(efd > 0)
+    liteAssert(efd > 0, traceback(format("init efd %d failed.", efd)))
     self._efd = efd
 end
 
@@ -46,15 +48,16 @@ function CbeaverIO:_del_()
 end
 
 function CbeaverIO:remove(fd)
-    liteAssert(c_api_del_fd(self._efd, fd) >= 0, "del fd failed.")
+    liteAssert(c_api_del_fd(self._efd, fd) >= 0, traceback(format("del fd %d from epoll failed.", fd)))
+    liteAssert(c_api_b_close(fd) >= 0, traceback(format("close fd %d failed.", fd)))
 end
 
 function CbeaverIO:add(fd)
-    liteAssert(c_api_add_fd(self._efd, fd) >= 0, "add fd failed.")
+    liteAssert(c_api_add_fd(self._efd, fd) >= 0, "add fd failed.", traceback(format("add fd %d failed.", fd)))
 end
 
 function CbeaverIO:mod_fd(fd, wr)
-    liteAssert(c_api_mod_fd(self._efd, fd, wr) == 0, "mod_fd failed.")
+    liteAssert(c_api_mod_fd(self._efd, fd, wr) == 0, traceback(format("mod fd %d failed.", fd)))
 end
 
 function CbeaverIO:read(fd, size)
@@ -111,6 +114,10 @@ function CbeaverIO:reads(fd, maxLen)
         elseif ret == -11 then
             self:co_set_tmo(rfd, tmo)
             local e = yield()
+            
+            if not e then
+                return nil, "yield error.", 5
+            end
             if e.ev_close > 0 then
                 return nil, format("fd %d is already closed.", fd), 32
             elseif e.ev_in > 0 then

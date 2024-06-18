@@ -16,6 +16,7 @@ local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
 local status = coroutine.status
+local liteAssert = system.liteAssert
 local coReport = system.coReport
 local error = error
 
@@ -33,13 +34,8 @@ function CasyncClient:_init_(tReq, hostFd, tPort, tmo)
 
     local beaver = tReq.beaver
     CasyncBase._init_(self, beaver, fd, tmo)
-    -- assert(self:_waitConnected(beaver, hostFd) == 0, "connect socket failed.")
     self._status = self:_waitConnected(beaver, hostFd)
     self._hostFd = hostFd
-end
-
-function CasyncClient:_del_()
-    self:close()
 end
 
 function CasyncClient:status()
@@ -71,7 +67,7 @@ function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
         
         local t = type(w)
         if t == "number" then  -- 0 is ok
-            if w == 1 then  -- refer to sockComm, 0 means connect ok.
+            if w == 1 then  -- refer to sockComm, 1 means connect ok.
                 return 1
             end
             return 3 -- 3 connect failed, refer to sockComm, 3 means connect failed.
@@ -116,6 +112,11 @@ function CasyncClient:_waitData(stream)
         if statCo == "suspended" then
             res, msg = resume(coWake, stream)
             coReport(coWake, res, msg)
+
+            if type(stream) == "nil" then  -- for host fd close event.
+                return nil
+            end
+
             if selfFd then
                 beaver:mod_fd(selfFd, -1)  -- to block fd other event, mask io event, only close event is working. 
                 e = yield()
@@ -132,6 +133,9 @@ function CasyncClient:_waitData(stream)
             end
         elseif statCo == "normal" then    -- wake from http client.
             e = yield(stream)
+            if stream == nil then
+                return nil
+            end
         else
             error(format("beaver report bug: co status: %s", statCo))
         end
@@ -142,18 +146,29 @@ function CasyncClient:_waitData(stream)
         else
             return nil, "read bad body."
         end
+    elseif stat == 2 or stat == 3 then -- connecting
+        local res, msg
+        liteAssert(type(stream) == "nil", "stream should be a nil close event.")
+        local statCo = status(coWake)
+        if statCo == "suspended" then
+            res, msg = resume(coWake, stream)
+            coReport(coWake, res, msg)
+            return nil, "connecting interrupt."
+        elseif statCo == "normal" then    -- wake from http client.
+            yield(nil)
+        else
+            error(format("beaver report bug: co status: %s", statCo))
+        end
     else
         return nil, "not connected."
     end
 end
 
 function CasyncClient:close()
-    if self._status > 0 then
-        local e = c_new("native_event_t")
-        e.ev_close = 1
-        e.fd = self._fd
-        self:_waitData(e)
-        self._status = 0
+    local stat = self._status
+    if stat > 0 then
+        self:_waitData(nil)
+        liteAssert(self._status == 0, "close socket failed. " .. self._status)
     end
 end
 

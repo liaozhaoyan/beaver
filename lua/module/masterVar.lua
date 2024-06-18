@@ -36,6 +36,8 @@ local jencode = cjson.encode
 local ydump = lyaml.dump
 local deepcopy = system.deepcopy
 
+local dnsOvertime = 25
+
 local var = {
     setup = false,
     workers = {},   -- masters children
@@ -45,7 +47,6 @@ local var = {
     periodWakeId = 1,    -- index
 
     dnsBuf = lru.new(32),
-    dnsOvertime = 10,   -- dnsOvertime for 10s
 }
 
 function M.masterSetPipeOut(coOut)
@@ -151,35 +152,11 @@ local function workerReg(arg)
     var.workers[w][1] = true
 end
 
-local function checkDns(domain)
-    local buf = var.dnsBuf[domain]
-    local now = time()
-
-    if buf then
-        local t = buf[2]
-
-        if now - t > var.dnsOvertime then
-            return nil, now
-        else
-            return buf[1], t
-        end
-    else
-        return nil, now
-    end
+local function freshDns(domain, tVar)  -- {ip, time}
+    var.dnsBuf[domain] = tVar
 end
 
-local function reqDns(arg)
-    local fid = arg.id
-    local coId = arg.coId
-    local domain = arg.domain
-    local ip, now
-
-    ip, now = checkDns(domain)
-    if not ip then
-        ip = var.dns:request(domain)
-        var.dnsBuf[domain] = {ip, now}
-    end
-
+local function wakeDns(domain, ip, fid, coId)
     local func = {
         func = "echoDns",
         arg = {
@@ -191,6 +168,38 @@ local function reqDns(arg)
     local co = var.workers[fid][4]  -- refer to pipeCtrlReg
     local res, msg = resume(co, jencode(func))
     coReport(co, res, msg)
+end
+
+local function checkDns(domain)
+    local buf = var.dnsBuf[domain]
+    local now = time()
+
+    if buf then
+        local t = buf[2]
+
+        if now - t > dnsOvertime then
+            var.dnsBuf[domain] = nil
+            return nil
+        else
+            return buf[1]
+        end
+    else
+        return nil
+    end
+end
+
+local function reqDns(arg)
+    local fid = arg.id
+    local coId = arg.coId
+    local domain = arg.domain
+    local ip
+
+    ip = checkDns(domain)
+    if ip then
+        wakeDns(domain, ip, fid, coId)
+    else
+        var.dns:request(domain, {fid, coId})
+    end
 end
 
 local function reqPeriodWake(arg)
@@ -281,7 +290,7 @@ function M.masterSetVar(beaver, conf, yaml)
         yaml = yaml,
     }
 
-    var.dns = CasyncDns.new(beaver)
+    var.dns = CasyncDns.new(beaver, freshDns, wakeDns)
     var.timer = CmasterTimer.new(beaver, timerWake)
 
     var.timer:start()

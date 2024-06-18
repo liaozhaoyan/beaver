@@ -15,8 +15,6 @@ local workVar = require("module.workVar")
 local sockComm = require("common.sockComm")
 local httpRead = require("http.httpRead")
 local httpComm = require("http.httpComm")
-local cffi = require("beavercffi")
-local c_type, c_api = cffi.type, cffi.api
 local stat = posix.sys.stat
 
 local format = string.format
@@ -29,6 +27,7 @@ local error = error
 local assert = assert
 local fstat = stat.stat
 local clientRead = httpRead.clientRead
+local getIp = workVar.getIp
 
 local httpConnectTmo = 10
 
@@ -59,7 +58,7 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
         if proxy then
             ip, port = proxy.ip, proxy.port
         else
-            ip, port = workVar.getIp(host), port or 80
+            ip, port = getIp(host), port or 80
         end
         tPort = {family=psocket.AF_INET, addr=ip, port=port}
     else
@@ -101,8 +100,10 @@ function ChttpReq:_setup(fd, tmo)
         local t = type(e)
         if t == "string" then -- has data to send
             beaver:co_set_tmo(fd, tmo)
-            res = beaver:write(fd, e)
+            local msg
+            res, msg = beaver:write(fd, e)
             if not res then
+                print("write error.", msg)
                 break
             end
             e = nil
@@ -116,14 +117,20 @@ function ChttpReq:_setup(fd, tmo)
             elseif e.ev_in > 0 then
                 local fread = beaver:reads(fd, maxLen)
                 local tRes = clientRead(fread)
+                if not tRes then
+                    print("read error.")
+                    break
+                end
                 e = self:wake(co, tRes)
                 t = type(e)
-                if t == "cdata" then -->upstream need to close.
-                    liteAssert(e.ev_close > 0, "cdata should be ev_close")
+                if t == "nil" then -->upstream need to close.
+                    self._status = 0
                     self:wake(co, nil)  -->let upstream to do next working.
                     break
                 elseif t == "number" then  -->upstream reuse connect
                     e = nil
+                else
+                    error(format("ChttpReq type: %s, undknown error.", t))
                 end
             else
                 print("IO Error.")
@@ -134,7 +141,6 @@ function ChttpReq:_setup(fd, tmo)
 
     self._status = 0  -- closed
     self:stop()
-    c_api.b_close(fd)
     workVar.connectDel("httpReq", fd)
 end
 
@@ -187,19 +193,6 @@ local function setupHeader(headers)
     return headers
 end
 
-local function checkKeepAlive(res)
-    if not res then -- nil, bad response
-        return false
-    end
-
-    if res.headers and res.headers.connection then
-        if res.headers.connection == "close" then
-            return false
-        end
-    end
-    return true
-end
-
 local commPackClientFrame = httpComm.packClientFrame
 function ChttpReq:_req(verb, uri, headers, body, reuse)
     if self._status ~= 1 then
@@ -219,6 +212,7 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
     if type(res) ~= "table" then
         -- closed by remote server.
         print(format("closed by remote server: %s", msg))
+        self:close()
         return nil
     end
     if reuse or self._reuse then

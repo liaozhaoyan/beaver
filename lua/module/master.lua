@@ -53,8 +53,11 @@ local function pipeIn(b, conf)  --> to receive call function
     while true do
         local s = r:read()
         local arg = jdecode(s)
-        liteAssert(arg, format("decode arg failed. %s, len: %d", s, #s))
-        masterVar.call(arg)
+        if arg then
+            masterVar.call(arg)
+        else
+            print(format("decode arg failed. %s, len: %d", s, #s))
+        end
     end
 end
 

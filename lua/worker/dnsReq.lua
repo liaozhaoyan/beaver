@@ -9,8 +9,6 @@ require("eclass")
 local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
 local workVar = require("module.workVar")
-local cffi = require("beavercffi")
-local c_type, c_api = cffi.type, cffi.api
 
 local class = class
 local CdnsReq = class("CdnsReq", CasyncBase)
@@ -18,7 +16,6 @@ local CdnsReq = class("CdnsReq", CasyncBase)
 local format = string.format
 local liteAssert = system.liteAssert
 local running = coroutine.running
-local c_api_b_close = c_api.b_close
 
 function CdnsReq:_init_(beaver, fd, bfd, addr, conf, tmo)
     self._beaver = beaver
@@ -53,7 +50,6 @@ function CdnsReq:_setup(fd, tmo)
     until false
 
     self:stop()
-    c_api_b_close(fd)
     workVar.clientDel(module, fd)
 end
 

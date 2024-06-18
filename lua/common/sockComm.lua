@@ -4,6 +4,7 @@
 --- DateTime: 2024/1/7 11:11 AM
 ---
 
+local require = require
 local system = require("common.system")
 local unistd = require("posix.unistd")
 local psocket = require("posix.sys.socket")
@@ -12,7 +13,7 @@ local c_type, c_api = cffi.type, cffi.api
 
 local format = string.format
 local type = type
-local assert = assert
+local print = print
 local error = error
 local yield = coroutine.yield
 local liteAssert = system.liteAssert
@@ -25,6 +26,27 @@ local setsockopt_reuse_port = c_api.setsockopt_reuse_port
 local check_connected = c_api.check_connected
 
 local M = {}
+
+local lpeg = require('lpeg')
+local P, R = lpeg.P, lpeg.R
+
+local digit19 = R("19")
+local digit = R("09")
+local double_digit = digit19 * digit
+local triple_digit_1 = P"1" * digit * digit
+local triple_digit_2 = P"2" * R("04") * digit
+local triple_digit_3 = P"25" * R("05")
+local number = triple_digit_3 + triple_digit_2 + triple_digit_1 + double_digit + digit19 + P"0"
+local dot = P"."
+local ipv4 = number * dot * number * dot * number * dot * number
+
+function M.isIPv4(ip)
+    if ipv4:match(ip) then
+        return true
+    else
+        return false
+    end
+end
 
 function M.setupSocket(conf)
     local res, fd, err, errno
@@ -122,7 +144,7 @@ function M.connect(fd, tPort, beaver)
             if type(e) == "nil" then
                 return 3 -- connected failed  refer to aysync.asyncClient _init_
             elseif type(e) ~= "cdata" then
-                print(type(e), e)
+                print("connected failed, unexpected event.", type(e), e)
                 return 3 -- connected failed, unexpected event
             elseif e.ev_out > 0 then
                 if check_connected(fd) == 0 then

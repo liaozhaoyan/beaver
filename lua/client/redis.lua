@@ -81,7 +81,6 @@ local liteAssert = system.liteAssert
 local getIp = workVar.getIp
 local connectAdd = workVar.connectAdd
 local connectDel = workVar.connectDel
-local c_api_b_close = c_api.b_close
 
 local function exec_cmd(cmd, ...)
     local args = {...}
@@ -463,7 +462,6 @@ function Credis:_setup(fd, tmo)
 
     self._status = 0  -- closed
     self:stop()
-    c_api_b_close(fd)
     connectDel("redis", fd)
 end
 

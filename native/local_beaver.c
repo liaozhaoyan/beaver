@@ -56,6 +56,7 @@ static int fd_blocking(int sfd)
 
     flags = fcntl(sfd, F_GETFL);
     if (flags < 0) {
+        fprintf(stderr, "fd:%d\n", sfd);
         perror("error : cannot get socket flags!\n");
         return -errno;
     }
@@ -63,6 +64,7 @@ static int fd_blocking(int sfd)
     flags &= ~O_NONBLOCK;
     ret    = fcntl(sfd, F_SETFL, flags);
     if (ret < 0) {
+        fprintf(stderr, "fd:%d\n", sfd);
         perror("error : cannot set socket flags!\n");
         ret = -errno;
         goto fcntlFailed;
@@ -82,6 +84,7 @@ static int epoll_add(int efd, int fd) {
 
     ret = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &event);
     if (ret < 0) {
+        fprintf(stderr, "fd:%d\n", fd);
         perror("error : can not add event to epoll!\n");
         return -errno;
     }
@@ -182,8 +185,6 @@ int mod_fd_block(int fd, int block) {
 int del_fd(int efd, int fd) {
     int ret;
     ret = epoll_del(efd, fd);
-
-    close(fd);
     return ret;
 }
 
@@ -247,7 +248,11 @@ void b_yield(void) {
 }
 
 int b_close(int fd) {
-    return close(fd);
+    int ret = close(fd);
+    if (ret < 0) {
+        perror("error : close fd failed!\n");
+        return -errno;
+    }
 }
 
 void deinit(int efd) {

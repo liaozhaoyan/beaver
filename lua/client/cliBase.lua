@@ -1,8 +1,6 @@
 require("eclass")
 local system = require("common.system")
 local asyncClient = require("async.asyncClient")
-local cffi = require("beavercffi")
-local c_type, c_api = cffi.type, cffi.api
 
 local class = class
 local cliBase = class("cliBase", asyncClient)
@@ -11,7 +9,6 @@ local print = print
 local type = type
 local liteAssert = system.liteAssert
 local yield = coroutine.yield
-local c_api_b_close = c_api.b_close
 
 function cliBase:_init_(beaver, tPort, tmo)
     tmo = tmo or 10
@@ -78,7 +75,6 @@ function cliBase:_setup(fd, tmo)
 
     self._status = 0  -- closed
     self:stop()
-    c_api_b_close(fd)
 end
 
 return cliBase

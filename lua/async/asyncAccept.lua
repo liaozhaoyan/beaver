@@ -9,8 +9,6 @@ require("eclass")
 local system = require("common.system")
 local psocket = require("posix.sys.socket")
 local CasyncBase = require("async.asyncBase")
-local cffi = require("beavercffi")
-local c_type, c_api = cffi.type, cffi.api
 
 local class = class
 local CasyncAccept = class("asyncAccept", CasyncBase)
@@ -22,7 +20,6 @@ local yield = coroutine.yield
 local resume = coroutine.resume
 local assert = assert
 local paccept = psocket.accept
-local c_api_b_close = c_api.b_close
 local print = print
 
 function CasyncAccept:_init_(beaver, fd, tmo)
@@ -46,7 +43,6 @@ function CasyncAccept:_setup(fd, tmo)
         end
     end
     self:stop()
-    c_api_b_close(fd)
 end
 
 return CasyncAccept
