@@ -247,7 +247,7 @@ local function timerWake(node) -- call in masterTimer.
         }
         co = var.workers[fid][4]  -- refer to pipeCtrlReg
         res, msg = resume(co, jencode(func))
-        system.coReport(co, res, msg)
+        coReport(co, res, msg)
     else
         co = var.periodWakeCo[node.coId]
         if co then

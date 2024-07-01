@@ -13,7 +13,6 @@ class Cpp(Process):
         httpReqs.single(random.randint(10, 50))
         print("done ", self.pid)
 
-
 def loop():
     while True:
         ps = []

@@ -115,7 +115,7 @@ function CbeaverIO:reads(fd, maxLen)
             self:co_set_tmo(rfd, tmo)
             local e = yield()
             
-            if not e then
+            if e == nil then
                 return nil, "yield error.", 5
             end
             if e.ev_close > 0 then
@@ -160,6 +160,9 @@ function CbeaverIO:write(fd, stream)
             
             while ret < len do
                 local e = yield()
+                if e == nil then
+                    return nil, "yield error.", 5
+                end
 
                 if e.ev_close > 0 then
                     return nil, format("write fd %d is already closed.", fd), 32

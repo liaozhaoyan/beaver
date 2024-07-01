@@ -21,6 +21,7 @@ local format = string.format
 local liteAssert = system.liteAssert
 local type = type
 local print = print
+local tostring = tostring
 local running = coroutine.running
 local yield = coroutine.yield
 local error = error
@@ -118,7 +119,6 @@ function ChttpReq:_setup(fd, tmo)
                 local fread = beaver:reads(fd, maxLen)
                 local tRes = clientRead(fread)
                 if not tRes then
-                    print("read error.")
                     break
                 end
                 e = self:wake(co, tRes)
@@ -129,7 +129,7 @@ function ChttpReq:_setup(fd, tmo)
                     break
                 elseif t == "number" then  -->upstream reuse connect
                     e = nil
-                else
+                elseif t ~= "string" then   --> string mean has next data to send
                     error(format("ChttpReq type: %s, undknown error.", t))
                 end
             else
@@ -156,6 +156,7 @@ function ChttpReq:_connKata(fd, beaver, co)
     local e = yield()
     local t = type(e)
     if t == "nil" then  -- fd has closed.
+        print("kata fd has closed.")
         return 0
     elseif t == "cdata" then  -- has data to read
         if e.ev_close > 0 then   -- fd closed.
@@ -171,7 +172,7 @@ function ChttpReq:_connKata(fd, beaver, co)
             print("IO Error.")
         end
     else
-        print(format("type: %s, undknown error.", t))
+        print(format("type: %s, undknown error., %s", t, tostring(e)))
     end
     return 0
 end
@@ -211,7 +212,6 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
     local res, msg = self:_waitData(stream)
     if type(res) ~= "table" then
         -- closed by remote server.
-        print(format("closed by remote server: %s", msg))
         self:close()
         return nil
     end

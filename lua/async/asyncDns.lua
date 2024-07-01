@@ -68,7 +68,6 @@ local function lookupLocal(path)
         if isIPv4(ip) then
             for i =2, #ss do
                 res[ss[i]] = {ip, mathHuge}
-                print(ip, ss[i])
             end
         end
     end

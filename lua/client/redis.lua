@@ -119,14 +119,16 @@ function Credis:_init_(tReq, host, port, tmo)
         self[cmd] = function(obj, ...)
             local s = exec_cmd(cmd, ...)
             local res, msg = obj:send(s)
-            liteAssert(res, msg)
-            return res
+            return res, msg
         end
     end
 end
 
 function Credis:send(s)
-    return self:_waitData(s)
+    if self._status == 1 then
+        return self:_waitData(s)
+    end
+    return nil, "not connect."
 end
 
 local function checkCRLF(s)
@@ -398,13 +400,7 @@ function Credis:_setup(fd, tmo)
     local maxLen = 4 * 1024 * 1024
 
     connectAdd("redis", fd, running())
-
-    self._status = 2  -- connecting
-    beaver:co_set_tmo(fd, tmo)  -- set connect timeout
-    status = sockComm.connect(fd, self._tPort, beaver)
-    beaver:co_set_tmo(fd, -1)   -- back
-    self._status = status  -- connected
-    e = self:wake(co, status)  -- connected
+    status, e = self:cliConnect(fd, tmo)
 
     while status == 1 do
         if not e then

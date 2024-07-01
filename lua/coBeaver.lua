@@ -54,18 +54,11 @@ function CcoBeaver:co_get_tmo(fd)
     return self._tmoFd[fd]
 end
 
-function CcoBeaver:co_add(obj, cb, fd, tmo)
-    tmo = tmo or 60   -- default tmo time is 60s, -1 means never overtime.
-    if tmo > 0 then
-        liteAssert(tmo >= 2, "illegal tmo value, must >= 10.")
-    end
-
+function CcoBeaver:co_add(cb, fd)
     self:add(fd)  -- add to epoll fd
-    local co = create(function(o, obj, fd, tmo)  cb(o, obj, fd, tmo) end)
+    local co = create(function(o, obj, afd, tmo)  cb(o, obj, afd, tmo) end)
     self._cos[fd] = co
 
-    local res, msg = resume(co, obj, fd, tmo)
-    coReport(co, res, msg)
     return co
 end
 
@@ -116,7 +109,10 @@ function CcoBeaver:_pollFd(nes, checkedFd)
             self._tmoCos[fd] = now_time
             checkedFd[fd] = now_time
             local res, msg = resume(co, e)
-            system.coReport(co, res, msg)
+            if not res then
+                print("resume error.", debug.traceback(co))
+            end
+            coReport(co, res, msg)
         end
     end
     if now_time - self._last >= 1 then

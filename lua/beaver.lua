@@ -12,6 +12,8 @@ local CasyncPipeRead = require("async.asyncPipeRead")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local conf
 
+jit.opt.start("maxmcode=4096", 'hotloop=5')
+
 local print = print
 local format = string.format
 

@@ -7,14 +7,26 @@
 require("eclass")
 
 local class = class
+local system = require("common.system")
 local CasyncBase = class("asyncBase")
+
+local error = error
+local resume = coroutine.resume
+local coReport = system.coReport
 
 function CasyncBase:_init_(beaver, fd, tmo)
     tmo = tmo or -1
+    if tmo > 0 and tmo < 2 then
+        error("tmo must be greater than 2")
+    end
     self._fd = fd
     self._beaver = beaver
 
-    self._co = beaver:co_add(self, self._setup, fd, tmo)  -- setup should apply for children class
+    local co = beaver:co_add(self._setup, fd)  -- setup should apply for children class
+    self._co = co  -- other severice will call _waitData, so need to save it to self
+
+    local res, msg = resume(co, self, fd, tmo)  -- call setup to connect
+    coReport(co, res, msg)
 end
 
 function CasyncBase:stop()

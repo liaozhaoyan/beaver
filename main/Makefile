@@ -1,6 +1,6 @@
 CC := gcc
 CFLAG := -g -I../lib
-LDFLAG := -g -L../lib -lbeaver -L../native -llbeaver
+LDFLAG := -g -L../lib -lbeaver -L../native -llbeaver -L/usr/lib64/ -ltcmalloc
 OBJS := main.o
 EXEC := main
 

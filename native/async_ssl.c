@@ -12,7 +12,7 @@
 #include <errno.h>
 
 #define BUFF_MAX 16384
-static SSL_CTX *sslContext = NULL;
+static SSL_CTX *sslContext = NULL;  // only setup on main function.
 
 int ssl_read(void *handle, char *buff, int len)
 {
@@ -100,8 +100,13 @@ void ssl_del(void *handle) {
     SSL_free(handle);
 }
 
+void id_function(CRYPTO_THREADID *id) {
+    CRYPTO_THREADID_set_numeric(id, (unsigned long)pthread_self());
+}
+
 int async_ssl_init(void) {
     int ret = 0;
+    CRYPTO_THREADID_set_callback(id_function);
 
     SSL_load_error_strings();
     SSL_library_init();

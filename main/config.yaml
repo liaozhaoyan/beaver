@@ -1,5 +1,5 @@
 worker:
-  - number: 4   # worker process
+  - number: 1   # worker process
     funcs:
     - func: "pingpong"
       mode: "TCP"
@@ -21,15 +21,15 @@ worker:
       port: 3385
       entry: test  # entry path
 
-user:
-  - entry: userTest
-    args: "just for test."
-    num: 3192
-  - entry: uniServ
-    mode: "TCP"
-    path: "db.sock"
-  - entry: uniCli
-    path: "db.sock"
-  - entry: uniCli
-    path: "db.sock"
+# user:
+#   - entry: userTest
+#     args: "just for test."
+#     num: 3192
+#   - entry: uniServ
+#     mode: "TCP"
+#     path: "db.sock"
+#   - entry: uniCli
+#     path: "db.sock"
+#   - entry: uniCli
+#     path: "db.sock"
     

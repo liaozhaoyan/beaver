@@ -116,7 +116,7 @@ function Cdownstream:shutdown()  -- send a nil message
     local co = self._co
     if status(co) == "suspended" then
         res, msg = resume(co, nil)
-        system.coReport(co, res, msg)
+        coReport(co, res, msg)
     end
 end
 

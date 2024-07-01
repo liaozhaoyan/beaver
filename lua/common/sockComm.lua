@@ -17,8 +17,12 @@ local print = print
 local error = error
 local yield = coroutine.yield
 local liteAssert = system.liteAssert
-local newSocket = psocket.socket
-local connect = psocket.connect
+local b_socket = c_api.b_socket
+local b_listen = c_api.b_listen
+local b_bind_ip = c_api.b_bind_ip
+local b_bind_uds = c_api.b_bind_uds
+local b_connect_ip = c_api.b_connect_ip
+local b_connect_uds = c_api.b_connect_uds
 local vsock_socket = c_api.vsock_socket
 local vsock_connect = c_api.vsock_connect
 local vsock_bind = c_api.vsock_bind
@@ -49,54 +53,48 @@ function M.isIPv4(ip)
 end
 
 function M.setupSocket(conf)
-    local res, fd, err, errno
+    local res, fd
     if conf.port then
-        fd, err, errno = newSocket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
-        liteAssert(fd, err)
-        local tPort = {family=psocket.AF_INET, addr=conf.bind, port=conf.port}
+        fd = b_socket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
+        liteAssert(fd > 0, format("b_socket failed, return %d.", fd))
         res = setsockopt_reuse_port(fd)
         liteAssert(res == 0, format("reuse port failed, return %d.", res))
-        res, err, errno = psocket.bind(fd, tPort)
-        liteAssert(res, err)
+        res = b_bind_ip(fd, conf.bind, conf.port)
+        liteAssert(res == 0, format("b_bind_ip failed, return %d.", res))
     elseif conf.uniSock then
         unistd.unlink(conf.uniSock)
-        fd, err, errno = newSocket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
-        liteAssert(fd, err)
-        local tPort = {family=psocket.AF_UNIX, path=conf.uniSock}
-        res, err, errno = psocket.bind(fd, tPort)
-        liteAssert(res, err)
+        fd = b_socket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
+        liteAssert(fd > 0, format("b_socket failed, return %d.", fd))
+        res = b_bind_uds(fd, conf.uniSock)
+        liteAssert(res == 0, format("b_bind_uds failed, return %d.", res))
     elseif conf.vsock then
         fd = vsock_socket(psocket.SOCK_STREAM, 0)
         if fd < 0 then
             error(format("vsock_socket failed, return %d.", fd))
         end
         res = vsock_bind(fd, conf.vsock.cid, conf.vsock.port)
-        if res < 0 then
-            error(format("vsock_bind failed, return %d.", res))
-        end
+        liteAssert(res == 0, format("vsock_bind failed, return %d.", res))
     else
         error("bad bind mode.")
     end
     local backlog = conf.backlog or 100
-    res, err, errno = psocket.listen(fd, backlog)
-    liteAssert(res, err)
+    res = b_listen(fd, backlog)
+    liteAssert(res == 0, format("b_listen failed, return %d.", res))
     return fd
 end
 
 function M.connectSetup(tPort)
-    local fd, err, errno
+    local fd
     if tPort.port then
-        fd, err, errno = newSocket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
-        liteAssert(fd, err)
+        fd = b_socket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
+        liteAssert(fd > 0, format("b_socket failed, return %d.", fd))
     elseif tPort.path then
-        fd, err, errno = newSocket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
-        liteAssert(fd, err)
+        fd = b_socket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
+        liteAssert(fd > 0, format("b_socket failed, return %d.", fd))
         tPort.family = psocket.AF_UNIX
     elseif tPort.vsock then
         fd = vsock_socket(psocket.SOCK_STREAM, 0)
-        if fd < 0 then
-            error(format("vsock_socket failed, return %d.", fd))
-        end
+        liteAssert(fd > 0, format("vsock_socket failed, return %d.", fd))
     else
         error("bad connect mode.")
     end
@@ -104,30 +102,37 @@ function M.connectSetup(tPort)
 end
 
 local function tryConnect(fd, tPort)
-    local res, err, errno
+    local res, errno
 
-    if tPort.vsock then
+    if tPort.port then
+        res = b_connect_ip(fd, tPort.addr, tPort.port)
+        if res > 0 then   -- connect not ready.
+            errno = res
+            res = nil
+        end
+    elseif tPort.path then
+        res = b_connect_uds(fd, tPort.path)
+        if res > 0 then   -- connect not ready.
+            errno = res
+            res = nil
+        end
+        tPort.family = psocket.AF_UNIX
+    elseif tPort.vsock then
         res = vsock_connect(fd, tPort.vsock.cid, tPort.vsock.port)
         if res > 0 then   -- connect not ready.
             errno = res
-            err = format("vsock is not ready, report:%d.", errno)
             res = nil
         end
     else
-        res, err, errno = connect(fd, tPort)
+        error("bad connect mode.")
     end
+
     if not res then
         if errno == 115 then  -- need to wait.
             return 2  -- refer to aysync.asyncClient _init_ 2 connecting
-        else
-            if tPort.addr then
-                error(format("socket connect %s:%d failed, report:%d, %s", tPort.addr, tPort.port, errno, err))
-            elseif tPort.path then
-                error(format("socket connect %s failed, report:%d, %s", tPort.path, errno, err))
-            else
-                error(format("socket connect failed, report:%d, %s", errno, err))
-            end
-            return
+        else  -- connect failed
+            -- print(format("socket connect failed, report:%d", errno))
+            return 3 -- connected failed
         end
     else
         return 1   -- 1 means connected

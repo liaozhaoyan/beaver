@@ -75,4 +75,3 @@ function Cmaster:proc()
 end
 
 return Cmaster
-

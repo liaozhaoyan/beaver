@@ -14,8 +14,13 @@ local httpRead = require("http.httpRead")
 local Credis = require("client.redis")
 local CcliBase = require("client.cliBase")
 
+
 local class = class
 local Ctest = class("test")
+local collectgarbage = collectgarbage
+
+collectgarbage("setpause", 150)
+collectgarbage("setstepmul", 300)
 
 local counter = 0
 
@@ -101,6 +106,10 @@ local function rcmd(tReq)
     end
 end
 
+local function gcInfo(tReq)
+    return {body = string.format("mem: %d", mem)}
+end
+
 local function rcmds(tReq)
     local r = Credis.new(tReq, "172.16.0.136", 3341)
     local pipe = r:pipeline()
@@ -137,6 +146,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/bing", bing)
     inst:get("/baidu", baidu)
     inst:get("/unkown", unkown)
+    inst:get("/gc", gcInfo)
     inst:get("/svg", svg)
     inst:get("/svg/*", svg)
     inst:post("/rcmd", rcmd)

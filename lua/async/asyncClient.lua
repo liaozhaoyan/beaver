@@ -11,13 +11,13 @@ local CasyncClient = class("asyncClient", CasyncBase)
 
 local type = type
 local format = string.format
-local c_new = c_type.new
 local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
 local status = coroutine.status
 local liteAssert = system.liteAssert
 local coReport = system.coReport
+local debugTraceback = debug.traceback
 local error = error
 
 function CasyncClient:_init_(tReq, hostFd, tPort, tmo)
@@ -27,15 +27,16 @@ function CasyncClient:_init_(tReq, hostFd, tPort, tmo)
     self._status = 0
     -- 0:disconnect, 1 connected, 2 connecting, 3 connect failed.
 
-    
     if tReq.clients then  -- will auto release when close host client.
         tReq.clients[self] = true
     end
 
     local beaver = tReq.beaver
-    CasyncBase._init_(self, beaver, fd, tmo)
-    self._status = self:_waitConnected(beaver, hostFd)
     self._hostFd = hostFd
+    CasyncBase._init_(self, beaver, fd, tmo)
+    if self:_waitConnected(beaver, hostFd) ~= 1 then  -- connect
+        return
+    end
 end
 
 function CasyncClient:status()
@@ -64,9 +65,9 @@ function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
         else
             w = yield()
         end
-        
+
         local t = type(w)
-        if t == "number" then  -- 0 is ok
+        if t == "number" then  -- 1 is ok  wake from cliConnect function.
             if w == 1 then  -- refer to sockComm, 1 means connect ok.
                 return 1
             end
@@ -155,12 +156,14 @@ function CasyncClient:_waitData(stream)
             coReport(coWake, res, msg)
             return nil, "connecting interrupt."
         elseif statCo == "normal" then    -- wake from http client.
-            yield(nil)
+            self._status = 0
+        elseif statCo == "dead" then
+            error(format("beaver report bug: dead co status: %s", debugTraceback(coWake)))
         else
             error(format("beaver report bug: co status: %s", statCo))
         end
     else
-        return nil, "not connected."
+        error(format("beaver report bug: status: %s", debugTraceback(coWake)))
     end
 end
 
@@ -168,7 +171,7 @@ function CasyncClient:close()
     local stat = self._status
     if stat > 0 then
         self:_waitData(nil)
-        liteAssert(self._status == 0, "close socket failed. " .. self._status)
+        liteAssert(self._status == 0, "close socket failed. " .. self._status .. debugTraceback(self._co))
     end
 end
 

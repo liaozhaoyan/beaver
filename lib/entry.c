@@ -14,9 +14,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
-static size_t fd_size(int fd) {
+static int fd_size(int fd) {
     int ret;
-    pthread_t tid;
     struct stat file_info;
 
     ret = fstat(fd, &file_info);
@@ -45,7 +44,7 @@ int start_beaver(char * path) {
         goto endSize;
     }
 
-    s = malloc(size);
+    s = malloc(size + 1);
     if (s == NULL) {
         perror("malloc for config failed.");
         goto endMalloc;
@@ -56,6 +55,7 @@ int start_beaver(char * path) {
         perror("read config failed.");
         goto endReadConfig;
     }
+    s[size] = '\0';
 
     int pipeR[2];   // 0 for read, 1 for write, for master Read
     int pipeW[2];   // for master Write.

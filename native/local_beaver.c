@@ -5,7 +5,10 @@
 #define _GNU_SOURCE
 #include "local_beaver.h"
 #include <sys/epoll.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sched.h>
@@ -79,6 +82,7 @@ static int epoll_add(int efd, int fd) {
     struct epoll_event event;
     int ret = 0;
 
+    memset(&event, 0, sizeof(struct epoll_event));
     event.events  = EPOLLIN;
     event.data.fd = fd;
 
@@ -105,11 +109,6 @@ static int epoll_del(int efd, int fd) {
 int init(int listen_fd) {
     int efd = 0;
     int ret = 0;
-
-    ret = async_ssl_init();
-    if (ret < 0) {
-        goto end_ssl_init;
-    }
 
     efd = epoll_create(NATIVE_EVENT_MAX);
     if (efd < 0) {
@@ -154,6 +153,7 @@ int mod_fd(int efd, int fd, int wr) {
     struct epoll_event event;
     int ret;
 
+    memset(&event, 0, sizeof(struct epoll_event));
     switch (wr) {
         case 1:   // write only
             event.events = EPOLLOUT | EPOLLERR | EPOLLRDHUP;
@@ -227,6 +227,104 @@ int check_connected(int fd) {
     return so_error == 0 ? 0 : 1;
 }
 
+int b_socket(int domain, int type, int protocol) {
+    int ret;
+    ret = socket(domain, type, protocol);
+    if (ret < 0) {
+        return errno;
+    }
+    return ret;
+}
+
+int b_accept(int fd) {
+    int ret;
+    ret = accept(fd, NULL, NULL);
+    if (ret < 0) {
+        return errno;
+    }
+    return ret;
+}
+
+int b_listen(int fd, int backlog) {
+    int ret;
+    ret = listen(fd, backlog);
+    if (ret < 0) {
+        return errno;
+    }
+    return 0;
+}
+
+int b_bind_ip(int fd, const char* ip, unsigned short port) {
+    struct sockaddr_in addr;
+    int ret;
+    if (ip == NULL) {
+        return EINVAL;
+    }
+
+    bzero(&addr, sizeof(addr)); 
+    addr.sin_family = AF_INET; 
+    addr.sin_addr.s_addr = inet_addr(ip); 
+    addr.sin_port = htons(port); 
+    ret = bind(fd, (struct sockaddr*)&addr, sizeof(addr));
+    if (ret < 0) {
+        return errno;
+    }
+    return 0;
+}
+
+int b_bind_uds(int fd, const char* path) {
+    struct sockaddr_un addr;
+    int ret;
+    if (path == NULL) {
+        return EINVAL;
+    }
+
+    bzero(&addr, sizeof(addr)); 
+    addr.sun_family = AF_UNIX;
+    snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", path);
+    ret = bind(fd, (struct sockaddr*)&addr, sizeof(addr));
+    if (ret < 0) {
+        return errno;
+    }
+    return 0;
+}
+
+int b_connect_ip(int fd, const char* ip, unsigned short port) {
+    struct sockaddr_in addr;
+    int ret;
+
+    if (ip == NULL) {
+        return EINVAL;
+    }
+
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = inet_addr(ip);
+    bzero(&(addr.sin_zero), 8);
+    ret = connect(fd, (struct sockaddr*)&addr, sizeof(addr));
+    if (ret < 0) {
+        return errno;
+    }
+    return 0;
+}
+
+int b_connect_uds(int fd, const char* path) {
+    struct sockaddr_un addr;
+    int ret;
+
+    if (path == NULL) {
+        return EINVAL;
+    }
+
+    addr.sun_family = AF_UNIX;
+    snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", path);
+    ret = connect(fd, (struct sockaddr*)&addr, sizeof(addr));
+    if (ret < 0) {
+        return errno;
+    }
+    return 0;
+}
+
 int b_read(int fd, void *buf, int count) {
     int ret = read(fd, buf, count);
     if (ret < 0) {
@@ -257,5 +355,4 @@ int b_close(int fd) {
 
 void deinit(int efd) {
     close(efd);
-    async_ssl_deinit();
 }

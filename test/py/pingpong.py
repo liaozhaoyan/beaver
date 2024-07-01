@@ -10,6 +10,8 @@ def single():
     loop = random.randint(8000, 12000)
     while i < loop:
         stream = "abcdefg1234567" * random.randint(1, 256)
+        l = len(stream)
+        stream = stream[:-random.randint(1, 8)]
         s.send(stream.encode())
 
         r = ""

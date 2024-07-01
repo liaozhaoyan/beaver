@@ -21,6 +21,9 @@ cp -Pp /usr/lib64/libk5crypto.so*  ${DIST}/install/
 cp -Pp /usr/lib64/libkrb5support.so* ${DIST}/install/
 cp -Pp /usr/lib64/libkeyutils.so* ${DIST}/install/
 cp -Pp /usr/lib64/libpcre.so* ${DIST}/install/
+cp -Pp /usr/lib64/libtcmalloc.so ${DIST}/install/
+cp -Pp /usr/lib64/libtcmalloc_minimal.so.* ${DIST}/install/
+
 find ${DIST}/install/ -type f -name "*.so" -exec strip {} \;
 rm -f ${DIST}/install/libcrypto.so.1.1*
 rm -f ${DIST}/install/libssl.so.1.1*
