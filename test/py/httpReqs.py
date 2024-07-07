@@ -12,7 +12,7 @@ def single(loop, body=False):
     for i in range(loop):
         for url in urls:
             try:
-                res = requests.get(url, timeout=random.randint(3, 15))
+                res = requests.get(url, timeout=random.randint(15, 30))
             except Timeout as e:
                 print("catched tmo.")
             if body:

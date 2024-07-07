@@ -45,7 +45,7 @@ local function instance(tReq)
 end
 
 local function bing(tReq)
-    local req = ChttpReq.new(tReq, "cn.bing.com", nil, nil, proxy)
+    local req = ChttpReq.new(tReq, "http://cn.bing.com/", nil, nil, proxy)
     local tRes = req:get("HTTP://cn.bing.com/")
     if tRes then
         return {body = tRes.body}
@@ -55,7 +55,7 @@ local function bing(tReq)
 end
 
 local function baidu(tReq)
-    local req = ChttpReq.new(tReq, "www.baidu.com", nil, nil, proxy)
+    local req = ChttpReq.new(tReq, "https://www.baidu.com/", nil, nil, proxy)
     local tRes = req:get("HTTP://www.baidu.com/")
     if tRes then
         return {body = tRes.body}

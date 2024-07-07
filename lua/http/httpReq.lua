@@ -10,17 +10,16 @@ require("eclass")
 local psocket = require("posix.sys.socket")
 local posix = require("posix")
 local CasyncClient = require("async.asyncClient")
-local system = require("common.system")
 local workVar = require("module.workVar")
-local sockComm = require("common.sockComm")
+local parseUrl = require("common.parseUrl")
 local httpRead = require("http.httpRead")
 local httpComm = require("http.httpComm")
 local stat = posix.sys.stat
 
 local format = string.format
-local liteAssert = system.liteAssert
 local type = type
 local print = print
+local tonumber = tonumber
 local tostring = tostring
 local running = coroutine.running
 local yield = coroutine.yield
@@ -29,11 +28,47 @@ local assert = assert
 local fstat = stat.stat
 local clientRead = httpRead.clientRead
 local getIp = workVar.getIp
+local parse = parseUrl.parse
+local isSsl = parseUrl.isSsl
 
 local httpConnectTmo = 10
 
 local class = class
 local ChttpReq = class("request", CasyncClient)
+
+local function setupUrl(host, port, proxy)
+    local scheme, domain, _port = parse(host)
+    local ip
+    local connectPort
+    local isProxy
+
+    assert(domain, function ()
+        return format("host: %s, not support.", host)
+    end)
+
+    if not port then
+        if _port then
+            port = tonumber(_port)
+        else
+            if scheme == "https" then
+                port = 443
+            else
+                port = 80
+            end
+        end
+    end
+
+    if proxy then
+        ip, connectPort = proxy.ip, proxy.port
+        isProxy = true
+    else
+        ip, connectPort = getIp(domain), port
+        isProxy = false
+    end
+    local Host = format("%s:%d", domain, port)
+    local tPort = {family=psocket.AF_INET, addr=ip, port=connectPort, ssl=isSsl(scheme), proxy=isProxy, host=Host}
+    return Host, tPort
+end
 
 function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
     local ip
@@ -55,13 +90,7 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
         end
         tPort = {family=psocket.AF_UNIX, path=host.path}
     elseif host_t == "string" then
-        self._domain = host
-        if proxy then
-            ip, port = proxy.ip, proxy.port
-        else
-            ip, port = getIp(host), port or 80
-        end
-        tPort = {family=psocket.AF_INET, addr=ip, port=port}
+        self._domain, tPort = setupUrl(host, port, proxy)
     else
         error(format("host type: %s", host_t))
     end

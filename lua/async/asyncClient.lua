@@ -4,12 +4,15 @@ local system = require("common.system")
 local sockComm = require("common.sockComm")
 local CasyncBase = require("async.asyncBase")
 local cffi = require("beavercffi")
+local pystring = require("pystring")
 local c_type, c_api = cffi.type, cffi.api
 
 local class = class
 local CasyncClient = class("asyncClient", CasyncBase)
 
+local print = print
 local type = type
+local tostring = tostring
 local format = string.format
 local running = coroutine.running
 local yield = coroutine.yield
@@ -17,11 +20,15 @@ local resume = coroutine.resume
 local status = coroutine.status
 local liteAssert = system.liteAssert
 local coReport = system.coReport
+local startswith = pystring.startswith
 local debugTraceback = debug.traceback
 local error = error
+local connectSetup = sockComm.connectSetup
+local sockConnect = sockComm.connect
+local sslHandshake = sockComm.sslHandshake
 
 function CasyncClient:_init_(tReq, hostFd, tPort, tmo)
-    local fd = sockComm.connectSetup(tPort)
+    local fd = connectSetup(tPort)
     self._tPort = tPort
     self._coWake = running()
     self._status = 0
@@ -86,14 +93,65 @@ function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
     end
 end
 
+local function proxyHandshake(beaver, fd, tPort)
+    local host = tPort.host
+    local req = format("CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", host, host)
+
+    local res = beaver:write(fd, req)
+    if not res then
+        return 3
+    end
+
+    beaver:co_set_tmo(fd, 10)
+
+    local e = yield()
+    local t = type(e)
+    if t == "nil" then  -- fd has closed.
+        return 3
+    elseif t == "cdata" then  -- has data to read
+        if e.ev_close > 0 then   -- fd closed.
+            return 3
+        elseif e.ev_in > 0 then  -- has data to read
+            res = beaver:read(fd, 256)
+            if not res then
+                return 3
+            end
+            beaver:co_set_tmo(fd, -1)
+            if startswith(res, "HTTP/1.1 200") then
+                return 1
+            else
+                return 3
+            end
+        else
+            print("IO Error.")
+        end
+    else
+        print(format("type: %s, undknown error., %s", t, tostring(e)))
+    end
+    return 3
+end
+
 function CasyncClient:cliConnect(fd, tmo)
     local beaver = self._beaver
     local stat
+    local tPort = self._tPort
 
     self._status = 2  -- connecting
     beaver:co_set_tmo(fd, tmo)  -- set connect timeout
-    stat = sockComm.connect(fd, self._tPort, beaver)  -- 
+    stat = sockConnect(fd, tPort, beaver)  -- 
     beaver:co_set_tmo(fd, -1)   -- back
+
+    if stat == 1 and tPort.ssl then
+        if tPort.proxy then
+            stat = proxyHandshake(beaver, fd, tPort)
+            if stat == 1 then
+                stat = sslHandshake(fd, beaver)
+            end
+        else
+            stat = sslHandshake(fd, beaver)
+        end
+    end
+
     self._status = stat  -- connected
     return stat, self:wake(self._coWake, stat)  -- wake up to wake, set in asyncClient.
 end

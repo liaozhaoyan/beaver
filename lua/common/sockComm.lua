@@ -23,13 +23,17 @@ local b_bind_ip = c_api.b_bind_ip
 local b_bind_uds = c_api.b_bind_uds
 local b_connect_ip = c_api.b_connect_ip
 local b_connect_uds = c_api.b_connect_uds
+local b_close = c_api.b_close
+local ssl_connect_pre = c_api.ssl_connect_pre
+local ssl_connect = c_api.ssl_connect
+local ssl_del = c_api.ssl_del
 local vsock_socket = c_api.vsock_socket
 local vsock_connect = c_api.vsock_connect
 local vsock_bind = c_api.vsock_bind
 local setsockopt_reuse_port = c_api.setsockopt_reuse_port
 local check_connected = c_api.check_connected
 
-local M = {}
+local mt = {}
 
 local lpeg = require('lpeg')
 local P, R = lpeg.P, lpeg.R
@@ -44,7 +48,7 @@ local number = triple_digit_3 + triple_digit_2 + triple_digit_1 + double_digit +
 local dot = P"."
 local ipv4 = number * dot * number * dot * number * dot * number
 
-function M.isIPv4(ip)
+function mt.isIPv4(ip)
     if ipv4:match(ip) then
         return true
     else
@@ -52,7 +56,7 @@ function M.isIPv4(ip)
     end
 end
 
-function M.setupSocket(conf)
+function mt.setupSocket(conf)
     local res, fd
     if conf.port then
         fd = b_socket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
@@ -83,7 +87,7 @@ function M.setupSocket(conf)
     return fd
 end
 
-function M.connectSetup(tPort)
+function mt.connectSetup(tPort)
     local fd
     if tPort.port then
         fd = b_socket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
@@ -139,7 +143,7 @@ local function tryConnect(fd, tPort)
     end
 end
 
-function M.connect(fd, tPort, beaver)
+function mt.connect(fd, tPort, beaver)
     local res = tryConnect(fd, tPort)
     if res == 2 then -- 2 means connecting  refer to aysync.asyncClient _init_
         beaver:mod_fd(fd, 1)  -- modify fd to writeable
@@ -167,4 +171,43 @@ function M.connect(fd, tPort, beaver)
     return res
 end
 
-return M
+local function handshakeYield()
+    local e = yield()  -- if close fd, will resume nil
+    if e == nil or e.ev_close > 0 then
+        return true
+    end
+    return false
+end
+
+function mt.sslHandshake(fd, beaver)
+    local handler = ssl_connect_pre(fd)
+    if handler == nil then
+        return 3
+    end
+    local ret
+    repeat
+        ret = ssl_connect(handler)
+        if ret == 1 then
+            beaver:mod_fd(fd, 1)
+            if handshakeYield() then
+                ret = -1
+            end
+        elseif ret == 2 then
+            beaver:mod_fd(fd, 0)
+            if handshakeYield() then
+                ret = -1
+            end
+        end
+    until (ret <= 0)
+    beaver:mod_fd(fd, 0)
+    if ret < 0 then
+        ssl_del(handler)
+        handler = nil
+        return 3
+    else
+        beaver:ssl_add(fd, handler)
+        return 1
+    end
+end
+
+return mt

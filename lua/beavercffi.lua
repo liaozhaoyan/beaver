@@ -40,7 +40,6 @@ int b_bind_uds(int fd, const char* path);
 int b_connect_ip(int fd, const char* ip, unsigned short port);
 int b_connect_uds(int fd, const char* path);
 
-
 void b_yield(void);
 int b_close(int fd);
 void deinit(int efd);

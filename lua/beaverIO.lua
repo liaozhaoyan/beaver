@@ -31,6 +31,9 @@ local c_api_add_fd = c_api.add_fd
 local c_api_b_close = c_api.b_close
 local c_api_b_read = c_api.b_read
 local c_api_b_write = c_api.b_write
+local c_api_ssl_read = c_api.ssl_read
+local c_api_ssl_write = c_api.ssl_write
+local c_api_ssl_del = c_api.ssl_del
 local c_api_b_yield = c_api.b_yield
 local yield = coroutine.yield
 local traceback = debug.traceback
@@ -39,6 +42,7 @@ function CbeaverIO:_init_()
     local efd = c_api_init(-1)
     liteAssert(efd > 0, traceback(format("init efd %d failed.", efd)))
     self._efd = efd
+    self._ssl = {}
 end
 
 function CbeaverIO:_del_()
@@ -49,6 +53,11 @@ end
 
 function CbeaverIO:remove(fd)
     liteAssert(c_api_del_fd(self._efd, fd) >= 0, traceback(format("del fd %d from epoll failed.", fd)))
+    local handler = self._ssl[fd]
+    if handler then
+        c_api_ssl_del(handler)
+        self._ssl[fd] = nil
+    end
     liteAssert(c_api_b_close(fd) >= 0, traceback(format("close fd %d failed.", fd)))
 end
 
@@ -56,8 +65,25 @@ function CbeaverIO:add(fd)
     liteAssert(c_api_add_fd(self._efd, fd) >= 0, "add fd failed.", traceback(format("add fd %d failed.", fd)))
 end
 
+function CbeaverIO:ssl_add(fd, handler)
+    self._ssl[fd] = handler
+end
+
 function CbeaverIO:mod_fd(fd, wr)
     liteAssert(c_api_mod_fd(self._efd, fd, wr) == 0, traceback(format("mod fd %d failed.", fd)))
+end
+
+function CbeaverIO:_readFunction(fd)
+    local handler = self._ssl[fd]
+    if handler then
+        return function (ptr, len)
+            return c_api_ssl_read(handler, ptr, len)
+        end
+    else
+        return function (ptr, len)
+            return c_api_b_read(fd, ptr, len)
+        end
+    end
 end
 
 function CbeaverIO:read(fd, size)
@@ -66,7 +92,8 @@ function CbeaverIO:read(fd, size)
     local ptr, len = buf:reserve(size)
 
     len = len < size and len or size
-    local ret = c_api_b_read(fd, ptr, len)
+    local readFucntion = self:_readFunction(fd)
+    local ret = readFucntion(ptr, len)
 
     if ret == 0 then
         return nil, "fd closed",  64
@@ -78,7 +105,7 @@ function CbeaverIO:read(fd, size)
         if e.ev_close > 0 then
             return nil, format("fd %d is already closed.", fd), 32
         elseif e.ev_in > 0 then
-            ret = c_api_b_read(fd, ptr, len)
+            ret = readFucntion(ptr, len)
             if ret > 0 then
                 buf:commit(ret)
                 return buf:tostring()
@@ -95,6 +122,7 @@ end
 
 function CbeaverIO:reads(fd, maxLen)
     maxLen = maxLen or 10 * 1024 * 1024 -- signal conversation accept 2M stream max
+    local readFucntion = self:_readFunction(fd)
 
     local function readFd(tmo)
         local rfd, rMaxLen = fd, maxLen   -- local upvalue.
@@ -104,7 +132,7 @@ function CbeaverIO:reads(fd, maxLen)
         tmo = tmo or -1
 
         len = len < bufSize and len or bufSize   -- buffer min is 32, if maxLen little than 32,
-        local ret = c_api_b_read(rfd, ptr, len)
+        local ret = readFucntion(ptr, len)
 
         if ret == 0 then
             return nil, "fd closed",  64
@@ -114,14 +142,14 @@ function CbeaverIO:reads(fd, maxLen)
         elseif ret == -11 then
             self:co_set_tmo(rfd, tmo)
             local e = yield()
-            
+                    
             if e == nil then
                 return nil, "yield error.", 5
             end
             if e.ev_close > 0 then
                 return nil, format("fd %d is already closed.", fd), 32
             elseif e.ev_in > 0 then
-                ret = c_api_b_read(rfd, ptr, len)
+                ret = readFucntion(ptr, len)
                 if ret > 0 then
                     rMaxLen = rMaxLen - ret
                     buf:commit(ret)
@@ -139,6 +167,19 @@ function CbeaverIO:reads(fd, maxLen)
     return readFd
 end
 
+function CbeaverIO:_writeFunction(fd)
+    local handler = self._ssl[fd]
+    if handler then
+        return function (ptr, len)
+            return c_api_ssl_write(handler, ptr, len)
+        end
+    else
+        return function (ptr, len)
+            return c_api_b_write(fd, ptr, len)
+        end
+    end
+end
+
 function CbeaverIO:write(fd, stream)
     local res
     local ret
@@ -146,7 +187,8 @@ function CbeaverIO:write(fd, stream)
     local buf = buffer_new()
     buf:put(stream)
     local ptr, len = buf:ref()
-    ret = c_api_b_write(fd, ptr, len)
+    local writeFucntion = self:_writeFunction(fd)
+    ret = writeFucntion(ptr, len)
     if ret == -11 then  -- full EAGAIN ?
         ret = 0
     end
@@ -171,7 +213,7 @@ function CbeaverIO:write(fd, stream)
                     buf:skip(ret)  -- move to next
 
                     ptr, len = buf:ref()
-                    ret = c_api_b_write(fd, ptr, len)
+                    ret = writeFucntion(ptr, len)
                     if ret < 0 then
                         if ret == -11 then  -- EAGAIN ?
                             ret = 0
@@ -197,7 +239,7 @@ function CbeaverIO:write(fd, stream)
     end
 end
 
-function CbeaverIO:readBySize(fd, size)
+function CbeaverIO:readBySize(fd, size)  -- only for pipe, not for ssl socket
     local res, err, errno
     local len = 0
     local cnt = 1

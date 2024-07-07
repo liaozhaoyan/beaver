@@ -3,6 +3,7 @@
 //
 
 #include "async_ssl.h"
+#include <openssl/opensslconf.h>
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -71,6 +72,11 @@ void *ssl_connect_pre(int fd) {
     return handle;
 }
 
+static void report_error(const char *msg) {
+    unsigned long err = ERR_get_error();
+    fprintf(stderr, "%s: %s\n", msg, ERR_error_string(err, NULL));
+}
+
 int ssl_connect(void * handle) {
     int ret = 0, err = 0;
     SSL *h = (SSL *)handle;
@@ -84,12 +90,13 @@ int ssl_connect(void * handle) {
     switch (err) {
         case 0:
             return 0;
-        case SSL_ERROR_WANT_WRITE:  //waite write.
+        case SSL_ERROR_WANT_WRITE:  //wait write.
             return 1;
         case SSL_ERROR_WANT_READ:
             return 2;
         default:
-            fprintf(stderr, "ssl_connect handshake failed. %d, %s\n", errno, strerror(errno));
+            report_error("ssl_connect handshake failed");
+            // fprintf(stderr, "ssl_connect handshake failed. err: %d, errno: %d, %s\n", err, errno, strerror(errno));
             return -1;
     }
 }
@@ -100,20 +107,14 @@ void ssl_del(void *handle) {
     SSL_free(handle);
 }
 
-void id_function(CRYPTO_THREADID *id) {
-    CRYPTO_THREADID_set_numeric(id, (unsigned long)pthread_self());
-}
-
 int async_ssl_init(void) {
     int ret = 0;
-    CRYPTO_THREADID_set_callback(id_function);
 
-    SSL_load_error_strings();
-    SSL_library_init();
-    sslContext = SSL_CTX_new(SSLv23_client_method());
+    sslContext = SSL_CTX_new(TLS_client_method());
     if (sslContext == NULL) {
-        fprintf(stderr, "set up sslContext failed. %d, %s\n", errno, strerror(errno));
-        ret = -errno;
+        unsigned long err = ERR_get_error(); 
+        fprintf(stderr, "set up sslContext failed. OpenSSL error: %s\n", ERR_error_string(err, NULL));
+        ret = -1; // 使用 OpenSSL 特定的错误代码或自定义错误处理
         goto sslFailed;
     }
     return ret;
