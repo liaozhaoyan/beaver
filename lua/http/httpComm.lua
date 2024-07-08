@@ -9,6 +9,8 @@ local require = require
 local pystring = require("pystring")
 local sockerUrl = require("socket.url")
 
+local tostring = tostring
+local tonumber = tonumber
 local print = print
 local ipairs = ipairs
 local pairs = pairs
@@ -18,6 +20,7 @@ local url_unescape = sockerUrl.unescape
 local url_parse = sockerUrl.parse
 local format = string.format
 local os_date = os.date
+local os_time = os.time
 local type = type
 
 local mt = {}
@@ -73,6 +76,7 @@ local codeStrTable = {
     [503] = "Service Unavailable",
 }
 local function packStat(code)   -- only for server.
+    code = code or 200
     local t = {"HTTP/1.1", tostring(code), codeStrTable[code]}
     return concat(t, " ")
 end
@@ -80,7 +84,7 @@ end
 local function originServerHeader()
     return {
         server = "beaver/0.1.0",
-        date = os_date("%a, %d %b %Y %H:%M:%S %Z", os.time()),
+        date = os_date("%a, %d %b %Y %H:%M:%S %Z", os_time()),
     }
 end
 

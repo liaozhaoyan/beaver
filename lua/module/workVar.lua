@@ -237,7 +237,6 @@ end
 
 
 local ChttpInst = require("http.httpInst")
-
 local instTable = {
     httpServer = function(conf)
         local app = require(format("app.%s", conf.entry))

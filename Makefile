@@ -9,6 +9,7 @@ dist:
 	rm -f beaver.tar.gz
 	tar zcv -f beaver.tar.gz beaver/
 	rm -rf beaver/
+	scp beaver.tar.gz root@172.16.0.119:/root/oss/group/beaver.devel.tar.gz
 
 clean:
 	make -C lib clean
