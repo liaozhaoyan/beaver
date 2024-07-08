@@ -77,7 +77,7 @@ local codeStrTable = {
 }
 local function packStat(code)   -- only for server.
     code = code or 200
-    local t = {"HTTP/1.1", tostring(code), codeStrTable[code]}
+    local t = {"HTTP/1.1", tostring(code), codeStrTable[code] or "Unkonwn"}
     return concat(t, " ")
 end
 
