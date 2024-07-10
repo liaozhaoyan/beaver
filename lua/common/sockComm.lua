@@ -25,13 +25,15 @@ local b_connect_ip = c_api.b_connect_ip
 local b_connect_uds = c_api.b_connect_uds
 local b_close = c_api.b_close
 local ssl_connect_pre = c_api.ssl_connect_pre
-local ssl_connect = c_api.ssl_connect
+local ssl_accept_pre = c_api.ssl_accept_pre
+local ssl_handshake = c_api.ssl_handshake
 local ssl_del = c_api.ssl_del
 local vsock_socket = c_api.vsock_socket
 local vsock_connect = c_api.vsock_connect
 local vsock_bind = c_api.vsock_bind
 local setsockopt_reuse_port = c_api.setsockopt_reuse_port
 local check_connected = c_api.check_connected
+local NULL = c_type.NULL
 
 local mt = {}
 
@@ -179,14 +181,45 @@ local function handshakeYield()
     return false
 end
 
-function mt.sslHandshake(fd, beaver)
-    local handler = ssl_connect_pre(fd)
+function mt.cliSslHandshake(fd, beaver)
+    local handler = ssl_connect_pre(fd, NULL)
     if handler == nil then
         return 3
     end
     local ret
     repeat
-        ret = ssl_connect(handler)
+        ret = ssl_handshake(handler)
+        if ret == 1 then
+            beaver:mod_fd(fd, 1)
+            if handshakeYield() then
+                ret = -1
+            end
+        elseif ret == 2 then
+            beaver:mod_fd(fd, 0)
+            if handshakeYield() then
+                ret = -1
+            end
+        end
+    until (ret <= 0)
+    beaver:mod_fd(fd, 0)
+    if ret < 0 then
+        ssl_del(handler)
+        handler = nil
+        return 3
+    else
+        beaver:ssl_add(fd, handler)
+        return 1
+    end
+end
+
+function mt.srvSslHandshake(fd, beaver, ctx)
+    local handler = ssl_accept_pre(fd, ctx)
+    if handler == nil then
+        return 3
+    end
+    local ret
+    repeat
+        ret = ssl_handshake(handler)
         if ret == 1 then
             beaver:mod_fd(fd, 1)
             if handshakeYield() then

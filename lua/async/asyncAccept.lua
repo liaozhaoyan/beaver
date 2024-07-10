@@ -9,10 +9,14 @@ require("eclass")
 local system = require("common.system")
 local psocket = require("posix.sys.socket")
 local CasyncBase = require("async.asyncBase")
+local cffi = require("beavercffi")
+local c_type, c_api = cffi.type, cffi.api
 
 local class = class
 local CasyncAccept = class("asyncAccept", CasyncBase)
 
+local type = type
+local error = error
 local liteAssert = system.liteAssert
 local coReport = system.coReport
 local running = coroutine.running
@@ -21,14 +25,26 @@ local resume = coroutine.resume
 local assert = assert
 local paccept = psocket.accept
 local print = print
+local ssl_server_new = c_api.ssl_server_new
+local ssl_ctx_del = c_api.ssl_ctx_del
+local NULL = c_type.NULL
 
-function CasyncAccept:_init_(beaver, fd, tmo)
+function CasyncAccept:_init_(beaver, fd, conf)
     self._toWake = running()
+    self._conf = conf
     CasyncBase._init_(self, beaver, fd)  -- accept never overtime.
 end
 
 function CasyncAccept:_setup(fd, tmo)
     local co = self._toWake
+    local ctx
+    local conf = self._conf
+    if type(conf.certificate) == "string" and type(conf.key) == "string" then
+        ctx = ssl_server_new(conf.certificate, conf.key)
+        if ctx == NULL then
+            error("ssl_server_new failed.")
+        end
+    end
 
     while true do
         local e = yield()
@@ -38,11 +54,12 @@ function CasyncAccept:_setup(fd, tmo)
         else
             local nfd, addr, errno = assert(paccept(fd))
             liteAssert(nfd, addr)
-            local res, msg = resume(co, nfd, addr)
+            local res, msg = resume(co, nfd, addr, ctx)
             coReport(co, res, msg)
         end
     end
     self:stop()
+    ssl_ctx_del(ctx)
 end
 
 return CasyncAccept

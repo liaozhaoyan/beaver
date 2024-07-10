@@ -8,23 +8,25 @@ require("eclass")
 
 local CasyncBase = require("async.asyncBase")
 local workVar = require("module.workVar")
+local sockComm = require("common.sockComm")
 
 local class = class
 local ChttpServer = class("httpServer", CasyncBase)
 
 local pairs = pairs
 local running = coroutine.running
+local srvSslHandshake = sockComm.srvSslHandshake
 
-function ChttpServer:_init_(beaver, fd, bfd, addr, conf, inst, tmo)
+function ChttpServer:_init_(beaver, fd, bfd, addr, conf, inst, ctx)
     self._beaver = beaver
     self._inst = inst
 
-    tmo = tmo or 10
     self._bfd = bfd
     self._addr = addr
     self._conf = conf
+    self._ctx = ctx
 
-    CasyncBase._init_(self, beaver, fd, tmo)
+    CasyncBase._init_(self, beaver, fd, 10)
 end
 
 function ChttpServer:_setup(fd, tmo)
@@ -34,26 +36,35 @@ function ChttpServer:_setup(fd, tmo)
     local inst = self._inst
     local session = {}
     local clients = {}
+    local ret = 1
+    local ctx = self._ctx
 
     workVar.clientAdd(module, self._bfd, fd, running(), self._addr)
-    local fread = beaver:reads(fd)
-    while true do
-        local tRes = inst:proc(fread, session, clients, beaver, fd)
+    if ctx then
+        ret = srvSslHandshake(beaver, fd, ctx)
+    end
 
-        if tRes then
-            beaver:co_set_tmo(fd, tmo)
-            local s = inst:packServerFrame(tRes)
-            beaver:write(fd, s)
-            if tRes.keep == false then  -- do not keep alive any more.
+    if ret == 1 then
+        local fread = beaver:reads(fd)
+        while true do
+            local tRes = inst:proc(fread, session, clients, beaver, fd)
+
+            if tRes then
+                beaver:co_set_tmo(fd, tmo)
+                local s = inst:packServerFrame(tRes)
+                beaver:write(fd, s)
+                if tRes.keep == false then  -- do not keep alive any more.
+                    break
+                end
+            else
                 break
             end
-        else
-            break
+        end
+        for client, _ in pairs(clients) do
+            client:close()
         end
     end
-    for client, _ in pairs(clients) do
-        client:close()
-    end
+
     self:stop()
     workVar.clientDel(module, fd)
 end

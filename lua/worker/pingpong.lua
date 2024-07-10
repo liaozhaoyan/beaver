@@ -8,36 +8,48 @@ require("eclass")
 
 local CasyncBase = require("async.asyncBase")
 local workVar = require("module.workVar")
+local sockComm = require("common.sockComm")
 
 local class = class
 local Cpingpong = class("pinngpong", CasyncBase)
 
 local running = coroutine.running
+local srvSslHandshake = sockComm.srvSslHandshake
 
-function Cpingpong:_init_(beaver, fd, bfd, addr, conf, inst, tmo)
+function Cpingpong:_init_(beaver, fd, bfd, addr, conf, inst, ctx)
     self._beaver = beaver
-    tmo = tmo or 10
+
     self._bfd = bfd
     self._addr = addr
     self._conf = conf
-    CasyncBase._init_(self, beaver, fd, tmo)
+    self._ctx = ctx
+    CasyncBase._init_(self, beaver, fd, 10)
 end
 
 function Cpingpong:_setup(fd, tmo)
     local beaver = self._beaver
     local module = self._conf.func
+    local ctx = self._ctx
+    local ret = 1
 
     workVar.clientAdd(module, self._bfd, fd, running(), self._addr)
-    while true do
-        beaver:co_set_tmo(fd, tmo)
-        local s = beaver:read(fd)
-        if not s then
-            break
-        end
-        beaver:co_set_tmo(fd, tmo)
-        local res = beaver:write(fd, s)
-        if not res then
-            break
+
+    if ctx then
+        ret = srvSslHandshake(beaver, fd, ctx)
+    end
+
+    if ret == 1 then
+        while true do
+            beaver:co_set_tmo(fd, tmo)
+            local s = beaver:read(fd)
+            if not s then
+                break
+            end
+            beaver:co_set_tmo(fd, tmo)
+            local res = beaver:write(fd, s)
+            if not res then
+                break
+            end
         end
     end
     self:stop()

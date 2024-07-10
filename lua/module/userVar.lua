@@ -140,10 +140,10 @@ local function acceptServer(obj, conf, beaver, bfd, bindAdd)
     if bindAdd then
         bindAdd(conf.func, bfd, running())
     end
-    CasyncAccept.new(beaver, bfd, -1)
+    CasyncAccept.new(beaver, bfd, conf)
     while true do
-        local nfd, addr = yield()
-        obj.new(beaver, nfd, bfd, addr, conf)
+        local nfd, addr, ctx = yield()
+        obj.new(beaver, nfd, bfd, addr, conf, ctx)
     end
 end
 

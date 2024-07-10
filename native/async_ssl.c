@@ -53,9 +53,13 @@ int ssl_write(void *handle, const char *buff, int len) {
     return ret;
 }
 
-void *ssl_connect_pre(int fd) {
+void *ssl_connect_pre(int fd, void* hCtx) {
     int ret;
-    SSL *handle = SSL_new(sslContext);
+    SSL_CTX *ctx = (SSL_CTX *)hCtx;
+    if (ctx == NULL) {
+        ctx = sslContext;
+    }
+    SSL *handle = SSL_new(ctx);
     if (handle == NULL) {
         fprintf(stderr, "ssl_connect_pre new ssl failed. %d, %s\n", errno, strerror(errno));
         return NULL;
@@ -77,7 +81,7 @@ static void report_error(const char *msg) {
     fprintf(stderr, "%s: %s\n", msg, ERR_error_string(err, NULL));
 }
 
-int ssl_connect(void * handle) {
+int ssl_handshake(void * handle) {
     int ret = 0, err = 0;
     SSL *h = (SSL *)handle;
 
@@ -107,6 +111,63 @@ void ssl_del(void *handle) {
     SSL_free(handle);
 }
 
+void *ssl_client_new_with_ca(const char* certificate, const char* ca) {
+    SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
+    if (ctx == NULL) {
+        return NULL;
+    }
+    if (SSL_CTX_load_verify_locations(ctx, certificate, ca) <= 0) {
+        fprintf(stderr, "set up certificate file failed. %d, %s\n", errno, strerror(errno));
+        SSL_CTX_free(ctx);
+        return NULL;
+    }
+    return ctx;
+}
+
+void *ssl_server_new(const char* certificate, const char* key) {
+    SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
+    if (ctx == NULL) {
+        return NULL;
+    }
+    if (SSL_CTX_use_certificate_file(ctx, certificate, SSL_FILETYPE_PEM) <= 0) {
+        fprintf(stderr, "set up certificate file failed. %d, %s\n", errno, strerror(errno));
+        SSL_CTX_free(ctx);
+        return NULL;
+    }
+    if (SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) <= 0) {
+        fprintf(stderr, "set up private key file failed. %d, %s\n", errno, strerror(errno));
+        SSL_CTX_free(ctx);
+        return NULL;
+    }
+    SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
+    return ctx;
+}
+
+void ssl_ctx_del(void *hCtx) {
+    SSL_CTX *ctx = (SSL_CTX *)hCtx;
+    SSL_CTX_free(ctx);
+}
+
+void *ssl_accept_pre(int fd, void* hCtx) {
+    int ret;
+    SSL_CTX *ctx = (SSL_CTX *)hCtx;
+    SSL *handle = SSL_new(ctx);
+    if (handle == NULL) {
+        fprintf(stderr, "ssl_connect_pre new ssl failed. %d, %s\n", errno, strerror(errno));
+        return NULL;
+    }
+
+    ret = SSL_set_fd(handle, fd);
+    if (ret < 0) {
+        fprintf(stderr, "ssl_connect_pre bind fd failed. %d, %s\n", errno, strerror(errno));
+        SSL_shutdown(handle);
+        SSL_free(handle);
+        return NULL;
+    }
+    SSL_set_accept_state(handle);
+    return handle;
+}
+
 int async_ssl_init(void) {
     int ret = 0;
 
@@ -117,6 +178,7 @@ int async_ssl_init(void) {
         ret = -1; // 使用 OpenSSL 特定的错误代码或自定义错误处理
         goto sslFailed;
     }
+    SSL_CTX_set_session_cache_mode(sslContext, SSL_SESS_CACHE_CLIENT);
     return ret;
 
     sslFailed:

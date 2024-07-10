@@ -46,9 +46,12 @@ void deinit(int efd);
 
 int ssl_read(void *handle, char *buff, int len);
 int ssl_write(void *handle, const char *buff, int len);
-void *ssl_connect_pre(int fd);
-int ssl_connect(void * handle);
+void *ssl_connect_pre(int fd, void* hCtx);
+void *ssl_accept_pre(int fd, void* hCtx);
+int ssl_handshake(void *handle);
 void ssl_del(void *handle);
+void *ssl_server_new(const char* certificate, const char* key);
+void ssl_ctx_del(void *handle);
 
 int timer_io_init(void);
 unsigned long timer_io_now();

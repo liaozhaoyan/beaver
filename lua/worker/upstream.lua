@@ -22,6 +22,9 @@ local status = coroutine.status
 local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
+local connectSetup = sockComm.connectSetup
+local connect = sockComm.connect
+local srvSslHandshake = sockComm.srvSslHandshake
 
 function Cdownstream:_init_(beaver, uplink, bfd, addr, conf, tmo)
     self._status = 0  -- 0:disconnect, 1 connected, 2 connecting
@@ -42,7 +45,7 @@ function Cdownstream:_init_(beaver, uplink, bfd, addr, conf, tmo)
         tPort = {vsock=conf.upVsock}
     end
 
-    local fd = sockComm.connectSetup(tPort)
+    local fd = connectSetup(tPort)
     self._tPort = tPort
 
     CasyncBase._init_(self, beaver, fd, tmo)
@@ -58,7 +61,7 @@ function Cdownstream:_setup(fd, tmo)
 
     self._status = 2  -- connecting
     beaver:co_set_tmo(fd, tmo)  -- set connect timeout
-    res = sockComm.connect(fd, self._tPort, beaver)
+    res = connect(fd, self._tPort, beaver)
     beaver:co_set_tmo(fd, -1)   -- back
     self._status = res  -- connected
     uplink:connectWake(res)
@@ -126,13 +129,14 @@ end
 
 local Cupstream = class("upstream", CasyncBase)
 
-function Cupstream:_init_(beaver, fd, bfd, addr, conf, inst, tmo)
+function Cupstream:_init_(beaver, fd, bfd, addr, conf, inst, ctx)
     self._beaver = beaver
-    tmo = tmo or 10
+
     self._bfd = bfd
     self._addr = addr
     self._conf = conf
-    CasyncBase._init_(self, beaver, fd, tmo)
+    self._ctx = ctx
+    CasyncBase._init_(self, beaver, fd, 10)
 end
 
 local function waitConnect(beaver, fd, down)
@@ -161,44 +165,52 @@ function Cupstream:_setup(fd, tmo)
     local beaver = self._beaver
     local conf = self._conf
     local res
+    local ctx = self._ctx
+    local ret = 1
 
     workVar.clientAdd(conf.func, self._bfd, fd, running(), self._addr)
-
-    local down = Cdownstream.new(beaver, self, self._bfd, self._addr, conf)
-    if not waitConnect(beaver, fd, down) then
-        goto stopStream
+    if ctx then
+        ret = srvSslHandshake(beaver, fd, ctx)
     end
 
-    while true do
-        local e = yield()
-        local t = type(e)
-        if t == "string" then -- read stream from uplink
-            beaver:co_set_tmo(fd, tmo)
-            res = beaver:write(fd, e)
-            if not res then
-                break
-            end
-            beaver:co_set_tmo(fd, -1)
-        elseif t == "nil" then  -- uplink closed
-            break
-        else  -- read event.
-            if e.ev_close > 0 then
-                break
-            elseif e.ev_in > 0 then
-                local s = beaver:read(fd)
-                if not s then
+    if ret == 1 then
+        local down = Cdownstream.new(beaver, self, self._bfd, self._addr, conf)
+        if not waitConnect(beaver, fd, down) then
+            goto stopStream
+        end
+
+        while true do
+            local e = yield()
+            local t = type(e)
+            if t == "string" then -- read stream from uplink
+                beaver:co_set_tmo(fd, tmo)
+                res = beaver:write(fd, e)
+                if not res then
                     break
                 end
-                down:send(s)
-            else
-                print("IO Error.")
+                beaver:co_set_tmo(fd, -1)
+            elseif t == "nil" then  -- uplink closed
                 break
+            else  -- read event.
+                if e.ev_close > 0 then
+                    break
+                elseif e.ev_in > 0 then
+                    local s = beaver:read(fd)
+                    if not s then
+                        break
+                    end
+                    down:send(s)
+                else
+                    print("IO Error.")
+                    break
+                end
             end
         end
-    end
 
-    ::stopStream::
-    down:shutdown()
+        ::stopStream::
+        down:shutdown()
+    end
+ 
     self:stop()
     workVar.clientDel(conf.func, fd)
 end

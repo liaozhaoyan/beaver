@@ -25,7 +25,7 @@ local debugTraceback = debug.traceback
 local error = error
 local connectSetup = sockComm.connectSetup
 local sockConnect = sockComm.connect
-local sslHandshake = sockComm.sslHandshake
+local cliSslHandshake = sockComm.cliSslHandshake
 
 function CasyncClient:_init_(tReq, hostFd, tPort, tmo)
     local fd = connectSetup(tPort)
@@ -145,10 +145,10 @@ function CasyncClient:cliConnect(fd, tmo)
         if tPort.proxy then
             stat = proxyHandshake(beaver, fd, tPort)
             if stat == 1 then
-                stat = sslHandshake(fd, beaver)
+                stat = cliSslHandshake(fd, beaver)
             end
         else
-            stat = sslHandshake(fd, beaver)
+            stat = cliSslHandshake(fd, beaver)
         end
     end
 
