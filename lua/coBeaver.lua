@@ -28,6 +28,7 @@ local print = print
 local create = coroutine.create
 local resume = coroutine.resume
 local status = coroutine.status
+local traceback = debug.traceback
 
 function CcoBeaver:_init_()
     CbeaverIO._init_(self)
@@ -110,7 +111,7 @@ function CcoBeaver:_pollFd(nes, checkedFd)
             checkedFd[fd] = now_time
             local res, msg = resume(co, e)
             if not res then
-                print("resume error.", debug.traceback(co))
+                print("resume error.", traceback(co))
             end
             coReport(co, res, msg)
         end

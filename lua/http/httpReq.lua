@@ -79,7 +79,10 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
         local path
         if host.path then
             path = host.path
-            assert(fstat(path))
+            if not fstat(path) then
+                self._status = 0
+                return
+            end
             self._domain = path
         else
             error("not support socket type.")
@@ -91,8 +94,13 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
         tPort = {family=psocket.AF_UNIX, path=host.path}
     elseif host_t == "string" then
         self._domain, tPort = setupUrl(host, port, proxy)
+        if not self._domain then
+            self._status = 0
+            return
+        end
     else
-        error(format("host type: %s", host_t))
+        self._status = 0
+        return 0
     end
 
     tmo = tmo or 60
@@ -148,6 +156,9 @@ function ChttpReq:_setup(fd, tmo)
                 local fread = beaver:reads(fd, maxLen)
                 local tRes = clientRead(fread)
                 if not tRes then
+                    print("get remote closed.")
+                    self._status = 0
+                    self:wake(co, nil)  --> wake up upstream co to close.
                     break
                 end
                 e = self:wake(co, tRes)

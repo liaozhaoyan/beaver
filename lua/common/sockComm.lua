@@ -212,7 +212,7 @@ function mt.cliSslHandshake(fd, beaver)
     end
 end
 
-function mt.srvSslHandshake(fd, beaver, ctx)
+function mt.srvSslHandshake(beaver, fd, ctx)
     local handler = ssl_accept_pre(fd, ctx)
     if handler == nil then
         return 3

@@ -142,7 +142,7 @@ function CbeaverIO:reads(fd, maxLen)
         elseif ret == -11 then
             self:co_set_tmo(rfd, tmo)
             local e = yield()
-                    
+
             if e == nil then
                 return nil, "yield error.", 5
             end

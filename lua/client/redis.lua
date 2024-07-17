@@ -434,11 +434,15 @@ function Credis:_setup(fd, tmo)
                 break
             elseif e.ev_in > 0 then
                 local fread = beaver:reads(fd, maxLen)
-                local res
                 if lastType == "table" then
                     res = read_replies(fread)
                 else
                     res = read_reply(fread)
+                end
+                if not res then  -- remote close or time out.
+                    self._status = 0
+                    self:wake(co, nil)
+                    break
                 end
                 e = self:wake(co, res)
                 t = type(e)
