@@ -141,11 +141,12 @@ function ChttpReq:_setup(fd, tmo)
             local msg
             res, msg = beaver:write(fd, e)
             if not res then
-                print("write error.", msg)
+                print("http write error.", msg)
+                self._status = 0
+                self:wake(co, nil)
                 break
             end
             e = nil
-            beaver:co_set_tmo(fd, -1)
         elseif t == "nil" then  -- host closed
             self:wake(co, nil)
             break
@@ -161,6 +162,7 @@ function ChttpReq:_setup(fd, tmo)
                     self:wake(co, nil)  --> wake up upstream co to close.
                     break
                 end
+                beaver:co_set_tmo(fd, -1)
                 e = self:wake(co, tRes)
                 t = type(e)
                 if t == "nil" then -->upstream need to close.

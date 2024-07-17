@@ -1,12 +1,11 @@
+local require
 require("eclass")
+
 local psocket = require("posix.sys.socket")
 local pystring = require("pystring")
 local system = require("common.system")
 local workVar = require("module.workVar")
 local CasyncClient = require("async.asyncClient")
-local sockComm = require("common.sockComm")
-local cffi = require("beavercffi")
-local c_type, c_api = cffi.type, cffi.api
 
 -- refer to https://maling.io/docs/redis/resp-protocol/
 
@@ -68,6 +67,8 @@ local Credis = class("redis", CasyncClient)
 local sub = string.sub
 local find = string.find
 local tostring = tostring
+local error = error
+local print = print
 local ipairs = ipairs
 local tonumber = tonumber
 local unpack = unpack
@@ -112,7 +113,6 @@ function Credis:_init_(tReq, host, port, tmo)
     tmo = tmo or 10
 
     local tPort = {family=psocket.AF_INET, addr=ip, port=port}
-    
     CasyncClient._init_(self, tReq, tReq.fd, tPort, tmo)
 
     for _, cmd in ipairs(common_cmds) do
@@ -395,7 +395,7 @@ end
 function Credis:_setup(fd, tmo)
     local beaver = self._beaver
     local co = self._coWake
-    local status, res
+    local status, res, msg
     local e, t, lastType
     local maxLen = 4 * 1024 * 1024
 
@@ -409,24 +409,29 @@ function Credis:_setup(fd, tmo)
         t = type(e)
         if t == "string" then -- single cmd
             beaver:co_set_tmo(fd, tmo)
-            res = beaver:write(fd, e)
-            if not res then
+            res, msg = beaver:write(fd, e)
+            if not res then  -- for write failed.
+                print("redis write error.", msg)
+                self._status = 0
+                self:wake(co, nil)
                 break
             end
             e = nil
             lastType = "string"
-            beaver:co_set_tmo(fd, -1)
         elseif t == "table" then
             local s = concat(e)  -- contract all syms.
             beaver:co_set_tmo(fd, tmo)
             res = beaver:write(fd, s)
             if not res then
+                print("redis write error.", msg)
+                self._status = 0
+                self:wake(co, nil)
                 break
             end
             e = nil
             lastType = "table"
-            beaver:co_set_tmo(fd, -1)
         elseif t == "nil" then  -- host closed
+            self._status = 0
             self:wake(co, nil)
             break
         else  -- read event.
@@ -444,6 +449,7 @@ function Credis:_setup(fd, tmo)
                     self:wake(co, nil)
                     break
                 end
+                beaver:co_set_tmo(fd, -1)
                 e = self:wake(co, res)
                 t = type(e)
                 if t == "cdata" then -->upstream need to close.
@@ -452,6 +458,14 @@ function Credis:_setup(fd, tmo)
                     break
                 elseif t == "number" then  -->upstream reuse connect
                     e = nil
+                elseif t == "nil" then -->upstream need to close.
+                    self._status = 0
+                    self:wake(co, nil)  -->let upstream to do next working.
+                    break
+                elseif t == "string" or t == "table" then
+                    e = e
+                else
+                    error(format("redis type: %s, not support, , undknown error.", t))
                 end
             else
                 print("IO Error.")
