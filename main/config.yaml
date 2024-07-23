@@ -1,5 +1,5 @@
 worker:
-  - number: 4   # worker process
+  - number: 1   # worker process
     funcs:
     - func: "pingpong"
       mode: "TCP"

@@ -35,6 +35,7 @@ function Cpingpong:_setup(fd, tmo)
     workVar.clientAdd(module, self._bfd, fd, running(), self._addr)
 
     if ctx then
+        beaver:co_set_tmo(fd, tmo)
         ret = srvSslHandshake(beaver, fd, ctx)
     end
 

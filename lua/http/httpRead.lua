@@ -172,7 +172,7 @@ end
 local function waitHttpHead(fread, tmo)
     local stream = ""
     while true do
-        local s = fread(tmo)
+        local s, msg = fread(tmo)
         if s then
             stream = concat({stream, s})
             tmo = defaultHttpReadOvertime
@@ -180,7 +180,7 @@ local function waitHttpHead(fread, tmo)
                 return stream
             end
         else
-            return nil
+            return nil, msg
         end
     end
 end
@@ -234,9 +234,9 @@ local function serverParse(fread, stream, parseParam)
 end
 
 function M.serverRead(fread, parseParam)
-    local stream = waitHttpHead(fread, -1)
+    local stream, msg = waitHttpHead(fread, -1)
     if stream == nil then   -- read return stream or error code or nil
-        return nil
+        return nil, msg
     end
     return serverParse(fread, stream, parseParam)
 end
@@ -289,9 +289,9 @@ local function clientParse(fread, stream)
 end
 
 function M.clientRead(fread)
-    local stream = waitHttpHead(fread, 10 * defaultHttpReadOvertime)
+    local stream, msg = waitHttpHead(fread, 10 * defaultHttpReadOvertime)
     if stream == nil then   -- read return stream or error code or nil
-        return nil
+        return nil, msg
     end
     return clientParse(fread, stream)
 end

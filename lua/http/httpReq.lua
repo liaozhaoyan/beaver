@@ -71,7 +71,6 @@ local function setupUrl(host, port, proxy)
 end
 
 function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
-    local ip
     local tPort
     local host_t = type(host)
 
@@ -131,6 +130,11 @@ function ChttpReq:_setup(fd, tmo)
         end
     end
 
+    if status == 1 and e == nil then -- host closed
+        self._status = 3
+        self:wake(co, nil)
+    end
+
     while status == 1 do
         if not e then
             e = yield()
@@ -150,14 +154,16 @@ function ChttpReq:_setup(fd, tmo)
         elseif t == "nil" then  -- host closed
             self:wake(co, nil)
             break
-        else  -- read event.
+        elseif t == "number" then -->upstream reuse connect, may sleep
+            e = nil
+        elseif t == "cdata" then  -- read event.
             if e.ev_close > 0 then
                 break
             elseif e.ev_in > 0 then
                 local fread = beaver:reads(fd, maxLen)
-                local tRes = clientRead(fread)
+                local tRes, msg = clientRead(fread)
                 if not tRes then
-                    print("get remote closed.")
+                    -- print("get remote closed.", msg)
                     self._status = 0
                     self:wake(co, nil)  --> wake up upstream co to close.
                     break
@@ -178,6 +184,8 @@ function ChttpReq:_setup(fd, tmo)
                 print("IO Error.")
                 break
             end
+        else
+            error(format("ChttpReq type: %s, not support, , undknown error.", t))
         end
     end
 
@@ -190,7 +198,7 @@ function ChttpReq:_connKata(fd, beaver, co)
     local port = self._kataPort
     local res = beaver:write(fd, format("connect %d\n", port))
     if not res then
-        return 0
+        return 3  -- need close.
     end
 
     beaver:co_set_tmo(fd, httpConnectTmo)
@@ -199,14 +207,14 @@ function ChttpReq:_connKata(fd, beaver, co)
     local t = type(e)
     if t == "nil" then  -- fd has closed.
         print("kata fd has closed.")
-        return 0
+        return 3
     elseif t == "cdata" then  -- has data to read
         if e.ev_close > 0 then   -- fd closed.
-            return 0
+            return 3
         elseif e.ev_in > 0 then  -- has data to read
             res = beaver:read(fd, 1024)
             if not res then
-                return 0
+                return 3
             end
             beaver:co_set_tmo(fd, -1)
             return 1
@@ -216,7 +224,7 @@ function ChttpReq:_connKata(fd, beaver, co)
     else
         print(format("type: %s, undknown error., %s", t, tostring(e)))
     end
-    return 0
+    return 3
 end
 
 function ChttpReq:kataReady()

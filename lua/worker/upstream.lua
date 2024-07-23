@@ -170,6 +170,7 @@ function Cupstream:_setup(fd, tmo)
 
     workVar.clientAdd(conf.func, self._bfd, fd, running(), self._addr)
     if ctx then
+        beaver:co_set_tmo(fd, tmo)
         ret = srvSslHandshake(beaver, fd, ctx)
     end
 

@@ -42,6 +42,7 @@ function CasyncClient:_init_(tReq, hostFd, tPort, tmo)
     self._hostFd = hostFd
     CasyncBase._init_(self, beaver, fd, tmo)
     if self:_waitConnected(beaver, hostFd) ~= 1 then  -- connect
+        print("0failed.")
         return
     end
 end
@@ -79,14 +80,18 @@ function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
                 return 1
             end
             return 3 -- 3 connect failed, refer to sockComm, 3 means connect failed.
-        else
+        elseif t == "cdata" then
             -- print("wake from self.", t, w, w.ev_close, w.ev_in, w.ev_out)
             if w.ev_close == 1 then  -- wake from remote stream.
                 return 3 -- 3 connect failed, refer to sockComm, 3 means connect failed.
             else
                 error(format("beaver report bug: fd: %d, in: %d, out: %d", w.fd, w.ev_in, w.ev_out))
             end
-            return 0
+            return 3
+        elseif t == "nil" then   -- wake from local stream close.
+            return 3 -- 3 connect failed, refer to sockComm, 3 means connect failed.
+        else
+            error(format("beaver report bug: type: %s, %s", t, tostring(w)))
         end
     else  -- 0 connect failed
         return res
@@ -139,7 +144,6 @@ function CasyncClient:cliConnect(fd, tmo)
     self._status = 2  -- connecting
     beaver:co_set_tmo(fd, tmo)  -- set connect timeout
     stat = sockConnect(fd, tPort, beaver)  -- 
-    beaver:co_set_tmo(fd, -1)   -- back
 
     if stat == 1 and tPort.ssl then
         if tPort.proxy then
@@ -152,6 +156,7 @@ function CasyncClient:cliConnect(fd, tmo)
         end
     end
 
+    beaver:co_set_tmo(fd, -1)   -- back
     self._status = stat  -- connected
     return stat, self:wake(self._coWake, stat)  -- wake up to wake, set in asyncClient.
 end

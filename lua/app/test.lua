@@ -13,11 +13,12 @@ local ChttpReq = require("http.httpReq")
 local httpRead = require("http.httpRead")
 local Credis = require("client.redis")
 local CcliBase = require("client.cliBase")
-
+local redisTest = require("app.redisTest")
 
 local class = class
 local Ctest = class("test")
 local collectgarbage = collectgarbage
+local string = string
 
 collectgarbage("setpause", 150)
 collectgarbage("setstepmul", 300)
@@ -88,7 +89,7 @@ local function svg(tReq)
 end
 
 local function rcmd(tReq)
-    local r = Credis.new(tReq, "172.16.0.136", 3341)
+    local r = Credis.new(tReq, "127.0.0.1", 6379)
     local s = tReq.body
 
     local cmd, argStr = unpack(pystring.split(s, " ", 1))
@@ -111,9 +112,9 @@ local function gcInfo(tReq)
 end
 
 local function rcmds(tReq)
-    local r = Credis.new(tReq, "172.16.0.136", 3341)
+    local r = Credis.new(tReq, "127.0.0.1", 6379)
     local pipe = r:pipeline()
-    
+
     local s = tReq.body
     local cmds = pystring.split(s, "\n")
     for _, cmdLine in ipairs(cmds) do
@@ -141,6 +142,7 @@ local function uds(tReq)
 end
 
 function Ctest:_init_(inst, conf)
+    redisTest.start()
     inst:get("/", index)
     inst:get("/instance", instance)
     inst:get("/bing", bing)

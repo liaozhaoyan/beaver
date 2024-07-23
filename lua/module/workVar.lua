@@ -217,7 +217,7 @@ function M.periodWake(period, loop)
 
     local res, msg = resume(var.coOut, jencode(func))
     coReport(var.coOut, res, msg)
-    return yield()  -- will return loop time, wake from echoWake function.
+    return yield(loop)  -- will return loop time, wake from echoWake function.
 end
 
 function M.msleep(ms)

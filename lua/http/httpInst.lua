@@ -19,6 +19,8 @@ local format = string.format
 local serverRead = httpRead.serverRead
 
 local class = class
+local systemPcall = system.pcall
+local lastError = system.lastError
 local ChttpInst = class("httpInst")
 
 function ChttpInst:_init_()
@@ -128,11 +130,11 @@ local function _proc(cbs, verb, tReq)
         local func = cb.url[path]
 
         if func then  -- direct mode
-            ok, res = system.pcall(func, tReq)
+            ok, res = systemPcall(func, tReq)
         else  -- reSearch
             func = reSearch(cb.urlRe, path)
             if func then
-                ok, res = system.pcall(func, tReq)
+                ok, res = systemPcall(func, tReq)
             else  -- not such page
                 return echo404(path, verb)
             end
@@ -145,7 +147,7 @@ local function _proc(cbs, verb, tReq)
             end
             return res
         else  -- res nil, bad state.
-            return echo503(tReq.path, system.lastError())
+            return echo503(tReq.path, lastError())
         end
     end
     return echo501(verb)

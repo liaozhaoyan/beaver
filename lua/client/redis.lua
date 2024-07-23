@@ -1,4 +1,4 @@
-local require
+local require = require
 require("eclass")
 
 local psocket = require("posix.sys.socket")
@@ -402,6 +402,11 @@ function Credis:_setup(fd, tmo)
     connectAdd("redis", fd, running())
     status, e = self:cliConnect(fd, tmo)
 
+    if status == 1 and e == nil then -- host closed
+        self._status = 0
+        self:wake(co, nil)
+    end
+
     while status == 1 do
         if not e then
             e = yield()
@@ -431,10 +436,14 @@ function Credis:_setup(fd, tmo)
             e = nil
             lastType = "table"
         elseif t == "nil" then  -- host closed
+            print("host closed.")
             self._status = 0
             self:wake(co, nil)
             break
-        else  -- read event.
+        elseif t == "number" then -->upstream reuse connect, may sleep
+            e = nil
+            break
+        elseif t == "cdata" then  -- read event.
             if e.ev_close > 0 then
                 break
             elseif e.ev_in > 0 then
@@ -471,6 +480,8 @@ function Credis:_setup(fd, tmo)
                 print("IO Error.")
                 break
             end
+        else
+            error(format("ChttpReq type: %s, not support, , undknown error.", t))
         end
     end
 
