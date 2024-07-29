@@ -5,6 +5,7 @@
 #include "timer_io.h"
 #include <sys/timerfd.h>
 #include <inttypes.h> // For PRIu64
+#include <string.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
@@ -40,10 +41,13 @@ int timer_io_set(int fd, unsigned long ms) {
     struct itimerspec its;
     int sec, msec;
 
-    if (ms <= 0) {
-        errno = EINVAL;
-        perror("The input time parameter must be greater than zero");
-        return errno;
+    if (ms == 0) {
+        memset(&its, 0, sizeof(its));
+        if (timerfd_settime(fd, 0, &its, NULL) < 0) {
+            perror("timerfd_settime clear.");
+            return -errno;
+        }
+        return 0;
     }
     sec = ms / 1000;
     msec = ms % 1000;
@@ -54,7 +58,7 @@ int timer_io_set(int fd, unsigned long ms) {
     its.it_interval.tv_nsec = 0;
 
     if (timerfd_settime(fd, TFD_TIMER_ABSTIME, &its, NULL) < 0) {
-        perror("timerfd_settime");
+        perror("timerfd_settime, set");
         return -errno;
     }
 

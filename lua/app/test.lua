@@ -142,7 +142,7 @@ local function uds(tReq)
 end
 
 function Ctest:_init_(inst, conf)
-    redisTest.start()
+    -- redisTest.start()
     inst:get("/", index)
     inst:get("/instance", instance)
     inst:get("/bing", bing)
