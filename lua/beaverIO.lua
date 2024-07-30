@@ -166,11 +166,11 @@ function CbeaverIO:read(fd, size)
     end
 end
 
-function CbeaverIO:reads(fd, maxLen)
+function CbeaverIO:reads(fd, maxLen, tmo)
     maxLen = maxLen or 10 * 1024 * 1024 -- signal conversation accept 2M stream max
     local readFucntion = self:_readFunction(fd)
 
-    local function readFd(tmo)
+    local function readFd()
         local rfd, rMaxLen = fd, maxLen   -- local upvalue.
         local bufSize = rMaxLen < ioBlockSize and rMaxLen or ioBlockSize  -- min(maxLen, ioBlockSize)
         local buf = buffer.new(bufSize)

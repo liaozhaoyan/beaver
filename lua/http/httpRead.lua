@@ -25,7 +25,7 @@ local lower = string.lower
 local concat = table.concat
 local insert = table.insert
 
-local defaultHttpReadOvertime = 30
+local defaultHttpReadOvertime = 10
 
 local function parseParam(param)
     local tParam = split(param, "&")
@@ -67,7 +67,7 @@ local function waitDataRest(fread, rest, tReq)
     local tStream = {tReq.body}
     local c = #tStream
     while len < rest do
-        local s = fread(defaultHttpReadOvertime)
+        local s = fread()
         local t = type(s)
         if t == "string" then
             len = len + #s
@@ -87,7 +87,7 @@ local function waitChuckData(fread, s, size)
         if #s >= size + 2 then
             return s
         end
-        local add = fread(defaultHttpReadOvertime)
+        local add = fread()
         local t = type(add)
         if t == "string" then
             s = concat({s, add})
@@ -103,7 +103,7 @@ local function waitChuckSize(fread, s)
         if find(s, "\r\n") then
             return s
         end
-        local add, msg = fread(defaultHttpReadOvertime)
+        local add, msg = fread()
         local t = type(add)
         if t == "string" then
             s = concat({s, add})
@@ -176,14 +176,13 @@ local function waitHttpRest(fread, tReq)
     return 0
 end
 
-local function waitHttpHead(fread, tmo)
+local function waitHttpHead(fread)
     local stream = ""
     while true do
-        local s, msg = fread(tmo)
+        local s, msg = fread()
         local t = type(s)
         if t == "string" then
             stream = concat({stream, s})
-            tmo = defaultHttpReadOvertime
             if find(stream, "\r\n\r\n") then
                 return stream
             end
@@ -296,8 +295,8 @@ local function clientParse(fread, stream)
     return tRes
 end
 
-function M.clientRead(fread)
-    local stream, msg = waitHttpHead(fread, 10 * defaultHttpReadOvertime)
+function M.clientRead(fread, tmo)
+    local stream, msg = waitHttpHead(fread)
     if stream == nil then   -- read return stream or error code or nil
         return nil, msg
     end

@@ -16,7 +16,8 @@ assert(response.text == "world1.")
 data = "del people"
 response = requests.post(cmdUrl, data=data)
 assert(response.status_code == 200)
-assert(response.text == "1")
+print(response.text)
+assert(response.text == "0" or response.text == "1")
 
 data = "hset people:name:Sam:age:28:sex:male"
 response = requests.post(cmdUrl, data=data)

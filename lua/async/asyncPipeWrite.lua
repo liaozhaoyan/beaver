@@ -35,10 +35,10 @@ function CasyncPipeWrite:_setup(fd, tmo)
 
     local beaver = self._beaver
     tmo = self._tmo
+    beaver:co_set_tmo(fd, tmo)
     while true do
         local stream = yield()
         if type(stream) == "string" then
-            beaver:co_set_tmo(fd, tmo)
             local ret, err, errno = beaver:pipeWrite(fd, stream)  -->pipe write may yield out
             if status(co) == "normal" then  --> write not yield
                 yield(ret, err, errno)
@@ -46,8 +46,6 @@ function CasyncPipeWrite:_setup(fd, tmo)
                 res, msg = resume(co, ret, err, errno)
                 coReport(co, res, msg)
             end
-
-            beaver:co_set_tmo(fd, -1)
 
             if not ret then -- fd close event?
                 print(format("pipe write fd %d closed.", fd))

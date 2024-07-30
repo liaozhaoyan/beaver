@@ -83,7 +83,7 @@ local getIp = workVar.getIp
 local connectAdd = workVar.connectAdd
 local connectDel = workVar.connectDel
 
-local function exec_cmd(cmd, ...)
+local function packCmd(cmd, ...)
     local args = {...}
     local res = {}
     res[1] = format("*%d", #args + 1)
@@ -103,7 +103,7 @@ local function exec_cmd(cmd, ...)
 end
 
 
-function Credis:_init_(tReq, host, port, tmo)
+function Credis:_init_(tReq, host, port, tmo, pswd)
     local ip
 
     ip, port = getIp(host), port or 6379
@@ -117,11 +117,12 @@ function Credis:_init_(tReq, host, port, tmo)
 
     for _, cmd in ipairs(common_cmds) do
         self[cmd] = function(obj, ...)
-            local s = exec_cmd(cmd, ...)
+            local s = packCmd(cmd, ...)
             local res, msg = obj:send(s)
             return res, msg
         end
     end
+    self._pswd = pswd
 end
 
 function Credis:send(s)
@@ -358,17 +359,17 @@ syms_tab = {
     [">"] = prefixMoreThan,
 }
 
-local function read_reply(fread, tmo)
-    local s, _ = fread(tmo)
+local function read_reply(fread)
+    local s, _ = fread()
     if s then
         return exec_sym(s, fread)
     end
     return nil
 end
 
-local function read_replies(fread, tmo)
+local function read_replies(fread)
     local cells, cell, c = {}, nil, 1
-    local s, _ = fread(tmo)
+    local s, _ = fread()
     while s do
         cell, s = exec_sym(s, fread)
         cells[c] = cell
@@ -382,7 +383,7 @@ function Credis:pipeline()
     pipeRedis._cmds = {}
     for _, cmd in ipairs(common_cmds) do
         pipeRedis[cmd] = function(obj, ...)
-            local s = exec_cmd(cmd, ...)
+            local s = packCmd(cmd, ...)
             insert(pipeRedis._cmds, s)
         end
     end
@@ -400,11 +401,37 @@ function Credis:_setup(fd, tmo)
     local maxLen = 4 * 1024 * 1024
 
     connectAdd("redis", fd, running())
+    beaver:co_set_tmo(fd, tmo)
     status, e = self:cliConnect(fd, tmo)
 
     if status == 1 and e == nil then -- host closed
         self._status = 0
         self:wake(co, nil)
+    end
+
+    if self._pswd then
+        local s = packCmd("auth", self._pswd)
+        res, msg = beaver:write(fd, s)
+        if not res then
+            print("redis auth writeerror.", msg)
+            self._status = 0
+            self:wake(co, nil)
+            return
+        end
+
+        res, msg = beaver:read(fd, 16)
+        if not res then
+            print("redis auth readerror.", msg)
+            self._status = 0
+            self:wake(co, nil)
+            return
+        end
+        if sub(res, 1, 3) ~= "+OK" then
+            print("redis auth error.", sub(res, 1, 3))
+            self._status = 0
+            self:wake(co, nil)
+            return
+        end
     end
 
     local clear
@@ -414,7 +441,7 @@ function Credis:_setup(fd, tmo)
         end
         t = type(e)
         if t == "string" then -- single cmd
-            beaver:co_set_tmo(fd, tmo)
+            
             res, msg = beaver:write(fd, e)
             if not res then  -- for write failed.
                 print("redis write error.", msg)
@@ -423,10 +450,10 @@ function Credis:_setup(fd, tmo)
                 break
             end
             e = nil
+            clear = beaver:timerWait(fd)
             lastType = "string"
         elseif t == "table" then
             local s = concat(e)  -- contract all syms.
-            beaver:co_set_tmo(fd, tmo)
             res = beaver:write(fd, s)
             if not res then
                 print("redis write error.", msg)
@@ -454,7 +481,7 @@ function Credis:_setup(fd, tmo)
             if e.ev_close > 0 then
                 break
             elseif e.ev_in > 0 then
-                local fread = beaver:reads(fd, maxLen)
+                local fread = beaver:reads(fd, maxLen, tmo/2)
                 if lastType == "table" then
                     res = read_replies(fread)
                 else

@@ -14,7 +14,9 @@ local class = class
 local ChttpServer = class("httpServer", CasyncBase)
 
 local pairs = pairs
+local type = type
 local running = coroutine.running
+local yield = coroutine.yield
 local srvSslHandshake = sockComm.srvSslHandshake
 
 function ChttpServer:_init_(beaver, fd, bfd, addr, conf, inst, ctx)
@@ -39,19 +41,23 @@ function ChttpServer:_setup(fd, tmo)
     local ret = 1
     local ctx = self._ctx
 
+    beaver:co_set_tmo(fd, tmo)
     workVar.clientAdd(module, self._bfd, fd, running(), self._addr)
     if ctx then
-        beaver:co_set_tmo(fd, tmo)
         ret = srvSslHandshake(beaver, fd, ctx)
     end
 
     if ret == 1 then
-        local fread = beaver:reads(fd)
         while true do
+            local e = yield()
+            if type(e) ~= "cdata" or e.ev_in < 1 then
+                break
+            end
+            
+            local fread = beaver:reads(fd, nil, tmo / 2)
             local tRes = inst:proc(fread, session, clients, beaver, fd)
 
             if tRes then
-                beaver:co_set_tmo(fd, tmo)
                 local s = inst:packServerFrame(tRes)
                 beaver:write(fd, s)
                 if tRes.keep == false then  -- do not keep alive any more.

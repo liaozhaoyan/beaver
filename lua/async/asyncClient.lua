@@ -137,13 +137,12 @@ local function proxyHandshake(beaver, fd, tPort)
     return 3
 end
 
-function CasyncClient:cliConnect(fd, tmo)
+function CasyncClient:cliConnect(fd)
     local beaver = self._beaver
     local stat
     local tPort = self._tPort
 
     self._status = 2  -- connecting
-    beaver:co_set_tmo(fd, tmo)  -- set connect timeout
     stat = sockConnect(fd, tPort, beaver)  -- 
 
     if stat == 1 and tPort.ssl then
@@ -157,7 +156,6 @@ function CasyncClient:cliConnect(fd, tmo)
         end
     end
 
-    beaver:co_set_tmo(fd, -1)   -- back
     self._status = stat  -- connected
     return stat, self:wake(self._coWake, stat)  -- wake up to wake, set in asyncClient.
 end

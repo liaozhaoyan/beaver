@@ -89,7 +89,7 @@ local function svg(tReq)
 end
 
 local function rcmd(tReq)
-    local r = Credis.new(tReq, "127.0.0.1", 6379)
+    local r = Credis.new(tReq, "127.0.0.1", 6379, nil, "alibaba")
     local s = tReq.body
 
     local cmd, argStr = unpack(pystring.split(s, " ", 1))
@@ -112,7 +112,7 @@ local function gcInfo(tReq)
 end
 
 local function rcmds(tReq)
-    local r = Credis.new(tReq, "127.0.0.1", 6379)
+    local r = Credis.new(tReq, "127.0.0.1", 6379, nil, "alibaba")
     local pipe = r:pipeline()
 
     local s = tReq.body

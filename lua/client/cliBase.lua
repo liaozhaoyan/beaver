@@ -34,6 +34,7 @@ function cliBase:_setup(fd, tmo)
     local status, res
     local e
 
+    beaver:co_set_tmo(fd, tmo)
     status, e = self:cliConnect(fd, tmo)
 
     while status == 1 do
@@ -42,13 +43,11 @@ function cliBase:_setup(fd, tmo)
         end
         local t = type(e)
         if t == "string" then -- has data to send
-            beaver:co_set_tmo(fd, tmo)
             res = beaver:write(fd, e)
             if not res then
                 break
             end
             e = nil
-            beaver:co_set_tmo(fd, -1)
         elseif t == "nil" then  -- host closed
             self:wake(co, nil)
             break

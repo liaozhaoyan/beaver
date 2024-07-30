@@ -116,6 +116,7 @@ function ChttpReq:_setup(fd, tmo)
     local status, res
     local e
 
+    beaver:co_set_tmo(fd, tmo)
     workVar.connectAdd("httpReq", fd, running())
 
     status, e = self:cliConnect(fd, tmo)
@@ -135,7 +136,6 @@ function ChttpReq:_setup(fd, tmo)
         self:wake(co, nil)
     end
 
-    beaver:co_set_tmo(fd, tmo)
     local clear
     while status == 1 do
         if not e then
@@ -168,8 +168,8 @@ function ChttpReq:_setup(fd, tmo)
             if e.ev_close > 0 then
                 break
             elseif e.ev_in > 0 then
-                local fread = beaver:reads(fd, maxLen)
-                local tRes, msg = clientRead(fread)
+                local fread = beaver:reads(fd, maxLen, tmo)
+                local tRes, msg = clientRead(fread, tmo / 2)
                 if not tRes then
                     print("get remote closed.", msg)
                     self._status = 0
@@ -208,7 +208,6 @@ end
 
 function ChttpReq:_connKata(fd, beaver)
     local port = self._kataPort
-    beaver:co_set_tmo(fd, httpConnectTmo)
     local res = beaver:write(fd, format("connect %d\n", port))
     if not res then
         return 3  -- need close.

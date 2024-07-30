@@ -26,7 +26,6 @@ function CcliLoop:_setup(fd, tmo)
 
     beaver:co_set_tmo(fd, tmo)  -- set connect timeout
     res = sockComm.connect(fd, self._tPort, beaver)
-    beaver:co_set_tmo(fd, -1)   -- back
     assert(res == 1, "connect to uni failed.")
 
     for i = 1, 5 do
