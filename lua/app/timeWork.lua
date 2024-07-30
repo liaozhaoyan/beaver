@@ -1,8 +1,6 @@
 local require = require
 
 local socket = require("socket")
-local workVar = require("module.workVar")
-local CworkerTimer = require("module.workerTimer")
 
 local print = print
 local gettime = socket.gettime
@@ -42,8 +40,6 @@ local function timerTest3()
 end
 
 function mt.call(beaver, args)
-    timer = CworkerTimer.new(beaver)
-    timer:start()
     local co = create(timerTest2)
     resume(co)
     co = create(timerTest3)

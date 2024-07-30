@@ -107,11 +107,13 @@ local function proxyHandshake(beaver, fd, tPort)
         return 3
     end
 
-    beaver:co_set_tmo(fd, 10)
-
+    local clear = beaver:timerWait(fd)
     local e = yield()
+    clear()
     local t = type(e)
     if t == "nil" then  -- fd has closed.
+        return 3
+    elseif t == "number" then  -- timeout
         return 3
     elseif t == "cdata" then  -- has data to read
         if e.ev_close > 0 then   -- fd closed.
@@ -121,7 +123,6 @@ local function proxyHandshake(beaver, fd, tPort)
             if not res then
                 return 3
             end
-            beaver:co_set_tmo(fd, -1)
             if startswith(res, "HTTP/1.1 200") then
                 return 1
             else
@@ -173,7 +174,7 @@ function CasyncClient:_waitData(stream)
         local e
 
         local statCo = status(coWake)
-        if statCo == "suspended" then
+        if statCo == "suspended" then  -- wake from this client.
             res, msg = resume(coWake, stream)
             coReport(coWake, res, msg)
 
@@ -228,6 +229,10 @@ function CasyncClient:_waitData(stream)
     else
         error(format("beaver report bug: status: %s", debugTraceback(coWake)))
     end
+end
+
+function CasyncClient:hold()  -- reuse this connect.
+    return self:_waitData(0)
 end
 
 function CasyncClient:close()

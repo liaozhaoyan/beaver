@@ -5,11 +5,6 @@
 ---
 
 local require = require
-local unistd = require("posix.unistd")
-local cffi = require("beavercffi")
-local CcoBeaver = require("coBeaver")
-local CasyncPipeRead = require("async.asyncPipeRead")
-local CasyncPipeWrite = require("async.asyncPipeWrite")
 local conf
 
 jit.opt.start("maxmcode=4096", 'hotloop=5')

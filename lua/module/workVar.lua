@@ -25,6 +25,8 @@ local resume = coroutine.resume
 local status = coroutine.status
 local jencode = cjson.encode
 
+local timer
+
 local var = {
     -- for server module manage.
     pingpong = {},
@@ -122,6 +124,7 @@ function M.call(arg)
 end
 
 function M.workerSetVar(beaver, conf, yaml)
+    timer = beaver:setupTimer()
     var.thread = {
         beaver = beaver,
         conf = conf,
@@ -195,36 +198,11 @@ function M.dnsReq(domain)
     return domain, ip
 end
 
-local function periodWakeGetId()
-    local ret = var.periodWakeId
-    var.periodWakeCo[ret] = running()
-    var.periodWakeId = var.periodWakeId + 1
-    return ret
-end
-
-function M.periodWake(period, loop)
-    liteAssert(period >= 1, "period arg should greater than 1.")
-    liteAssert(loop >= 1, "loop should greater than 1.")
-    local func = {
-        func = "reqPeriodWake",
-        arg = {
-            id = var.id,
-            coId = periodWakeGetId(),
-            period = period,
-            loop = loop,
-        }
-    }
-
-    local res, msg = resume(var.coOut, jencode(func))
-    coReport(var.coOut, res, msg)
-    return yield(loop)  -- will return loop time, wake from echoWake function.
-end
-
 function M.msleep(ms)
-    if ms < 1 then
-        return
-    end
-    return M.periodWake(ms, 1)
+    timer:msDelay(ms)
+end
+
+function M.wait(co, ms)
 end
 
 function M.setCb(func, args)
@@ -233,8 +211,6 @@ function M.setCb(func, args)
         args = args
     }
 end
-
-
 
 local ChttpInst = require("http.httpInst")
 local instTable = {

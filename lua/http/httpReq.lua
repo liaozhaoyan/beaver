@@ -121,7 +121,7 @@ function ChttpReq:_setup(fd, tmo)
     status, e = self:cliConnect(fd, tmo)
 
     if status == 1 and self._kataPort then
-        status = self:_connKata(fd, beaver, co)
+        status = self:_connKata(fd, beaver)
         self._status = status  -- 当期状况可能会去唤醒 等待co，co可能会在get等方法中访问self._status状态，必须要提前设置
         if status == 1 then
             e = self:wake(co, true) -- 连接成功, 接下来的数据将会通过co 传递过来。
@@ -135,13 +135,14 @@ function ChttpReq:_setup(fd, tmo)
         self:wake(co, nil)
     end
 
+    beaver:co_set_tmo(fd, tmo)
+    local clear
     while status == 1 do
         if not e then
             e = yield()
         end
         local t = type(e)
         if t == "string" then -- has data to send
-            beaver:co_set_tmo(fd, tmo)
             local msg
             res, msg = beaver:write(fd, e)
             if not res then
@@ -150,25 +151,31 @@ function ChttpReq:_setup(fd, tmo)
                 self:wake(co, nil)
                 break
             end
-            e = nil
+            clear = beaver:timerWait(fd)
+            e = nil  -- wait next yeild.
         elseif t == "nil" then  -- host closed
             self:wake(co, nil)
             break
-        elseif t == "number" then -->upstream reuse connect, may sleep
-            e = nil
+        elseif t == "number" then --> request time out.
+            if e > 0 then
+                self._status = 0
+                self:wake(co, nil)
+                break
+            end
+            e = nil  -- 0 mean need to reuse connect
         elseif t == "cdata" then  -- read event.
+            clear()  -- clear timerWait.
             if e.ev_close > 0 then
                 break
             elseif e.ev_in > 0 then
                 local fread = beaver:reads(fd, maxLen)
                 local tRes, msg = clientRead(fread)
                 if not tRes then
-                    -- print("get remote closed.", msg)
+                    print("get remote closed.", msg)
                     self._status = 0
                     self:wake(co, nil)  --> wake up upstream co to close.
                     break
                 end
-                beaver:co_set_tmo(fd, -1)
                 e = self:wake(co, tRes)
                 t = type(e)
                 if t == "nil" then -->upstream need to close.
@@ -176,6 +183,11 @@ function ChttpReq:_setup(fd, tmo)
                     self:wake(co, nil)  -->let upstream to do next working.
                     break
                 elseif t == "number" then  -->upstream reuse connect
+                    if e > 0 then
+                        self._status = 0
+                        self:wake(co, nil)
+                        break
+                    end
                     e = nil
                 elseif t ~= "string" then   --> string mean has next data to send
                     error(format("ChttpReq type: %s, undknown error.", t))
@@ -194,29 +206,32 @@ function ChttpReq:_setup(fd, tmo)
     workVar.connectDel("httpReq", fd)
 end
 
-function ChttpReq:_connKata(fd, beaver, co)
+function ChttpReq:_connKata(fd, beaver)
     local port = self._kataPort
+    beaver:co_set_tmo(fd, httpConnectTmo)
     local res = beaver:write(fd, format("connect %d\n", port))
     if not res then
         return 3  -- need close.
     end
-
-    beaver:co_set_tmo(fd, httpConnectTmo)
-
+    
+    local clear = beaver:timerWait(fd)
     local e = yield()
+    clear()
     local t = type(e)
     if t == "nil" then  -- fd has closed.
         print("kata fd has closed.")
+        return 3
+    elseif t == "number" then
+        print("kata connect timeout.")
         return 3
     elseif t == "cdata" then  -- has data to read
         if e.ev_close > 0 then   -- fd closed.
             return 3
         elseif e.ev_in > 0 then  -- has data to read
-            res = beaver:read(fd, 1024)
+            res = beaver:read(fd, 128)
             if not res then
                 return 3
             end
-            beaver:co_set_tmo(fd, -1)
             return 1
         else
             print("IO Error.")

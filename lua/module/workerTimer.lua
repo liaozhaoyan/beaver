@@ -9,7 +9,6 @@ require("eclass")
 local system = require("common.system")
 local lrbtree = require("lrbtree")
 local CasyncTimer = require("async.asyncTimer")
-
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
@@ -64,12 +63,8 @@ local function insertNode(tree, node, co)
     return wakeProc(co)
 end
 
-function CworkerTimer:msDelay(period)
-    local co = running()
-    local tree = self._tree
+local function _addTimer(tree, co, period, timer, coTimer)
     local first = tree:first()
-    local coTimer = self._co
-
     if first then  -- timeList has member
         local node = delayDict[co]
         if node then  -- is already in the time rbtree
@@ -88,7 +83,7 @@ function CworkerTimer:msDelay(period)
                         wakeProc(co) -- wake up CworkerTimer:run to update timer.
                     else -- empty, disable the timer.
                         -- if period < 0, will not wake up CworkerTimer:run, so, should update here.
-                        self._timer:update(0)
+                        timer:update(0)
                     end
                 end
             end
@@ -106,11 +101,28 @@ function CworkerTimer:msDelay(period)
             insertNode(tree, node, coTimer)
         end
     end
+end
+
+-- will call yield.
+function CworkerTimer:msleep(period)
+    local co = running()
+    local tree = self._tree
+    local coTimer = self._co
+
+    _addTimer(tree, co, period, self._timer, coTimer)
     if period > 0 then
         return yield()
     else
         return period
     end
+end
+
+-- will not call yield.
+function CworkerTimer:wait(co, period)
+    local tree = self._tree
+    local coTimer = self._co
+
+    _addTimer(tree, co, period, self._timer, coTimer)
 end
 
 function CworkerTimer:start()  -- the tree should at least one node
@@ -122,8 +134,10 @@ end
 local function procTimer(node)
     local co = node.co
     delayDict[co] = nil  -- delete from record table.
-    local res, msg = resume(co, node.period)
-    coReport(co, res, msg)
+    if status(co) == "suspended" then
+        local res, msg = resume(co, node.period)
+        coReport(co, res, msg)
+    end
     return node.ms
 end
 
@@ -131,7 +145,7 @@ function CworkerTimer:run()
     local e, node
     local tree = self._tree
     local timer = self._timer
-    local last = nil
+    local lastMs = 0
 
     while true do
         e = yield()
@@ -140,14 +154,13 @@ function CworkerTimer:run()
         end
         if e == 1 then   -- wake for new timer.
             node = tree:first()
-            if last ~= node then
-                last = node
-                timer:update(node.ms)
+            if lastMs ~= node.ms then
+                lastMs = node.ms
+                timer:update(lastMs)
             end
         else  -- e 0 wake for fd timer
             node = tree:pop()
             local ms = procTimer(node)
-
             node = tree:first()
             while node and node.ms == ms do  -- check the same node
                 procTimer(tree:pop())
@@ -155,9 +168,10 @@ function CworkerTimer:run()
             end
             if node then -- the delay tree may be empty.
                 timer:update(node.ms)
-                -- if tree is empty, do not update timer any more.
+                lastMs = node.ms
+            else
+                lastMs = 0
             end
-            last = node
         end
     end
 end

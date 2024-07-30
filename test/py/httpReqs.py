@@ -2,7 +2,8 @@ import requests
 import random
 from requests.exceptions import Timeout
 
-urls = ["http://172.16.0.129:3385/bing",
+urls = [
+        "http://172.16.0.129:3385/bing",
         "http://172.16.0.129:3385/baidu",
         "http://172.16.0.129:3385/instance"
         ]

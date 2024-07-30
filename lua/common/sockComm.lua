@@ -149,33 +149,38 @@ function mt.connect(fd, tPort, beaver)
     local res = tryConnect(fd, tPort)
     if res == 2 then -- 2 means connecting  refer to aysync.asyncClient _init_
         beaver:mod_fd(fd, 1)  -- modify fd to writeable
-        local connected = false
-        repeat
-            local e = yield()
-            if type(e) == "nil" then
-                return 3 -- connected failed  refer to aysync.asyncClient _init_
-            elseif type(e) ~= "cdata" then
-                print("connected failed, unexpected event.", type(e), e)
-                return 3 -- connected failed, unexpected event
-            elseif e.ev_out > 0 then
-                if check_connected(fd) == 0 then
-                    connected = true
-                    beaver:mod_fd(fd, 0)   -- modify fd to readonly
-                    return 1  -- connected success  refer to aysync.asyncClient _init_
-                else
-                    return 3
-                end
-            elseif e.ev_close > 0 then
+        local clear = beaver:timerWait(fd)
+        local e = yield()
+        clear()
+        local t = type(e)
+        if t == "nil" then
+            return 3 -- connected failed  refer to aysync.asyncClient _init_
+        elseif type(e) == "number" then  -- timeout close.
+            return 3
+        elseif type(e) ~= "cdata" then
+            print("connected failed, unexpected event.", type(e), e)
+            return 3 -- connected failed, unexpected event
+        elseif e.ev_out > 0 then
+            if check_connected(fd) == 0 then
+                beaver:mod_fd(fd, 0)   -- modify fd to readonly
+                return 1  -- connected success  refer to aysync.asyncClient _init_
+            else
                 return 3
             end
-        until connected
+        elseif e.ev_close > 0 then
+            return 3
+        end
     end
     return res
 end
 
-local function handshakeYield()
+local function handshakeYield(fd, beaver)
+    local clear = beaver:timerWait(fd)
     local e = yield()  -- if close fd, will resume nil
-    if e == nil or e.ev_close > 0 then
+    clear()
+
+    local t = type(e)
+    if t ~= "cdata" or e.ev_close > 0 then
         return true
     end
     return false
@@ -191,12 +196,12 @@ function mt.cliSslHandshake(fd, beaver)
         ret = ssl_handshake(handler)
         if ret == 1 then
             beaver:mod_fd(fd, 1)
-            if handshakeYield() then
+            if handshakeYield(fd, beaver) then
                 ret = -1
             end
         elseif ret == 2 then
             beaver:mod_fd(fd, 0)
-            if handshakeYield() then
+            if handshakeYield(fd, beaver) then
                 ret = -1
             end
         end
@@ -222,12 +227,12 @@ function mt.srvSslHandshake(beaver, fd, ctx)
         ret = ssl_handshake(handler)
         if ret == 1 then
             beaver:mod_fd(fd, 1)
-            if handshakeYield() then
+            if handshakeYield( fd, beaver) then
                 ret = -1
             end
         elseif ret == 2 then
             beaver:mod_fd(fd, 0)
-            if handshakeYield() then
+            if handshakeYield(fd, beaver) then
                 ret = -1
             end
         end

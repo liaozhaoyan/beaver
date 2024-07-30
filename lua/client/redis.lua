@@ -407,6 +407,7 @@ function Credis:_setup(fd, tmo)
         self:wake(co, nil)
     end
 
+    local clear
     while status == 1 do
         if not e then
             e = yield()
@@ -434,16 +435,22 @@ function Credis:_setup(fd, tmo)
                 break
             end
             e = nil
+            clear = beaver:timerWait(fd)
             lastType = "table"
         elseif t == "nil" then  -- host closed
             print("host closed.")
             self._status = 0
             self:wake(co, nil)
             break
-        elseif t == "number" then -->upstream reuse connect, may sleep
+        elseif t == "number" then -->time out 
+            if e > 0 then
+                self._status = 0
+                self:wake(co, nil)
+                break
+            end
             e = nil
-            break
         elseif t == "cdata" then  -- read event.
+            clear()
             if e.ev_close > 0 then
                 break
             elseif e.ev_in > 0 then
@@ -458,14 +465,19 @@ function Credis:_setup(fd, tmo)
                     self:wake(co, nil)
                     break
                 end
-                beaver:co_set_tmo(fd, -1)
-                e = self:wake(co, res)
+
+                e = self:wake(co, res)  -- from next working.
                 t = type(e)
                 if t == "cdata" then -->upstream need to close.
                     liteAssert(e.ev_close > 0)
                     self:wake(co, nil)  -->let upstream to do next working.
                     break
                 elseif t == "number" then  -->upstream reuse connect
+                    if e > 0 then
+                        self._status = 0
+                        self:wake(co, nil)
+                        break
+                    end
                     e = nil
                 elseif t == "nil" then -->upstream need to close.
                     self._status = 0

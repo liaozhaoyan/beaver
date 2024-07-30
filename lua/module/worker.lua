@@ -11,7 +11,6 @@ local system = require("common.system")
 local CasyncPipeRead = require("async.asyncPipeRead")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local workVar = require("module.workVar")
-local heartbeate = require("module.heartBeat")
 
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
@@ -79,8 +78,6 @@ local function setupFuncs(thread)
             coReport(co, res, msg)
         end
     end
-
-    heartbeate.start(workVar.msleep, "worker")
 end
 
 function Cworker:proc()

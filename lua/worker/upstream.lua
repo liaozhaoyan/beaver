@@ -70,17 +70,19 @@ function Cdownstream:_setup(fd, tmo)
         goto stopStream
     end
 
+    beaver:co_set_tmo(fd, tmo)
     while true do
+        local clear = beaver:timerWait(fd)
         local e = yield()
+        clear()
         local t = type(e)
         if t == "string" then -- read stream from uplink
-            beaver:co_set_tmo(fd, tmo)
             res = beaver:write(fd, e)
             if not res then
                 break
             end
             beaver:co_set_tmo(fd, -1)
-        elseif t == "nil" then  -- uplink closed
+        elseif t ~= "cdata" then  -- uplink closed
             break
         else  -- read event.
             if e.ev_close > 0 then
@@ -180,8 +182,11 @@ function Cupstream:_setup(fd, tmo)
             goto stopStream
         end
 
+        beaver:co_set_tmo(fd, tmo)
         while true do
+            local clear = beaver:timerWait(fd)
             local e = yield()
+            clear()
             local t = type(e)
             if t == "string" then -- read stream from uplink
                 beaver:co_set_tmo(fd, tmo)
@@ -190,7 +195,7 @@ function Cupstream:_setup(fd, tmo)
                     break
                 end
                 beaver:co_set_tmo(fd, -1)
-            elseif t == "nil" then  -- uplink closed
+            elseif t ~= "cdata" then  -- uplink closed or timeout
                 break
             else  -- read event.
                 if e.ev_close > 0 then

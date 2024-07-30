@@ -24,7 +24,7 @@ int ssl_read(void *handle, char *buff, int len)
     if (ret < 0) {
         int err = SSL_get_error((SSL *)handle, ret);
         if (err == SSL_ERROR_WANT_READ) {
-            ret = 0;
+            ret = -11;
             goto needContinue;
         }
         goto readFailed;
@@ -44,7 +44,7 @@ int ssl_write(void *handle, const char *buff, int len) {
     if (ret < 0) {
         int err = SSL_get_error((SSL *)handle, ret);
         if (err == SSL_ERROR_WANT_WRITE) {  //just need to write.
-            ret = 0;
+            ret = -11;
             goto needContinue;
         }
     }

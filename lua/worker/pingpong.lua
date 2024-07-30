@@ -34,19 +34,17 @@ function Cpingpong:_setup(fd, tmo)
 
     workVar.clientAdd(module, self._bfd, fd, running(), self._addr)
 
+    beaver:co_set_tmo(fd, tmo)
     if ctx then
-        beaver:co_set_tmo(fd, tmo)
         ret = srvSslHandshake(beaver, fd, ctx)
     end
 
     if ret == 1 then
         while true do
-            beaver:co_set_tmo(fd, tmo)
             local s = beaver:read(fd)
             if not s then
                 break
             end
-            beaver:co_set_tmo(fd, tmo)
             local res = beaver:write(fd, s)
             if not res then
                 break

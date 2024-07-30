@@ -12,6 +12,7 @@ local pystring = require("pystring")
 
 local split = pystring.split
 local lstrip = pystring.lstrip
+local type = type
 local ipairs = ipairs
 local print = print
 local unpack = unpack
@@ -67,11 +68,13 @@ local function waitDataRest(fread, rest, tReq)
     local c = #tStream
     while len < rest do
         local s = fread(defaultHttpReadOvertime)
-        if s then
+        local t = type(s)
+        if t == "string" then
             len = len + #s
             c = c + 1
             tStream[c] = s
         else
+            print(format("type: %s, undknown error., %s", t, tostring(s)))
             return -1
         end
     end
@@ -85,9 +88,11 @@ local function waitChuckData(fread, s, size)
             return s
         end
         local add = fread(defaultHttpReadOvertime)
-        if add then
+        local t = type(add)
+        if t == "string" then
             s = concat({s, add})
         else
+            print(format("chunk data type: %s, undknown error., %s", t, tostring(s)))
             return nil
         end
     end
@@ -98,10 +103,12 @@ local function waitChuckSize(fread, s)
         if find(s, "\r\n") then
             return s
         end
-        local add = fread(defaultHttpReadOvertime)
-        if add then
+        local add, msg = fread(defaultHttpReadOvertime)
+        local t = type(add)
+        if t == "string" then
             s = concat({s, add})
         else
+            print(format("chunk size type: %s, undknown error., %s", t, msg))
             return nil
         end
     end
@@ -173,14 +180,15 @@ local function waitHttpHead(fread, tmo)
     local stream = ""
     while true do
         local s, msg = fread(tmo)
-        if s then
+        local t = type(s)
+        if t == "string" then
             stream = concat({stream, s})
             tmo = defaultHttpReadOvertime
             if find(stream, "\r\n\r\n") then
                 return stream
             end
         else
-            return nil, msg
+            return s, msg
         end
     end
 end
