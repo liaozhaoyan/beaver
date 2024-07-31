@@ -477,10 +477,10 @@ function Credis:_setup(fd, tmo)
             end
             e = nil
         elseif t == "cdata" then  -- read event.
-            clear()
             if e.ev_close > 0 then
                 break
             elseif e.ev_in > 0 then
+                clear()
                 local fread = beaver:reads(fd, maxLen, tmo/2)
                 if lastType == "table" then
                     res = read_replies(fread)
@@ -513,14 +513,14 @@ function Credis:_setup(fd, tmo)
                 elseif t == "string" or t == "table" then
                     e = e
                 else
-                    error(format("redis type: %s, not support, , undknown error.", t))
+                    error(format("redis type: %s, not support, , unknown error.", t))
                 end
             else
                 print("IO Error.")
                 break
             end
         else
-            error(format("ChttpReq type: %s, not support, , undknown error.", t))
+            error(format("redis loop type: %s, not support, , unknown error.", t))
         end
     end
 

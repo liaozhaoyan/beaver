@@ -108,7 +108,7 @@ local function rcmd(tReq)
 end
 
 local function gcInfo(tReq)
-    return {body = string.format("mem: %d", mem)}
+    return {body = string.format("mem: %d", collectgarbage("count"))}
 end
 
 local function rcmds(tReq)

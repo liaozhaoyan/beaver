@@ -23,7 +23,6 @@ local b_bind_ip = c_api.b_bind_ip
 local b_bind_uds = c_api.b_bind_uds
 local b_connect_ip = c_api.b_connect_ip
 local b_connect_uds = c_api.b_connect_uds
-local b_close = c_api.b_close
 local ssl_connect_pre = c_api.ssl_connect_pre
 local ssl_accept_pre = c_api.ssl_accept_pre
 local ssl_handshake = c_api.ssl_handshake

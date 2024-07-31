@@ -74,7 +74,7 @@ local function waitDataRest(fread, rest, tReq)
             c = c + 1
             tStream[c] = s
         else
-            print(format("type: %s, undknown error., %s", t, tostring(s)))
+            -- print(format("waitDataRest type: %s, unknown error., %s", t, tostring(s)))
             return -1
         end
     end
@@ -92,7 +92,7 @@ local function waitChuckData(fread, s, size)
         if t == "string" then
             s = concat({s, add})
         else
-            print(format("chunk data type: %s, undknown error., %s", t, tostring(s)))
+            -- print(format("chunk data type: %s, unknown error., %s", t, tostring(s)))
             return nil
         end
     end
@@ -108,7 +108,7 @@ local function waitChuckSize(fread, s)
         if t == "string" then
             s = concat({s, add})
         else
-            print(format("chunk size type: %s, undknown error., %s", t, msg))
+            -- print(format("chunk size type: %s, undnown error., %s", t, msg))
             return nil
         end
     end

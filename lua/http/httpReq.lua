@@ -132,7 +132,7 @@ function ChttpReq:_setup(fd, tmo)
     end
 
     if status == 1 and e == nil then -- host closed
-        self._status = 3
+        self._status = 0
         self:wake(co, nil)
     end
 
@@ -164,14 +164,14 @@ function ChttpReq:_setup(fd, tmo)
             end
             e = nil  -- 0 mean need to reuse connect
         elseif t == "cdata" then  -- read event.
-            clear()  -- clear timerWait.
             if e.ev_close > 0 then
                 break
             elseif e.ev_in > 0 then
+                clear()  -- clear timerWait.
                 local fread = beaver:reads(fd, maxLen, tmo)
                 local tRes, msg = clientRead(fread, tmo / 2)
                 if not tRes then
-                    print("get remote closed.", msg)
+                    -- print("get remote closed.", msg)
                     self._status = 0
                     self:wake(co, nil)  --> wake up upstream co to close.
                     break
@@ -190,14 +190,14 @@ function ChttpReq:_setup(fd, tmo)
                     end
                     e = nil
                 elseif t ~= "string" then   --> string mean has next data to send
-                    error(format("ChttpReq type: %s, undknown error.", t))
+                    error(format("ChttpReq type: %s, unknown error.", t))
                 end
             else
                 print("IO Error.")
                 break
             end
         else
-            error(format("ChttpReq type: %s, not support, , undknown error.", t))
+            error(format("ChttpReq type: %s, not support, unknown error.", t))
         end
     end
 
@@ -236,7 +236,7 @@ function ChttpReq:_connKata(fd, beaver)
             print("IO Error.")
         end
     else
-        print(format("type: %s, undknown error., %s", t, tostring(e)))
+        print(format("type: %s, unknown error., %s", t, tostring(e)))
     end
     return 3
 end

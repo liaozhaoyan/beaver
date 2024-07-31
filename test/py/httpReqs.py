@@ -1,5 +1,6 @@
 import requests
 import random
+import time
 from requests.exceptions import Timeout
 
 urls = [
@@ -13,7 +14,7 @@ def single(loop, body=False):
     for i in range(loop):
         for url in urls:
             try:
-                res = requests.get(url, timeout=random.randint(15, 30))
+                res = requests.get(url, timeout=random.randint(10, 20))
             except Timeout as e:
                 print("catched tmo.")
             if body:
@@ -21,4 +22,6 @@ def single(loop, body=False):
 
 
 if __name__ == "__main__":
-    single(1, True)
+    while True:
+        single(1, True)
+        time.sleep(2)

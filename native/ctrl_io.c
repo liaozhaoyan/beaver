@@ -13,19 +13,20 @@
 
 int ctrl_write(int fd, char * msg, int len) {
     int ret;
-    char buf[BEAVER_BUF];
+    char buf[BEAVER_BUF] = {0};
+    int full_len = len + sizeof(int);
 
-    if (len > BEAVER_BUF - sizeof (int)) {
+    if (full_len > BEAVER_BUF) {
         ret = -EINVAL;
         goto endValue;
     }
-    memcpy(buf, &len, sizeof (len));
-    memcpy(buf + 4, msg, len);
+    memcpy(buf, &len, sizeof(int));
+    memcpy(buf + sizeof(int), msg, len);
 
     retryBlock:
-    ret = write(fd, buf, len + sizeof (int));
+    ret = write(fd, buf, full_len);
     if (ret < 0) {
-        if (ret == -EAGAIN) {
+        if (errno == EAGAIN) {
             goto retryBlock;
         }
         goto endWrite;

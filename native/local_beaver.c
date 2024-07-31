@@ -300,7 +300,11 @@ int b_connect_ip(int fd, const char* ip, unsigned short port) {
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = inet_addr(ip);
-    bzero(&(addr.sin_zero), 8);
+    if (addr.sin_addr.s_addr == INADDR_NONE) {
+        printf("bad ip: %s\n", ip);
+        return EINVAL;
+    }
+    bzero(&(addr.sin_zero), sizeof(addr.sin_zero));
     ret = connect(fd, (struct sockaddr*)&addr, sizeof(addr));
     if (ret < 0) {
         return errno;

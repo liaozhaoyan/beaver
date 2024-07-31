@@ -224,7 +224,6 @@ function system.parseYaml(fYaml)
     end
     local s = f:read("*all")
     f:close()
-
     return lyaml.load(s)
 end
 

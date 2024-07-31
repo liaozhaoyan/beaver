@@ -19,6 +19,7 @@ local class = class
 local Cmaster = class("master")
 
 local time = os.time
+local exit = os.exit
 local liteAssert = system.liteAssert
 local coReport = system.coReport
 local create = coroutine.create
@@ -57,6 +58,7 @@ local function pipeIn(b, conf)  --> to receive call function
             masterVar.call(arg)
         else
             print(format("decode arg failed. %s, len: %d", s, #s))
+            exit(1)
         end
     end
 end

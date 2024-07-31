@@ -42,7 +42,6 @@ function CasyncClient:_init_(tReq, hostFd, tPort, tmo)
     self._hostFd = hostFd
     CasyncBase._init_(self, beaver, fd, tmo)
     if self:_waitConnected(beaver, hostFd) ~= 1 then  -- connect
-        print("0failed.")
         return
     end
 end
@@ -56,6 +55,7 @@ function CasyncClient:wake(co, v)
     if status(co) == "suspended" then
         res, msg = resume(co, v)
         coReport(co, res, msg)
+
         return msg
     end
 end
@@ -132,7 +132,7 @@ local function proxyHandshake(beaver, fd, tPort)
             print("IO Error.")
         end
     else
-        print(format("type: %s, undknown error., %s", t, tostring(e)))
+        print(format("proxyHandshake, type: %s, unknown error., %s", t, tostring(e)))
     end
     return 3
 end

@@ -98,6 +98,9 @@ function CbeaverIO:add(fd)
 end
 
 function CbeaverIO:ssl_add(fd, handler)
+    if self._ssl[fd] then
+        error("ssl handler already exists.")
+    end
     self._ssl[fd] = handler
 end
 

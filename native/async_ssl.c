@@ -26,8 +26,10 @@ int ssl_read(void *handle, char *buff, int len)
         if (err == SSL_ERROR_WANT_READ) {
             ret = -11;
             goto needContinue;
+        } else {
+            ret = -EIO;
+            goto readFailed;
         }
-        goto readFailed;
     }
 
     return ret;
@@ -46,10 +48,14 @@ int ssl_write(void *handle, const char *buff, int len) {
         if (err == SSL_ERROR_WANT_WRITE) {  //just need to write.
             ret = -11;
             goto needContinue;
+        } else {
+            ret = -EIO;
+            goto writeFailed;
         }
     }
     return ret;
     needContinue:
+    writeFailed:
     return ret;
 }
 
@@ -100,15 +106,20 @@ int ssl_handshake(void * handle) {
             return 2;
         default:
             report_error("ssl_connect handshake failed");
-            // fprintf(stderr, "ssl_connect handshake failed. err: %d, errno: %d, %s\n", err, errno, strerror(errno));
+            fprintf(stderr, "ssl_connect handshake failed. err: %d, errno: %d, %s\n", err, errno, strerror(errno));
             return -1;
     }
 }
 
 void ssl_del(void *handle) {
+    int ret;
     SSL *h = (SSL *)handle;
-    SSL_shutdown(handle);
-    SSL_free(handle);
+    ret = SSL_shutdown(h);
+    if (ret < 0) {
+        int err = SSL_get_error(h, ret);
+        fprintf(stderr, "SSL_shutdown failed. OpenSSL error: %s\n", ERR_error_string(err, NULL));
+    }
+    SSL_free(h);
 }
 
 void *ssl_client_new_with_ca(const char* certificate, const char* ca) {
@@ -140,6 +151,7 @@ void *ssl_server_new(const char* certificate, const char* key) {
         return NULL;
     }
     SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
+    SSL_CTX_sess_set_cache_size(ctx, 16);
     return ctx;
 }
 
@@ -168,8 +180,22 @@ void *ssl_accept_pre(int fd, void* hCtx) {
     return handle;
 }
 
+void async_ssl_deinit(void) {
+    if (sslContext != NULL) {
+        SSL_CTX_free(sslContext);
+        ERR_free_strings();
+        EVP_cleanup();
+        CRYPTO_cleanup_all_ex_data();
+        sslContext = NULL;
+    }
+}
+
 int async_ssl_init(void) {
     int ret = 0;
+
+    SSL_library_init();
+    SSL_load_error_strings();   /* load all error messages */
+    OpenSSL_add_all_algorithms();  /* load all algorithms */
 
     sslContext = SSL_CTX_new(TLS_client_method());
     if (sslContext == NULL) {
@@ -179,13 +205,9 @@ int async_ssl_init(void) {
         goto sslFailed;
     }
     SSL_CTX_set_session_cache_mode(sslContext, SSL_SESS_CACHE_CLIENT);
+    SSL_CTX_sess_set_cache_size(sslContext, 16);
     return ret;
 
     sslFailed:
     return ret;
-}
-
-void async_ssl_deinit(void) {
-    SSL_CTX_free(sslContext);
-    sslContext = NULL;
 }
