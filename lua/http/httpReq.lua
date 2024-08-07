@@ -167,7 +167,9 @@ function ChttpReq:_setup(fd, tmo)
             if e.ev_close > 0 then
                 break
             elseif e.ev_in > 0 then
-                clear()  -- clear timerWait.
+                if clear then
+                    clear()
+                end
                 local fread = beaver:reads(fd, maxLen, tmo)
                 local tRes, msg = clientRead(fread, tmo / 2)
                 if not tRes then

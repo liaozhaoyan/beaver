@@ -144,7 +144,7 @@ function CbeaverIO:read(fd, size)
         local t = type(e)
         if e == nil then
             return nil, "fd closed",  64
-        elseif t == "nubmer" then  -- number means time out
+        elseif t == "number" then  -- number means time out
             return -e, "time out.", 5
         elseif t ~= "cdata" then
             error(format("beaver report error. bad type(e):%s", t))
@@ -197,7 +197,7 @@ function CbeaverIO:reads(fd, maxLen, tmo)
             local t = type(e)
             if e == nil then
                 return nil, "fd closed",  64
-            elseif t == "nubmer" then  -- number means time out
+            elseif t == "number" then  -- number means time out
                 return -e, "time out.", 5
             elseif t ~= "cdata" then
                 error(format("beaver report error. bad type(e):%s", t))
@@ -266,7 +266,7 @@ function CbeaverIO:write(fd, stream)
                 local t = type(e)
                 if e == nil then
                     return nil, "fd closed",  64
-                elseif t == "nubmer" then  -- number means time out
+                elseif t == "number" then  -- number means time out
                     return -e, "time out.", 5
                 elseif t ~= "cdata" then
                     error(format("beaver report error. bad type(e):%s", t))

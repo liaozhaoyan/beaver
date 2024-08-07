@@ -74,6 +74,7 @@ local tonumber = tonumber
 local unpack = unpack
 local type = type
 local format = string.format
+local split = pystring.split
 local concat = table.concat
 local insert = table.insert
 local running = coroutine.running
@@ -182,11 +183,13 @@ local function prefixDollar(s, fread) -- $
     local start
     s, start = waitBlock(s, fread)
     if s then
-        local size, rest = unpack(pystring.split(s, "\r\n", 1))
+        local size, rest = unpack(split(s, "\r\n", 1))
         size = tonumber(size)
-        s = waitLength(rest, fread, size + 2)
-        if s then
-            return sub(s, 1, size), sub(s, size + 3)
+        if size > 0 then
+            s = waitLength(rest, fread, size + 2)
+            if s then
+                return sub(s, 1, size), sub(s, size + 3)
+            end
         end
     end
     return nil
@@ -223,7 +226,7 @@ local function prefixStar(s, fread)    -- *
     local start
     s, start = waitBlock(s, fread)
     if s then
-        local num, rest = unpack(pystring.split(s, "\r\n", 1))
+        local num, rest = unpack(split(s, "\r\n", 1))
         num = tonumber(num)
         local cells = {}
         local cell
@@ -281,7 +284,7 @@ local function prefixExclamation(s, fread)     -- ! Blob error
     local start
     s, start = waitBlock(s, fread)
     if s then
-        local size, rest = unpack(pystring.split(s, "\r\n", 1))
+        local size, rest = unpack(split(s, "\r\n", 1))
         size = tonumber(size)
         s = waitLength(rest, fread, size + 2)
         if s then
@@ -295,7 +298,7 @@ local function prefixPercent(s, fread)     -- % for map
     local start
     s, start = waitBlock(s, fread)
     if s then
-        local num, rest = unpack(pystring.split(s, "\r\n", 1))
+        local num, rest = unpack(split(s, "\r\n", 1))
         num = tonumber(num)
         local cells = {}
         local k, v
@@ -317,7 +320,7 @@ local function prefixTilde(s, fread)       -- ~ for list
     local start
     s, start = waitBlock(s, fread)
     if s then
-        local num, rest = unpack(pystring.split(s, "\r\n", 1))
+        local num, rest = unpack(split(s, "\r\n", 1))
         num = tonumber(num)
         local cells = {}
         local cell
@@ -426,6 +429,12 @@ function Credis:_setup(fd, tmo)
             self:wake(co, nil)
             return
         end
+        if type(res) ~= "string" then
+            print("redis auth readerror.", msg)
+            self._status = 0
+            self:wake(co, nil)
+            return
+        end
         if sub(res, 1, 3) ~= "+OK" then
             print("redis auth error.", sub(res, 1, 3))
             self._status = 0
@@ -441,7 +450,6 @@ function Credis:_setup(fd, tmo)
         end
         t = type(e)
         if t == "string" then -- single cmd
-            
             res, msg = beaver:write(fd, e)
             if not res then  -- for write failed.
                 print("redis write error.", msg)

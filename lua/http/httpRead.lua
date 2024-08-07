@@ -127,7 +127,7 @@ local function readChunks(fread, tReq)
         end
         s = waitChuckSize(fread, s)
         if s then
-            size, s = unpack(pystring.split(s, "\r\n", 1))
+            size, s = unpack(split(s, "\r\n", 1))
             len = tonumber(size, 16)
             if len then
                 bodies = waitChuckData(fread, s, len)
@@ -187,7 +187,7 @@ local function waitHttpHead(fread)
                 return stream
             end
         else
-            return s, msg
+            return nil, msg
         end
     end
 end
@@ -241,7 +241,7 @@ local function serverParse(fread, stream, parseParam)
 end
 
 function M.serverRead(fread, parseParam)
-    local stream, msg = waitHttpHead(fread, -1)
+    local stream, msg = waitHttpHead(fread)
     if stream == nil then   -- read return stream or error code or nil
         return nil, msg
     end

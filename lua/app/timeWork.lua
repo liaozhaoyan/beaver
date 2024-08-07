@@ -25,7 +25,6 @@ local function timerTest2()
         i = i + 1
     end
     print("stop test2")
-    timer:msDelay(-1)
 end
 
 local function timerTest3()
@@ -38,7 +37,6 @@ local function timerTest3()
         i = i + 1
     end
     print("stop test3")
-    timer:msDelay(-1)
 end
 
 function mt.call(beaver, args)

@@ -15,6 +15,7 @@ local format = string.format
 local type = type
 local print = print
 local error = error
+local pcall = pcall
 local yield = coroutine.yield
 local liteAssert = system.liteAssert
 local b_socket = c_api.b_socket
@@ -60,6 +61,9 @@ end
 function mt.setupSocket(conf)
     local res, fd
     if conf.port then
+        if type(conf.port) ~= "number" then
+            error("bad port type." .. type(conf.port))
+        end
         fd = b_socket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
         liteAssert(fd > 0, format("b_socket failed, return %d.", fd))
         res = setsockopt_reuse_port(fd)
@@ -67,12 +71,18 @@ function mt.setupSocket(conf)
         res = b_bind_ip(fd, conf.bind, conf.port)
         liteAssert(res == 0, format("b_bind_ip failed, return %d.", res))
     elseif conf.uniSock then
+        if type(conf.uniSock) ~= "string" then
+            error("bad unisock path." .. type(conf.uniSock))
+        end
         unistd.unlink(conf.uniSock)
         fd = b_socket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
         liteAssert(fd > 0, format("b_socket failed, return %d.", fd))
         res = b_bind_uds(fd, conf.uniSock)
         liteAssert(res == 0, format("b_bind_uds failed, return %d.", res))
     elseif conf.vsock then
+        if type(conf.vsock) ~= "table" or type(conf.vsock.cid) ~= "number" or type(conf.vsock.port) ~= "number" then
+            error("bad vsock cid or port." .. type(conf.vsock))
+        end
         fd = vsock_socket(psocket.SOCK_STREAM, 0)
         if fd < 0 then
             error(format("vsock_socket failed, return %d.", fd))
@@ -91,13 +101,22 @@ end
 function mt.connectSetup(tPort)
     local fd
     if tPort.port then
+        if type(tPort.port) ~= "number" then
+            error("bad port type." .. type(tPort.port))
+        end
         fd = b_socket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
         liteAssert(fd > 0, format("b_socket failed, return %d.", fd))
     elseif tPort.path then
+        if type(tPort.uniSock) ~= "string" then
+            error("bad unisock path." .. type(tPort.uniSock))
+        end
         fd = b_socket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
         liteAssert(fd > 0, format("b_socket failed, return %d.", fd))
         tPort.family = psocket.AF_UNIX
     elseif tPort.vsock then
+        if type(tPort.vsock) ~= "table" or type(tPort.vsock.cid) ~= "number" or type(tPort.vsock.port) ~= "number" then
+            error("bad vsock cid or port." .. type(tPort.vsock))
+        end
         fd = vsock_socket(psocket.SOCK_STREAM, 0)
         liteAssert(fd > 0, format("vsock_socket failed, return %d.", fd))
     else
@@ -107,26 +126,38 @@ function mt.connectSetup(tPort)
 end
 
 local function tryConnect(fd, tPort)
-    local res, errno
+    local ok,res, errno
 
     if tPort.port then
-        res = b_connect_ip(fd, tPort.addr, tPort.port)
-        if res > 0 then   -- connect not ready.
-            errno = res
-            res = nil
+        ok, res, errno = pcall(b_connect_ip, fd, tPort.addr, tPort.port)
+        if ok then
+            if res > 0 then   -- connect not ready.
+                errno = res
+                res = nil
+            end
+        else
+            error(format("bad connect_ip, report: %s", res))
         end
     elseif tPort.path then
-        res = b_connect_uds(fd, tPort.path)
-        if res > 0 then   -- connect not ready.
-            errno = res
-            res = nil
+        ok, res = pcall(b_connect_uds, fd, tPort.path)
+        if ok then
+            if res > 0 then   -- connect not ready.
+                errno = res
+                res = nil
+            end
+        else
+            error(format("bad connect_uds, report: %s", res))
         end
         tPort.family = psocket.AF_UNIX
     elseif tPort.vsock then
-        res = vsock_connect(fd, tPort.vsock.cid, tPort.vsock.port)
-        if res > 0 then   -- connect not ready.
-            errno = res
-            res = nil
+        ok, res = pcall(vsock_connect, fd, tPort.vsock.cid, tPort.vsock.port)
+        if ok then
+            if res > 0 then   -- connect not ready.
+                errno = res
+                res = nil
+            end
+        else
+            error(format("bad connect_vsock, report: %s", res))
         end
     else
         error("bad connect mode.")
