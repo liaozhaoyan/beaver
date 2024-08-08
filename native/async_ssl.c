@@ -82,11 +82,6 @@ void *ssl_connect_pre(int fd, void* hCtx) {
     return handle;
 }
 
-static void report_error(const char *msg) {
-    unsigned long err = ERR_get_error();
-    fprintf(stderr, "%s: %s\n", msg, ERR_error_string(err, NULL));
-}
-
 int ssl_handshake(void * handle) {
     int ret = 0, err = 0;
     SSL *h = (SSL *)handle;
@@ -98,14 +93,14 @@ int ssl_handshake(void * handle) {
 
     err = SSL_get_error(h, ret);
     switch (err) {
-        case 0:
+        case SSL_ERROR_NONE:  //no error
+        case SSL_ERROR_SSL:  //no error
             return 0;
         case SSL_ERROR_WANT_WRITE:  //wait write.
             return 1;
         case SSL_ERROR_WANT_READ:
             return 2;
         default:
-            report_error("ssl_connect handshake failed");
             fprintf(stderr, "ssl_connect handshake failed. err: %d, errno: %d, %s\n", err, errno, strerror(errno));
             return -1;
     }
@@ -113,11 +108,16 @@ int ssl_handshake(void * handle) {
 
 void ssl_del(void *handle) {
     int ret;
+    if (handle == NULL) {
+        return;
+    }
     SSL *h = (SSL *)handle;
     ret = SSL_shutdown(h);
     if (ret < 0) {
         int err = SSL_get_error(h, ret);
-        fprintf(stderr, "SSL_shutdown failed. OpenSSL error: %s\n", ERR_error_string(err, NULL));
+        if (err > SSL_ERROR_SSL) {
+            fprintf(stderr, "SSL_shutdown failed. err: %d, OpenSSL error: %s\n", err, ERR_error_string(err, NULL));
+        }
     }
     SSL_free(h);
 }
