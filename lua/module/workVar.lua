@@ -199,7 +199,7 @@ function M.dnsReq(domain)
 end
 
 function M.msleep(ms)
-    timer:msleep(ms)
+    return timer:msleep(ms)
 end
 
 function M.wait(co, ms)

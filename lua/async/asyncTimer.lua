@@ -44,9 +44,10 @@ function CasyncTimer:_setup(fd)
         end
 
         res = timer_io_get(fd)
-        liteAssert(res >= 0, "get timer_io value failed.")
-        res, msg = resume(co, 0)  -- to wake up masterTimer.
-        coReport(co, res, msg)
+        if res == 0 then
+            res, msg = resume(co, 0)  -- to wake up masterTimer.
+            coReport(co, res, msg)
+        end
     end
     self:stop()
 end

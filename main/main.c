@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <openssl/crypto.h>
+#include "../native/async_ssl.h"
 #include "entry.h"
 
 int main(int argc, char *argv[]) {
