@@ -448,6 +448,7 @@ function Credis:_setup(fd, tmo)
         if not e then
             e = yield()
         end
+        local _ = clear and clear()
         t = type(e)
         if t == "string" then -- single cmd
             res, msg = beaver:write(fd, e)
@@ -485,10 +486,8 @@ function Credis:_setup(fd, tmo)
             end
             e = nil
         elseif t == "cdata" then  -- read event.
-            if e.ev_close > 0 then
-                break
-            elseif e.ev_in > 0 then
-                clear()
+            if e.ev_in > 0 then
+                clear = nil -- clear timerWait.
                 local fread = beaver:reads(fd, maxLen, tmo/2)
                 if lastType == "table" then
                     res = read_replies(fread)
@@ -501,7 +500,14 @@ function Credis:_setup(fd, tmo)
                     break
                 end
 
-                e = self:wake(co, res)  -- from next working.
+                local r = self:wake(co, res)  -- from next working.
+                if e.ev_close > 0 then  -- server closed this request
+                    self._status = 0
+                    self:wake(co, nil)
+                    break
+                end
+
+                e = r
                 t = type(e)
                 if t == "cdata" then -->upstream need to close.
                     liteAssert(e.ev_close > 0)
@@ -523,8 +529,13 @@ function Credis:_setup(fd, tmo)
                 else
                     error(format("redis type: %s, not support, , unknown error.", t))
                 end
+            elseif e.ev_close > 0 then
+                self._status = 0
+                self:wake(co, nil)
+                break
             else
                 print("IO Error.")
+                self._status = 0
                 break
             end
         else

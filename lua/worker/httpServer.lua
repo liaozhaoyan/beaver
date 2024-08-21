@@ -53,7 +53,7 @@ function ChttpServer:_setup(fd, tmo)
             if type(e) ~= "cdata" or e.ev_in < 1 then
                 break
             end
-            
+       
             local fread = beaver:reads(fd, nil, tmo / 2)
             local tRes = inst:proc(fread, session, clients, beaver, fd)
 

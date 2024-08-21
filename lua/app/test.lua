@@ -88,6 +88,13 @@ local function svg(tReq)
     }
 end
 
+local function var(tReq)
+    local param = tReq.Param["var"]
+    return {
+        body = string.format("url set: %s", tostring(param))
+    }
+end
+
 local function rcmd(tReq)
     local r = Credis.new(tReq, "127.0.0.1", 6379, nil, "alibaba")
     local s = tReq.body
@@ -150,7 +157,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/unkown", unkown)
     inst:get("/gc", gcInfo)
     inst:get("/svg", svg)
-    inst:get("/svg/*", svg)
+    inst:get("/var/:var", var)
     inst:post("/rcmd", rcmd)
     inst:post("/rcmds", rcmds)
     inst:get("/uds", uds)

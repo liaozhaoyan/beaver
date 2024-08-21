@@ -19,9 +19,13 @@ def single(loop, body=False):
                 print("catched tmo.")
             if body:
                 print(res.content)
+        res = requests.get("http://172.16.0.129:3385/var/%d" % i)
+        if body:
+            print(res.content)
+
 
 
 if __name__ == "__main__":
     while True:
-        single(1, True)
+        single(5, True)
         time.sleep(2)

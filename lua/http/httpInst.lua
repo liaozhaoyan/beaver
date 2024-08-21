@@ -10,9 +10,12 @@ local pystring = require("pystring")
 local system = require("common.system")
 local httpComm = require("http.httpComm")
 local httpRead = require("http.httpRead")
+local Ctrie = require("common.trie")
+
 local liteAssert = system.liteAssert
 local ipairs = ipairs
 local pairs = pairs
+local assert = assert
 local lower = string.lower
 local find = string.find
 local format = string.format
@@ -25,42 +28,19 @@ local ChttpInst = class("httpInst")
 
 function ChttpInst:_init_()
     self._cbs = {
-        get = {
-            url = {},
-            urlRe = {}
-        },
-        put = {
-            url = {},
-            urlRe = {}
-        },
-        post = {
-            url = {},
-            urlRe = {}
-        },
-        delete = {
-            url = {},
-            urlRe = {}
-        }
+        get = Ctrie.new(),
+        put = Ctrie.new(),
+        post = Ctrie.new(),
+        delete = Ctrie.new()
     }
 end
 
-local function containsReservedCharacters(s)
-    local reservedPattern = "[%.%+%-%*%?%[%]%^%$%(%)%%]"
-    return find(s, reservedPattern) == nil
-end
 
 function ChttpInst:_verbRegister(verb, path, func)
     local cb = self._cbs[verb]
 
     liteAssert(cb, format("bad verb mode: %s", verb))
-
-    if containsReservedCharacters(path) then
-        liteAssert(not cb.url[path], format("the %s is already registered.", path))
-        cb.url[path] = func
-    else
-        liteAssert(not cb.urlRe[path], format("the %s is already registered.", path))
-        cb.urlRe[path] = func
-    end
+    assert(cb:add(path, func))
 end
 
 function ChttpInst:get(path, func)
@@ -77,15 +57,6 @@ end
 
 function ChttpInst:delete(path, func)
     self:_verbRegister("delete", path, func)
-end
-
-local function reSearch(urlRe, path)
-    for re, func in pairs(urlRe) do
-        if find(path, re) then
-            return func
-        end
-    end
-    return nil
 end
 
 local function echo404(path, verb)
@@ -127,17 +98,12 @@ local function _proc(cbs, verb, tReq)
     if cb then
         local path = tReq.path
         local ok, res
-        local func = cb.url[path]
-
-        if func then  -- direct mode
+        local func, vars = cb:match(path)
+        if func then
+            tReq.Param = vars
             ok, res = systemPcall(func, tReq)
-        else  -- reSearch
-            func = reSearch(cb.urlRe, path)
-            if func then
-                ok, res = systemPcall(func, tReq)
-            else  -- not such page
-                return echo404(path, verb)
-            end
+        else
+            return echo404(path, verb)
         end
 
         if ok and res then  -- call success.

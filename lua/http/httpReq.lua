@@ -141,6 +141,7 @@ function ChttpReq:_setup(fd, tmo)
         if not e then
             e = yield()
         end
+        local _ = clear and clear()
         local t = type(e)
         if t == "string" then -- has data to send
             local msg
@@ -164,12 +165,8 @@ function ChttpReq:_setup(fd, tmo)
             end
             e = nil  -- 0 mean need to reuse connect
         elseif t == "cdata" then  -- read event.
-            if e.ev_close > 0 then
-                break
-            elseif e.ev_in > 0 then
-                if clear then
-                    clear()
-                end
+            if e.ev_in > 0 then
+                clear = nil -- clear timerWait call back.
                 local fread = beaver:reads(fd, maxLen, tmo)
                 local tRes, msg = clientRead(fread, tmo / 2)
                 if not tRes then
@@ -178,7 +175,15 @@ function ChttpReq:_setup(fd, tmo)
                     self:wake(co, nil)  --> wake up upstream co to close.
                     break
                 end
-                e = self:wake(co, tRes)
+
+                local r = self:wake(co, tRes)
+                if e.ev_close > 0 then   -->remote server closed
+                    self._status = 0
+                    self:wake(co, nil)
+                    break
+                end
+
+                e = r
                 t = type(e)
                 if t == "nil" then -->upstream need to close.
                     self._status = 0
@@ -194,8 +199,13 @@ function ChttpReq:_setup(fd, tmo)
                 elseif t ~= "string" then   --> string mean has next data to send
                     error(format("ChttpReq type: %s, unknown error.", t))
                 end
+            elseif e.ev_close > 0 then
+                self._status = 0
+                self:wake(co, nil)
+                break
             else
                 print("IO Error.")
+                self._status = 0
                 break
             end
         else
