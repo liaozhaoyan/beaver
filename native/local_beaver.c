@@ -194,9 +194,14 @@ int poll_fds(int efd, int tmo, native_events_t* nes) {
     unsigned int close_flag = EPOLLERR | EPOLLHUP | EPOLLRDHUP;
 
     ret = epoll_wait(efd, events, NATIVE_EVENT_MAX, tmo * 1000);
-    if (ret < 0) {
+    if (ret < 0 && errno != EINTR) {   // EINTR should count as a normal event
         perror("error : epoll failed!\n");
         return -errno;
+    }
+
+    if (ret < 0) {
+        nes->num = 0;
+        return 0;    
     }
     nes->num = ret;
     for (i = 0; i < ret; i ++) {

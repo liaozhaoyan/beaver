@@ -15,6 +15,7 @@ local Ctrie = require("common.trie")
 local liteAssert = system.liteAssert
 local ipairs = ipairs
 local pairs = pairs
+local type = type
 local assert = assert
 local lower = string.lower
 local find = string.find
@@ -33,6 +34,7 @@ function ChttpInst:_init_()
         post = Ctrie.new(),
         delete = Ctrie.new()
     }
+    self:setProbe(nil)
 end
 
 
@@ -119,6 +121,21 @@ local function _proc(cbs, verb, tReq)
     return echo501(verb)
 end
 
+function ChttpInst:setProbe(probe)
+    local cbs = self._cbs
+    if type(probe) == 'function' then
+        self._call = function(verb, tReq)
+            local tRes = _proc(cbs, verb, tReq)
+            probe(tRes.code)
+            return tRes
+        end
+    else
+        self._call = function(verb, tReq)
+            return _proc(cbs, verb, tReq)
+        end
+    end
+end
+
 local commPackServerFrame = httpComm.packServerFrame
 function ChttpInst:packServerFrame(tReq)
     return commPackServerFrame(tReq)
@@ -131,7 +148,8 @@ function ChttpInst:proc(fread, session, clients, beaver, fd)
         tReq.clients = clients
         tReq.beaver = beaver
         tReq.fd = fd
-        local tRes = _proc(self._cbs, tReq.verb, tReq)
+        local call = self._call
+        local tRes = call(tReq.verb, tReq)
         local keep = true
         if tReq.headers and tReq.headers.connection then
             local con = tReq.headers.connection

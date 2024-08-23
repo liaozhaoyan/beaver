@@ -148,8 +148,13 @@ local function uds(tReq)
     end
 end
 
+local function probe(code)
+    print("code: ", code)
+end
+
 function Ctest:_init_(inst, conf)
     -- redisTest.start()
+    inst:setProbe(probe)
     inst:get("/", index)
     inst:get("/instance", instance)
     inst:get("/bing", bing)
