@@ -13,6 +13,7 @@ local ChttpReq = require("http.httpReq")
 local httpRead = require("http.httpRead")
 local Credis = require("client.redis")
 local CcliBase = require("client.cliBase")
+local socket = require("socket")
 local redisTest = require("app.redisTest")
 
 local class = class
@@ -63,6 +64,37 @@ local function baidu(tReq)
     else
         return {body = "unknown"}
     end
+end
+
+local function singleGet(tReq, url, coWake)
+    return function ()
+        print("start get ", url, socket.gettime())
+        local req = ChttpReq.new(tReq, url, nil, nil, proxy)
+        local tRes = req:get(url)
+        coroutine.resume(coWake, url, tRes.body)
+    end
+end
+
+local function bulk(tReq)
+    local urls = {"https://cn.bing.com/", "http://www.baidu.com/"}
+
+    for _, url in ipairs(urls) do
+        local coFunc = singleGet(tReq, url, coroutine.running())
+        local co = coroutine.create(coFunc)
+        local ok, res = coroutine.resume(co)
+        assert(ok, res)
+    end
+
+    local c = 0
+    while c < #urls do
+        local url, body = coroutine.yield()
+        if not url then
+            break
+        end
+        print("get done:", url, socket.gettime())
+        c = c + 1
+    end
+    return {body = "done"}
 end
 
 local function unkown(tReq)
@@ -159,6 +191,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/instance", instance)
     inst:get("/bing", bing)
     inst:get("/baidu", baidu)
+    inst:get("/bulk", bulk)
     inst:get("/unkown", unkown)
     inst:get("/gc", gcInfo)
     inst:get("/svg", svg)
