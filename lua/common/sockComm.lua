@@ -107,8 +107,8 @@ function mt.connectSetup(tPort)
         fd = b_socket(psocket.AF_INET, psocket.SOCK_STREAM, 0)
         liteAssert(fd > 0, format("b_socket failed, return %d.", fd))
     elseif tPort.path then
-        if type(tPort.uniSock) ~= "string" then
-            error("bad unisock path." .. type(tPort.uniSock))
+        if type(tPort.path) ~= "string" then
+            error("bad unisock path." .. type(tPort.path))
         end
         fd = b_socket(psocket.AF_UNIX, psocket.SOCK_STREAM, 0)
         liteAssert(fd > 0, format("b_socket failed, return %d.", fd))

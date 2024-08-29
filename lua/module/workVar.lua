@@ -231,11 +231,14 @@ local function setupInst(conf)
     return nil
 end
 
-local function acceptServer(obj, conf, beaver, bfd, bindAdd)
+local function acceptServer(obj, conf, beaver, bindAdd)
+    local inst = setupInst(conf)
+
+    local bfd = sockComm.setupSocket(conf)
     if bindAdd then
         bindAdd(conf.func, bfd, running())
     end
-    local inst = setupInst(conf)
+
     CasyncAccept.new(beaver, bfd, conf)
     while true do
         local nfd, addr, ctx = yield()
@@ -245,9 +248,8 @@ end
 
 function M.acceptSetup(obj, beaver, conf, bindAdd)
     liteAssert(conf.mode == "TCP", format("bad accept mode: %s", conf.mode))
-    local fd = sockComm.setupSocket(conf)
     local co = create(acceptServer)
-    local res, msg = resume(co, obj, conf, beaver, fd, bindAdd)
+    local res, msg = resume(co, obj, conf, beaver, bindAdd)
     coReport(co, res, msg)
 end
 
