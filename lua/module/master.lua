@@ -29,6 +29,9 @@ local format = string.format
 local jdecode = cjson.decode
 local yload = lyaml.load
 
+cjson.encode_empty_table_as_object(false)
+cjson.encode_escape_forward_slash(false)
+
 function Cmaster:_init_(conf)
     self._conf = conf
 end
