@@ -43,21 +43,27 @@ local isIPv4 = sockComm.isIPv4
 local freshDns
 local wakeDns
 local reqId = 0
+local serverIP
+local searchSuffix = {}
 
 local function lookupServer()
     local f = io_open("/etc/resolv.conf")
-    local server
-    liteAssert(f, "dns config not found.")
+    if not f then
+        error("dns config not found.")
+    end
     for line in f:lines() do
         if startswith(line, "nameserver") then
             local res = split(line)
-            server = res[2]
+            serverIP = res[2]
             break
+        elseif startswith(line, "search") then
+            local res = split(line)
+            for i = 2, #res do
+                searchSuffix[i - 1] = res[i]
+            end
         end
     end
-
     f:close()
-    return server
 end
 
 local function lookupLocal(path)
@@ -79,8 +85,8 @@ local function lookupLocal(path)
 end
 
 function CasyncDns:_init_(beaver, fresh, wake)
-    self._serverIP = lookupServer()
-    liteAssert(self._serverIP)
+    lookupServer()
+    liteAssert(serverIP)
 
     local fd, err, errno = new_socket(psocket.AF_INET, psocket.SOCK_DGRAM, 0)
     liteAssert(fd, err)
@@ -116,6 +122,13 @@ local function packQuery(domain)
     )
     cnt = cnt + 1
     queries[cnt] = head
+
+    if not domain:find(".", 1, true) then
+        if #searchSuffix < 0 then
+            return nil
+        end
+        domain = domain .. "." .. searchSuffix[1]
+    end
 
     local names = split(domain, ".")
     for _, name in ipairs(names) do
@@ -163,7 +176,6 @@ end
 function CasyncDns:_setup(fd, tmo)
     local res
     local beaver = self._beaver
-    local serverIP = self._serverIP
     local size, err, errno
     local tDist = {family=psocket.AF_INET, addr=serverIP, port=53}
     local failed = 0
@@ -173,39 +185,44 @@ function CasyncDns:_setup(fd, tmo)
         local domain, tVar = yield()   -- tVar contains {fid, coId}
 
         local query = packQuery(domain)
-        size, err, errno = psendto(fd, query, tDist)
-        if size then
-            beaver:co_set_tmo(fd, tmo)
-            res, err, errno = beaver:read(fd, 512)
-            local ip
-            if res then
-                local parser = dnsParser.new(res)
-                local rec, e = parser:parse()
-                ip, e = getIPFromRec(rec, e)
-                if not ip then
-                    print("dns parse failed.", e)
-                    failed = failed + 1
+        if query then
+            size, err, errno = psendto(fd, query, tDist)
+            if size then
+                beaver:co_set_tmo(fd, tmo)
+                res, err, errno = beaver:read(fd, 512)
+                local ip
+                if res then
+                    local parser = dnsParser.new(res)
+                    local rec, e = parser:parse()
+                    ip, e = getIPFromRec(rec, e)
+                    if not ip then
+                        print("dns parse failed.", e)
+                        failed = failed + 1
+                    else
+                        freshDns(domain, {ip, time()})
+                        failed = 0
+                    end
                 else
-                    freshDns(domain, {ip, time()})
-                    failed = 0
+                    print("dns read fialed.", err, errno)
+                    failed = failed + 1
                 end
+                wakesDns(self._requesting, domain, ip)
             else
-                print("dns read fialed.", err, errno)
+                print("dns sentto fialed.", err, errno)
+                wakesDns(self._requesting, domain, nil)
                 failed = failed + 1
             end
-            wakesDns(self._requesting, domain, ip)
-        else
-            print("dns sentto fialed.", err, errno)
-            wakesDns(self._requesting, domain, nil)
-            failed = failed + 1
-        end
 
-        if failed > 100 then
-            break
+            if failed > 256 then
+                print("dns failed too many times.")  -- should never occur.
+                os.exit(1)
+                break
+            end
+        else
+            wakesDns(self._requesting, domain, nil)
         end
     end
     self:stop()
-    error("dns failed.")
 end
 
 function CasyncDns:request(domain, tVar) -- tVar contains {fid, coId}

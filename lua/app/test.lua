@@ -14,12 +14,14 @@ local httpRead = require("http.httpRead")
 local Credis = require("client.redis")
 local CcliBase = require("client.cliBase")
 local socket = require("socket")
+local digest = require("common.digest")
 local redisTest = require("app.redisTest")
 
 local class = class
 local Ctest = class("test")
 local collectgarbage = collectgarbage
 local string = string
+local sha256 = digest.sha256
 
 collectgarbage("setpause", 150)
 collectgarbage("setstepmul", 300)
@@ -180,13 +182,18 @@ local function uds(tReq)
     end
 end
 
+local function sha_check()
+    local s = "hello world."
+    return {body = sha256(s)}
+end
+
 local function probe(code)
     print("code: ", code)
 end
 
 function Ctest:_init_(inst, conf)
     -- redisTest.start()
-    inst:setProbe(probe)
+    -- inst:setProbe(probe)
     inst:get("/", index)
     inst:get("/instance", instance)
     inst:get("/bing", bing)
@@ -199,6 +206,7 @@ function Ctest:_init_(inst, conf)
     inst:post("/rcmd", rcmd)
     inst:post("/rcmds", rcmds)
     inst:get("/uds", uds)
+    inst:get("/sha", sha_check)
 end
 
 return Ctest

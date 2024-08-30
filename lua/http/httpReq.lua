@@ -42,9 +42,10 @@ local function setupUrl(host, port, proxy)
     local connectPort
     local isProxy
 
-    assert(domain, function ()
-        return format("host: %s, not support.", host)
-    end)
+    if not domain then
+        print(format("host: %s, not support.", tostring(host)))
+        return nil
+    end
 
     if not port then
         if _port then
