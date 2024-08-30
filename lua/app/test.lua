@@ -47,7 +47,7 @@ local function instance(tReq)
 end
 
 local function bing(tReq)
-    local req = ChttpReq.new(tReq, "https://cn.bing.com/", nil, nil, proxy)
+    local req = ChttpReq.new(tReq, "https://cn.bing.com/", nil, nil, nil)
     local tRes = req:get("HTTPS://cn.bing.com/")
     if tRes then
         return {body = tRes.body}

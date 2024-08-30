@@ -7,6 +7,7 @@
 require("eclass")
 
 local system = require("common.system")
+local dnsParser = require("common.dnsParser")
 local psocket = require("posix.sys.socket")
 local pystring = require("pystring")
 local sockComm = require("common.sockComm")
@@ -33,6 +34,7 @@ local char = string.char
 local len = string.len
 local format = string.format
 local byte = string.byte
+local type = type
 local concat = table.concat
 local insert = table.insert
 local error = error
@@ -40,6 +42,7 @@ local isIPv4 = sockComm.isIPv4
 
 local freshDns
 local wakeDns
+local reqId = 0
 
 local function lookupServer()
     local f = io_open("/etc/resolv.conf")
@@ -97,8 +100,14 @@ end
 local function packQuery(domain)
     local cnt = 0
     local queries = {}
+    reqId = reqId + 1
+    if reqId > 65535 then
+        reqId = 0
+    end
+    local high = reqId % 256
+    local low = reqId / 256
     local head = char(
-            0x12, 0x34, -- Query ID
+            low, high, -- Query ID
             0x01, 0x00, -- Standard query
             0x00, 0x01, -- Number of questions
             0x00, 0x00, -- Number of answers
@@ -135,6 +144,22 @@ local function wakesDns(requesting, domain, ip)
     requesting[domain] = nil
 end
 
+local function getIPFromRec(rec, e)
+    if rec then
+        if type(rec.answers) == "table" then
+            for _, an in ipairs(rec.answers) do
+                if an.type == "A" then
+                    return an.content
+                end
+            end
+        end
+        return nil, "no dns request from dns req."
+    else
+        print("bad dns req.", e)
+        return nil, error
+    end
+end
+
 function CasyncDns:_setup(fd, tmo)
     local res
     local beaver = self._beaver
@@ -154,9 +179,16 @@ function CasyncDns:_setup(fd, tmo)
             res, err, errno = beaver:read(fd, 512)
             local ip
             if res then
-                ip = format("%d.%d.%d.%d", byte(res, -4, -1))
-                freshDns(domain, {ip, time()})
-                failed = 0
+                local parser = dnsParser.new(res)
+                local rec, e = parser:parse()
+                ip, e = getIPFromRec(rec, e)
+                if not ip then
+                    print("dns parse failed.", e)
+                    failed = failed + 1
+                else
+                    freshDns(domain, {ip, time()})
+                    failed = 0
+                end
             else
                 print("dns read fialed.", err, errno)
                 failed = failed + 1
