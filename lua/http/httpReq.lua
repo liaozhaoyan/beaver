@@ -136,6 +136,9 @@ function ChttpReq:_setup(fd, tmo)
         self._status = 0
         self:wake(co, nil)
     end
+    if type(e) == "boolean" then  -- for unix socket connect direct may return boolean true.
+        e = nil
+    end
 
     local clear
     while status == 1 do
@@ -191,7 +194,7 @@ function ChttpReq:_setup(fd, tmo)
                     self:wake(co, nil)  -->let upstream to do next working.
                     break
                 elseif t == "number" then  -->upstream reuse connect
-                    if e > 0 then
+                    if e > 0 then -- e > 0 means timeout.
                         self._status = 0
                         self:wake(co, nil)
                         break

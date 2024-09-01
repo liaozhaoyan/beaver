@@ -111,7 +111,7 @@ function CworkerTimer:msleep(period)
 
     _addTimer(tree, co, period, self._timer, coTimer)
     if period > 0 then
-        return yield()
+        return yield(0)  -- always return 0 to tell _setup function continue to sleep.
     else
         return period
     end

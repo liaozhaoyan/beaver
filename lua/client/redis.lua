@@ -411,6 +411,9 @@ function Credis:_setup(fd, tmo)
         self._status = 0
         self:wake(co, nil)
     end
+    if type(e) == "boolean" then  -- for unix socket connect direct may return boolean true.
+        e = nil
+    end
 
     if self._pswd then
         local s = packCmd("auth", self._pswd)

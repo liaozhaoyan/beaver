@@ -175,6 +175,8 @@ local function tryConnect(fd, tPort)
     end
 end
 
+-- return arg1: socket status
+-- return arg2: true means connect direct.
 function mt.connect(fd, tPort, beaver)
     local res = tryConnect(fd, tPort)
     if res == 2 then -- 2 means connecting  refer to aysync.asyncClient _init_
@@ -184,24 +186,24 @@ function mt.connect(fd, tPort, beaver)
         clear()
         local t = type(e)
         if t == "nil" then
-            return 3 -- connected failed  refer to aysync.asyncClient _init_
+            return 3, nil -- connected failed  refer to aysync.asyncClient _init_
         elseif type(e) == "number" then  -- timeout close.
-            return 3
+            return 3, nil
         elseif type(e) ~= "cdata" then
             print("connected failed, unexpected event.", type(e), e)
-            return 3 -- connected failed, unexpected event
+            return 3, nil -- connected failed, unexpected event
         elseif e.ev_out > 0 then
             if check_connected(fd) == 0 then
                 beaver:mod_fd(fd, 0)   -- modify fd to readonly
-                return 1  -- connected success  refer to aysync.asyncClient _init_
+                return 1, nil  -- connected success  refer to aysync.asyncClient _init_
             else
-                return 3
+                return 3, nil
             end
         elseif e.ev_close > 0 then
-            return 3
+            return 3, nil
         end
     end
-    return res
+    return res, true
 end
 
 local function handshakeYield(fd, beaver)

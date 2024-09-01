@@ -139,11 +139,11 @@ end
 
 function CasyncClient:cliConnect(fd)
     local beaver = self._beaver
-    local stat
+    local stat, direct
     local tPort = self._tPort
 
     self._status = 2  -- connecting
-    stat = sockConnect(fd, tPort, beaver)  -- 
+    stat, direct = sockConnect(fd, tPort, beaver)  -- 
 
     if stat == 1 and tPort.ssl then
         if tPort.proxy then
@@ -154,10 +154,11 @@ function CasyncClient:cliConnect(fd)
         else
             stat = cliSslHandshake(fd, beaver)
         end
+        direct = nil
     end
 
     self._status = stat  -- connected
-    return stat, self:wake(self._coWake, stat)  -- wake up to wake, set in asyncClient.
+    return stat, direct or self:wake(self._coWake, stat)  -- wake up to wake, set in asyncClient.
 end
 
 function CasyncClient:_waitData(stream)
