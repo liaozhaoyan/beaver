@@ -4,6 +4,9 @@ local c_type, c_api = cffi.type, cffi.api
 local mt = {}
 
 local error = error
+local format = string.format
+local byte = string.byte
+local concat = table.concat
 local c_new = c_type.new
 local c_str = c_type.string
 local c_md5 = c_api.md5_digest
@@ -77,6 +80,39 @@ function mt.b64_decode(s)
         error("b64_decode failed")
     end
     return c_str(digest, ret)
+end
+
+local urlIgnore = {
+    [' '] = '+',
+    ['-'] = '-',
+    ['_'] = '_',
+    ['~'] = '~',
+    ['.'] = '.',
+}
+local function char_to_hex(byte_c)
+    return format("%%%02X", byte(byte_c))
+end
+-- refer to https://datatracker.ietf.org/doc/html/rfc3986
+function mt.url_encode(url)
+    local encoded = {}
+
+    for i = 1, #url do
+        local c = url:sub(i, i)
+        local byte_c = byte(c)
+
+        if byte_c >= 0x80 then  -- for non-ascii
+            encoded[i] = char_to_hex(byte_c)
+        else  -- for ascii
+            if urlIgnore[c] then  -- for special chars
+                encoded[i] = urlIgnore[c]
+            elseif c:match("%w") then  -- for normal chars
+                encoded[i] = c
+            else   -- for other chars
+                encoded[i] = char_to_hex(byte_c)
+            end
+        end
+    end
+    return concat(encoded)
 end
 
 return mt
