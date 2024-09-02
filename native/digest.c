@@ -132,3 +132,11 @@ int hmac_digest(const char *key, int key_len, const char *data, int data_len, ch
     HMAC_CTX_free(ctx);
     return hmac_len;
 }
+
+int b64_encode(const char *data, int len, char *digest) {
+    return EVP_EncodeBlock((unsigned char*)digest, (const unsigned char*)data, len);
+}
+
+int b64_decode(const char *data, int len, char *digest) {
+    return EVP_DecodeBlock((unsigned char*)digest, (const unsigned char*)data, len);
+}

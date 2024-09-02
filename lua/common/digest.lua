@@ -10,6 +10,8 @@ local c_md5 = c_api.md5_digest
 local c_sha1 = c_api.sha1_digest
 local c_sha256 = c_api.sha256_digest
 local c_hmac = c_api.hmac
+local c_b64_encode = c_api.b64_encode
+local c_b64_decode = c_api.b64_decode
 
 local md5_len = 32 + 1
 local sha1_len = 40 + 1
@@ -54,6 +56,27 @@ function mt.hmac(key, data, algo)
     end
     local res = c_str(digest)
     return res:sub(1, len)
+end
+
+function mt.b64_encode(s)
+    local len = #s
+    local digest = c_new("char[?]", (len + 2) / 3 * 4)
+    local ret = c_b64_encode(s, len, digest)
+
+    if ret < 0 then
+        error("b64_encode failed")
+    end
+    return c_str(digest, len)
+end
+
+function mt.b64_decode(s)
+    local len = #s
+    local digest = c_new("char[?]", len)
+    local ret = c_b64_decode(s, len, digest)
+    if ret < 0 then
+        error("b64_decode failed")
+    end
+    return c_str(digest, ret)
 end
 
 return mt
