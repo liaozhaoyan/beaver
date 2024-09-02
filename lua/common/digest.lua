@@ -90,7 +90,7 @@ local urlIgnore = {
     ['.'] = '.',
 }
 local function char_to_hex(byte_c)
-    return format("%%%02X", byte(byte_c))
+    return format("%%%02X", byte_c)
 end
 -- refer to https://datatracker.ietf.org/doc/html/rfc3986
 function mt.url_encode(url)
