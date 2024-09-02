@@ -66,6 +66,7 @@ int vsock_connect(int sockfd, unsigned int cid, unsigned short port);
 void md5_digest(const char* data, int len, char* digest);
 void sha1_digest(const char* data, int len, char* digest);
 void sha256_digest(const char* data, int len, char* digest);
+int hmac_digest(const char *key, int key_len, const char *data, int data_len, char *digest, int mode);
 ]]
 
 return {type = c_type, api=c_api}
