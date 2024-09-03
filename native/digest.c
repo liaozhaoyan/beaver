@@ -133,6 +133,10 @@ int hmac_digest(const char *key, int key_len, const char *data, int data_len, ch
     return hmac_len;
 }
 
+void hex_encode(const char *data, int len, char *digest) {
+    binaryToHex((const unsigned char*)data, len, digest);
+}
+
 int b64_encode(const char *data, int len, char *digest) {
     return EVP_EncodeBlock((unsigned char*)digest, (const unsigned char*)data, len);
 }

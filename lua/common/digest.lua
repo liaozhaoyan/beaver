@@ -1,3 +1,5 @@
+local require = require
+local system = require("common.system")
 local cffi = require("beavercffi")
 
 local c_type, c_api = cffi.type, cffi.api
@@ -7,14 +9,16 @@ local error = error
 local format = string.format
 local byte = string.byte
 local concat = table.concat
+local floor = math.floor
 local c_new = c_type.new
 local c_str = c_type.string
 local c_md5 = c_api.md5_digest
 local c_sha1 = c_api.sha1_digest
 local c_sha256 = c_api.sha256_digest
-local c_hmac = c_api.hmac
+local c_hmac = c_api.hmac_digest
 local c_b64_encode = c_api.b64_encode
 local c_b64_decode = c_api.b64_decode
+local c_hex_encode = c_api.hex_encode
 
 local md5_len = 32 + 1
 local sha1_len = 40 + 1
@@ -57,19 +61,28 @@ function mt.hmac(key, data, algo)
     if len < 0 then
         error("hmac failed")
     end
-    local res = c_str(digest)
-    return res:sub(1, len)
+    local res = c_str(digest, len)
+    return res
+end
+
+function mt.hex_encode(s)
+    local len = #s
+    local rlen = len * 2 + 1
+    local digest = c_new("char[?]", rlen)
+    c_hex_encode(s, len, digest)
+    return c_str(digest, rlen)
 end
 
 function mt.b64_encode(s)
     local len = #s
-    local digest = c_new("char[?]", (len + 2) / 3 * 4)
+    local rlen = floor((len + 2) / 3 * 4)
+    local digest = c_new("char[?]", rlen)
     local ret = c_b64_encode(s, len, digest)
 
     if ret < 0 then
         error("b64_encode failed")
     end
-    return c_str(digest, len)
+    return c_str(digest, rlen)
 end
 
 function mt.b64_decode(s)

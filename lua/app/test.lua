@@ -49,7 +49,7 @@ local function instance(tReq)
 end
 
 local function bing(tReq)
-    local req = ChttpReq.new(tReq, "https://cn.bing.com/", nil, nil, nil)
+    local req = ChttpReq.new(tReq, "https://cn.bing.com/", nil, nil, proxy)
     local tRes = req:get("HTTPS://cn.bing.com/")
     if tRes then
         return {body = tRes.body}
@@ -194,6 +194,7 @@ end
 function Ctest:_init_(inst, conf)
     -- redisTest.start()
     -- inst:setProbe(probe)
+
     inst:get("/", index)
     inst:get("/instance", instance)
     inst:get("/bing", bing)
