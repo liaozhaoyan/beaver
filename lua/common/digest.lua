@@ -70,7 +70,7 @@ function mt.hex_encode(s)
     local rlen = len * 2 + 1
     local digest = c_new("char[?]", rlen)
     c_hex_encode(s, len, digest)
-    return c_str(digest, rlen)
+    return c_str(digest)
 end
 
 function mt.b64_encode(s)
@@ -82,7 +82,7 @@ function mt.b64_encode(s)
     if ret < 0 then
         error("b64_encode failed")
     end
-    return c_str(digest, rlen)
+    return c_str(digest, ret)
 end
 
 function mt.b64_decode(s)
