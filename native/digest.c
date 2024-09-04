@@ -164,10 +164,10 @@ void hex_encode(const char *data, int len, char *digest) {
     binaryToHex((const unsigned char*)data, len, digest);
 }
 
-int b64_encode(const char *data, int len, char *digest) {
+int base64_encode(const char *data, int len, char *digest) {
     return EVP_EncodeBlock((unsigned char*)digest, (const unsigned char*)data, len);
 }
 
-int b64_decode(const char *data, int len, char *digest) {
+int base64_decode(const char *data, int len, char *digest) {
     return EVP_DecodeBlock((unsigned char*)digest, (const unsigned char*)data, len);
 }

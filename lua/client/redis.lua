@@ -489,7 +489,8 @@ function Credis:_setup(fd, tmo)
             end
             e = nil
         elseif t == "cdata" then  -- read event.
-            if e.ev_in > 0 then
+            local ev_in, ev_close = e.ev_in, e.ev_close
+            if ev_in > 0 then
                 clear = nil -- clear timerWait.
                 local fread = beaver:reads(fd, maxLen, tmo/2)
                 if lastType == "table" then
@@ -513,7 +514,7 @@ function Credis:_setup(fd, tmo)
                 e = r
                 t = type(e)
                 if t == "cdata" then -->upstream need to close.
-                    liteAssert(e.ev_close > 0)
+                    liteAssert(ev_close > 0)
                     self:wake(co, nil)  -->let upstream to do next working.
                     break
                 elseif t == "number" then  -->upstream reuse connect
@@ -532,7 +533,7 @@ function Credis:_setup(fd, tmo)
                 else
                     error(format("redis type: %s, not support, , unknown error.", t))
                 end
-            elseif e.ev_close > 0 then
+            elseif ev_close > 0 then
                 self._status = 0
                 self:wake(co, nil)
                 break

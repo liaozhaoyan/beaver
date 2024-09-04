@@ -19,8 +19,8 @@ local c_sha256 = c_api.sha256_digest
 local c_sha384 = c_api.sha384_digest
 local c_sha512 = c_api.sha512_digest
 local c_hmac = c_api.hmac_digest
-local c_b64_encode = c_api.b64_encode
-local c_b64_decode = c_api.b64_decode
+local c_b64_encode = c_api.base64_encode
+local c_b64_decode = c_api.base64_decode
 local c_hex_encode = c_api.hex_encode
 
 local md5_len = 32 + 1

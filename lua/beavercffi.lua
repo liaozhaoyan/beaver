@@ -71,8 +71,8 @@ void sha384_digest(const char* data, int len, char* digest);
 void sha512_digest(const char* data, int len, char* digest);
 int hmac_digest(const char *key, int key_len, const char *data, int data_len, char *digest, int mode);
 void hex_encode(const char *data, int len, char *digest);
-int b64_encode(const char *data, int len, char *digest);
-int b64_decode(const char *data, int len, char *digest);
+int base64_encode(const char *data, int len, char *digest);
+int base64_decode(const char *data, int len, char *digest);
 ]]
 
 return {type = c_type, api=c_api}
