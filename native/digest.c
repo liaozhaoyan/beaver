@@ -37,6 +37,15 @@ void sha1_digest(const char *data, int len, char *digest) {
     binaryToHex(sha1, SHA_DIGEST_LENGTH, digest);
 }
 
+void sha224_digest(const char *data, int len, char *digest) {
+    SHA256_CTX ctx;
+    unsigned char sha224[SHA224_DIGEST_LENGTH];
+    SHA224_Init(&ctx);
+    SHA224_Update(&ctx, data, len);
+    SHA224_Final(sha224, &ctx);
+    binaryToHex(sha224, SHA224_DIGEST_LENGTH, digest);
+}
+
 void sha256_digest(const char *data, int len, char *digest) {
     SHA256_CTX ctx;
     unsigned char sha256[SHA256_DIGEST_LENGTH];
@@ -45,6 +54,24 @@ void sha256_digest(const char *data, int len, char *digest) {
     SHA256_Update(&ctx, data, len);
     SHA256_Final(sha256, &ctx);
     binaryToHex(sha256, SHA256_DIGEST_LENGTH, digest);
+}
+
+void sha384_digest(const char *data, int len, char *digest) {
+    SHA512_CTX ctx;
+    unsigned char sha384[SHA384_DIGEST_LENGTH];
+    SHA512_Init(&ctx);
+    SHA512_Update(&ctx, data, len);
+    SHA512_Final(sha384, &ctx);
+    binaryToHex(sha384, SHA384_DIGEST_LENGTH, digest);
+}
+
+void sha512_digest(const char *data, int len, char *digest) {
+    SHA512_CTX ctx;
+    unsigned char sha512[SHA512_DIGEST_LENGTH];
+    SHA512_Init(&ctx);
+    SHA512_Update(&ctx, data, len);
+    SHA512_Final(sha512, &ctx);
+    binaryToHex(sha512, SHA512_DIGEST_LENGTH, digest);
 }
 
 #define HMAC_MD5 0

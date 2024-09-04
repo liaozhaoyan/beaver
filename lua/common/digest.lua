@@ -14,7 +14,10 @@ local c_new = c_type.new
 local c_str = c_type.string
 local c_md5 = c_api.md5_digest
 local c_sha1 = c_api.sha1_digest
+local c_sha224 = c_api.sha224_digest
 local c_sha256 = c_api.sha256_digest
+local c_sha384 = c_api.sha384_digest
+local c_sha512 = c_api.sha512_digest
 local c_hmac = c_api.hmac_digest
 local c_b64_encode = c_api.b64_encode
 local c_b64_decode = c_api.b64_decode
@@ -22,7 +25,10 @@ local c_hex_encode = c_api.hex_encode
 
 local md5_len = 32 + 1
 local sha1_len = 40 + 1
+local sha224_len = 56 + 1
 local sha256_len = 64 + 1
+local sha384_len = 96 + 1
+local sha512_len = 128 + 1
 
 function mt.md5(s)
     local ret = c_new("char[?]", md5_len)
@@ -36,9 +42,27 @@ function mt.sha1(s)
     return c_str(ret)
 end
 
+function mt.sha224(s)
+    local ret = c_new("char[?]", sha224_len)
+    c_sha224(s, #s, ret)
+    return c_str(ret)
+end
+
 function mt.sha256(s)
     local ret = c_new("char[?]", sha256_len)
     c_sha256(s, #s, ret)
+    return c_str(ret)
+end
+
+function mt.sha384(s)
+    local ret = c_new("char[?]", sha384_len)
+    c_sha384(s, #s, ret)
+    return c_str(ret)
+end
+
+function mt.sha512(s)
+    local ret = c_new("char[?]", sha512_len)
+    c_sha512(s, #s, ret)
     return c_str(ret)
 end
 
