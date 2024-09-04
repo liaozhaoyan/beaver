@@ -68,11 +68,7 @@ b64_decode函数提供Base64解码功能。
 * 入参1: 待解码的Base64字符串, string类型
 * 出参1: 解码后的字符串, string类型
 
-
-## 3.2、URL编码
-URL编码是一种在Internet上确保 Uniform Resource Locators (URLs) 完整性和有效性的方法，特别是当URL中包含特殊字符或非ASCII字符时。特殊字符需要被转换成对应的百分号编码（%XX）形式，其中XX是字符的两位十六进制表示。这一过程有助于避免在URL传递过程中出现解析错误，确保所有字符都能被正确识别和处理。
-
-### 3.2.1、url_encode
+### 3.1.11、url_encode
 url_encode函数提供URL编码功能，遵循RFC3986标准
 * 入参1: 待编码的URL字符串, string类型
 * 出参1: 编码后的URL字符串, string类型
