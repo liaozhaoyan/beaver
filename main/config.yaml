@@ -1,26 +1,25 @@
 worker:
   - number: 1   # worker process
     funcs:
-    - func: "pingpong"
-      mode: "TCP"
-      bind: "0.0.0.0"
-      port: 3382
-    - func: "dnsReq"
-      mode: "TCP"
-      bind: "0.0.0.0"
-      port: 3383
-    - func: "upstream"
-      mode: "TCP"
-      bind: "0.0.0.0"
-      port: 3384
-      upIP: "172.16.0.131"
-      upPort: 3385
+    # - func: "pingpong"
+    #   mode: "TCP"
+    #   bind: "0.0.0.0"
+    #   port: 3382
+    # - func: "dnsReq"
+    #   mode: "TCP"
+    #   bind: "0.0.0.0"
+    #   port: 3383
+    # - func: "upstream"
+    #   mode: "TCP"
+    #   bind: "0.0.0.0"
+    #   port: 3384
+    #   upIP: "172.16.0.131"
+    #   upPort: 3385
     - func: "httpServer"
       mode: "TCP"
       bind: "0.0.0.0"
       port: 3385
       entry: test  # entry path
-    entries:
-  - number: 1
-    entries:
-    - entry: timeWork
+  # - number: 1
+  #   entries:
+  #   - entry: timeWork

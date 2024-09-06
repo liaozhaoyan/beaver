@@ -182,11 +182,6 @@ function ChttpReq:_setup(fd, tmo)
                 end
 
                 local r = self:wake(co, tRes)
-                if ev_close > 0 then   -->remote server closed
-                    self._status = 0
-                    self:wake(co, nil)
-                    break
-                end
 
                 e = r
                 t = type(e)

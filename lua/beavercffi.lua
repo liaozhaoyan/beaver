@@ -14,9 +14,14 @@ typedef struct native_event {
     short int ev_close;
 }native_event_t;
 
+typedef struct native_cell {
+    int fd;
+    unsigned long events;
+}native_cell_t;
+
 typedef struct native_events {
     int num;
-    native_event_t evs[256];
+    native_cell_t evs[256];
 }native_events_t;
 
 typedef unsigned long pthread_t;
@@ -27,6 +32,9 @@ int add_fd(int efd, int fd);
 int mod_fd(int efd, int fd, int wr);
 int mod_fd_block(int fd, int block);
 int del_fd(int efd, int fd);
+int poll_is_in(native_cell_t* ev);
+int poll_is_out(native_cell_t* ev);
+int poll_is_close(native_cell_t* ev);
 int poll_fds(int efd, int tmo, native_events_t* nes);
 int setsockopt_reuse_port(int fd);
 int check_connected(int fd);

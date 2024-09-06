@@ -18,6 +18,8 @@
 #include <string.h>
 #include "async_ssl.h"
 
+#define EPOLL_CLOSE_FLAG (EPOLLERR | EPOLLHUP | EPOLLRDHUP)
+
 int setsockopt_reuse_port(int fd){
     int opt =1;
     int r = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, (char*)&opt, sizeof(int));
@@ -188,6 +190,18 @@ int del_fd(int efd, int fd) {
     return ret;
 }
 
+int poll_is_in(native_cell_t* ev) {
+    return ev->events & EPOLLIN ? 1 : 0;
+}
+
+int poll_is_out(native_cell_t* ev) {
+    return ev->events & EPOLLOUT ? 1 : 0;
+}
+
+int poll_is_close(native_cell_t* ev) {
+    return ev->events & EPOLL_CLOSE_FLAG ? 1 : 0;
+}
+
 int poll_fds(int efd, int tmo, native_events_t* nes) {
     struct epoll_event events[NATIVE_EVENT_MAX];
     int i, ret = 0;
@@ -206,16 +220,7 @@ int poll_fds(int efd, int tmo, native_events_t* nes) {
     nes->num = ret;
     for (i = 0; i < ret; i ++) {
         nes->evs[i].fd = events[i].data.fd;
-
-        if (events[i].events & close_flag) {
-            nes->evs[i].ev_close = 1;
-        }
-        if (events[i].events & EPOLLIN) {
-            nes->evs[i].ev_in = 1;
-        }
-        if (events[i].events & EPOLLOUT) {
-            nes->evs[i].ev_out = 1;
-        }
+        nes->evs[i].events = events[i].events;
     }
     return 0;
 }

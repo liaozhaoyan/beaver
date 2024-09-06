@@ -19,6 +19,9 @@ local CcoBeaver = class("coBeaver", CbeaverIO)
 local c_new = c_type.new
 local liteAssert = system.liteAssert
 local coReport = system.coReport
+local c_poll_is_in = c_api.poll_is_in
+local c_poll_is_out = c_api.poll_is_out
+local c_poll_is_close = c_api.poll_is_close
 local c_api_poll_fds = c_api.poll_fds
 local format = string.format
 local time = os.time
@@ -50,20 +53,43 @@ function CcoBeaver:co_exit(fd)
     self:remove(fd)
     self._cos[fd] = nil -- _cos defined in beaverIO.lua
 end
+
+local function runCo(co, e)
+    if status(co) == "dead" then  -- coroutine dead, do nothing
+        return
+    end
+    local res, msg = resume(co, e)
+    if not res then
+        print("resume error.", traceback(co))
+    end
+    coReport(co, res, msg)
+end
 -- 
 local function _pollFd(cos, nes)
+    local e = c_new("native_event_t")
     for i = 0, nes.num - 1 do
-        local e = nes.evs[i];
-        local fd = e.fd
+        local ev = nes.evs[i];
+        local fd = ev.fd
 
         local co = cos[fd]
         -- assert(co, string.format("fd: %d not setup.", fd))
-        if co and status(co) == "suspended" then -- coroutine event may closed.
-            local res, msg = resume(co, e)
-            if not res then
-                print("resume error.", traceback(co))
+        if co then -- coroutine event may closed.
+            e.fd = fd
+            if c_poll_is_in(ev) > 0 then
+                e.ev_in = 1
+                runCo(co, e)
+                e.ev_in = 0
             end
-            coReport(co, res, msg)
+            if c_poll_is_out(ev) > 0 then
+                e.ev_out = 1
+                runCo(co, e)
+                e.ev_out = 0
+            end
+            if c_poll_is_close(ev) > 0 then
+                e.ev_close = 1
+                runCo(co, e)
+                e.ev_close = 0
+            end
         end
     end
     return 0

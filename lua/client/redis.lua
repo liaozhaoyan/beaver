@@ -505,11 +505,6 @@ function Credis:_setup(fd, tmo)
                 end
 
                 local r = self:wake(co, res)  -- from next working.
-                if e.ev_close > 0 then  -- server closed this request
-                    self._status = 0
-                    self:wake(co, nil)
-                    break
-                end
 
                 e = r
                 t = type(e)

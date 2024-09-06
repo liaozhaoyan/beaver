@@ -14,9 +14,14 @@ typedef struct native_event {
     short int ev_close;
 }native_event_t;
 
+typedef struct native_cell {
+    int fd;
+    unsigned long events;
+}native_cell_t;
+
 typedef struct native_events {
     int num;
-    native_event_t evs[NATIVE_EVENT_MAX];
+    native_cell_t evs[NATIVE_EVENT_MAX];
 }native_events_t;
 
 #endif //UNITY_LOCAL_BEAVER_H
