@@ -17,6 +17,7 @@ local class = class
 local CasyncDns = class("asyncDns", CasyncBase)
 
 local mathHuge = math.huge
+local random = math.random
 local pairs = pairs
 local ipairs = ipairs
 local time = os.time
@@ -46,6 +47,14 @@ local reqId = 0
 local serverIP
 local searchSuffix = {}
 
+local function randomIp(ips)
+    if not ips then
+        return nil
+    end
+    local idx = random(#ips)
+    return ips[idx]
+end
+
 local function lookupServer()
     local f = io_open("/etc/resolv.conf")
     if not f then
@@ -67,20 +76,30 @@ local function lookupServer()
 end
 
 local function lookupLocal(path)
-    local res = {}
     path = path or "/etc/hosts"
     local f = io_open(path)
     liteAssert(f, "dns config not found.")
+    local domains = {}
     for line in f:lines() do
         local ss = split(line)
         local ip = ss[1]
         if isIPv4(ip) then
             for i =2, #ss do
-                res[ss[i]] = {ip, mathHuge}
+                local domain = ss[i]
+                if domains[domain] then
+                    insert(domains[domain], ip)
+                else
+                    domains[domain] = {ip}
+                end
             end
         end
     end
     f:close()
+
+    local res = {}
+    for domain, ips in pairs(domains) do
+        res[domain] = {ips, mathHuge}
+    end
     return res
 end
 
@@ -149,24 +168,30 @@ local function packQuery(domain)
     return query
 end
 
-local function wakesDns(requesting, domain, ip)
+local function wakesDns(requesting, domain, ips)
     local requests = requesting[domain]
     for _, req in ipairs(requests) do  -- req contains {fid, coId}
-        wakeDns(domain, ip, req[1], req[2])
+        wakeDns(domain, randomIp(ips), req[1], req[2])
     end
     requesting[domain] = nil
 end
 
 local function getIPFromRec(rec, e)
+    local c, ips = 1, {}
     if rec then
         if type(rec.answers) == "table" then
             for _, an in ipairs(rec.answers) do
                 if an.type == "A" then
-                    return an.content
+                    ips[c] = an.content
+                    c = c + 1
                 end
             end
         end
-        return nil, "no dns request from dns req."
+        if c > 1 then
+            return ips
+        else
+            return nil, "no dns request from dns req."
+        end
     else
         print("bad dns req.", e)
         return nil, error
@@ -190,23 +215,23 @@ function CasyncDns:_setup(fd, tmo)
             if size then
                 beaver:co_set_tmo(fd, tmo)
                 res, err, errno = beaver:read(fd, 512)
-                local ip
+                local ips
                 if res then
                     local parser = dnsParser.new(res)
                     local rec, e = parser:parse()
-                    ip, e = getIPFromRec(rec, e)
-                    if not ip then
+                    ips, e = getIPFromRec(rec, e)
+                    if not ips then
                         print("dns parse failed.", e)
                         failed = failed + 1
                     else
-                        freshDns(domain, {ip, time()})
+                        freshDns(domain, {ips, time()})
                         failed = 0
                     end
                 else
                     print("dns read fialed.", err, errno)
                     failed = failed + 1
                 end
-                wakesDns(self._requesting, domain, ip)
+                wakesDns(self._requesting, domain, ips)
             else
                 print("dns sentto fialed.", err, errno)
                 wakesDns(self._requesting, domain, nil)
@@ -226,7 +251,7 @@ function CasyncDns:_setup(fd, tmo)
 end
 
 function CasyncDns:request(domain, tVar) -- tVar contains {fid, coId}
-    if self._requesting[domain] then
+    if self._requesting[domain] then  -- already in requesting, delayed.
         insert(self._requesting[domain], tVar)
         return
     end

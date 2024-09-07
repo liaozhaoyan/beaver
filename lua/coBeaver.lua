@@ -73,22 +73,23 @@ local function _pollFd(cos, nes)
 
         local co = cos[fd]
         -- assert(co, string.format("fd: %d not setup.", fd))
-        if co then -- coroutine event may closed.
+        if co then -- coroutine event may closed, then the coroutine will free.
+            -- The handling order of epoll should be in -> close -> read.
             e.fd = fd
             if c_poll_is_in(ev) > 0 then
                 e.ev_in = 1
                 runCo(co, e)
                 e.ev_in = 0
             end
-            if c_poll_is_out(ev) > 0 then
-                e.ev_out = 1
-                runCo(co, e)
-                e.ev_out = 0
-            end
             if c_poll_is_close(ev) > 0 then
                 e.ev_close = 1
                 runCo(co, e)
                 e.ev_close = 0
+            end
+            if c_poll_is_out(ev) > 0 then
+                e.ev_out = 1
+                runCo(co, e)
+                e.ev_out = 0
             end
         end
     end

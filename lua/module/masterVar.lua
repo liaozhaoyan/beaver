@@ -12,7 +12,6 @@ local system = require("common.system")
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
-local lru = require("lru")
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
 
@@ -22,6 +21,7 @@ local ipairs = ipairs
 local print = print
 local error = error
 local time = os.time
+local random = math.random
 local pipe = unistd.pipe
 local liteAssert = system.liteAssert
 local coReport = system.coReport
@@ -37,13 +37,13 @@ local deepcopy = system.deepcopy
 
 local timer
 
-local dnsOvertime = 25
+local dnsOvertime = 30
 
 local var = {
     setup = false,
     workers = {},   -- masters children
 
-    dnsBuf = lru.new(32),
+    dnsBuf = {},
 }
 
 function M.masterSetPipeOut(coOut)
@@ -158,15 +158,21 @@ local function checkDns(domain)
     end
 end
 
+local function randomIp(ips)
+    -- ips is table, never nil
+    local idx = random(#ips)
+    return ips[idx]
+end
+
 local function reqDns(arg)
     local fid = arg.id
     local coId = arg.coId
     local domain = arg.domain
-    local ip
+    local ips
 
-    ip = checkDns(domain)
-    if ip then
-        wakeDns(domain, ip, fid, coId)
+    ips = checkDns(domain)
+    if ips then
+        wakeDns(domain, randomIp(ips), fid, coId)
     else
         var.dns:request(domain, {fid, coId})
     end
