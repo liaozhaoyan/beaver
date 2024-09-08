@@ -19,14 +19,18 @@ local CasyncDns = class("asyncDns", CasyncBase)
 local mathHuge = math.huge
 local random = math.random
 local pairs = pairs
+local next = next
 local ipairs = ipairs
 local time = os.time
 local print = print
 local io_open = io.open
 local liteAssert = system.liteAssert
 local coReport = system.coReport
+local create = coroutine.create
 local yield = coroutine.yield
 local resume = coroutine.resume
+local status = coroutine.status
+local running = coroutine.running
 local startswith = pystring.startswith
 local split = pystring.split
 local new_socket = psocket.socket
@@ -44,7 +48,7 @@ local isIPv4 = sockComm.isIPv4
 local freshDns
 local wakeDns
 local reqId = 0
-local serverIP
+local serverIPs = {}
 local searchSuffix = {}
 
 local function randomIp(ips)
@@ -63,8 +67,9 @@ local function lookupServer()
     for line in f:lines() do
         if startswith(line, "nameserver") then
             local res = split(line)
-            serverIP = res[2]
-            break
+            if isIPv4(res[2]) then
+                insert(serverIPs, res[2])
+            end
         elseif startswith(line, "search") then
             local res = split(line)
             for i = 2, #res do
@@ -105,12 +110,14 @@ end
 
 function CasyncDns:_init_(beaver, fresh, wake)
     lookupServer()
-    liteAssert(serverIP)
+    liteAssert(serverIPs)
 
     local fd, err, errno = new_socket(psocket.AF_INET, psocket.SOCK_DGRAM, 0)
     liteAssert(fd, err)
 
-    self._requesting = {}  -- domain -> fid, coId
+    self._working = false  -- for working flag, 
+    self._requesting = {}  -- domain -> {fid, coId}.  just one member 
+    self._requestQue = {}  -- domain -> {fid, coId}.
     freshDns = fresh
     wakeDns = wake
 
@@ -119,7 +126,7 @@ function CasyncDns:_init_(beaver, fresh, wake)
         freshDns(k, v)
     end
 
-    CasyncBase._init_(self, beaver, fd, 10)  -- accept never overtime.
+    CasyncBase._init_(self, beaver, fd, 5)  -- accept never overtime.
 end
 
 local function packQuery(domain)
@@ -182,8 +189,11 @@ local function getIPFromRec(rec, e)
         if type(rec.answers) == "table" then
             for _, an in ipairs(rec.answers) do
                 if an.type == "A" then
-                    ips[c] = an.content
-                    c = c + 1
+                    local content = an.content
+                    if isIPv4(content) then
+                        ips[c] = content
+                        c = c + 1
+                    end
                 end
             end
         end
@@ -198,53 +208,115 @@ local function getIPFromRec(rec, e)
     end
 end
 
+local function getThread(beaver, domain, ip, tmo, coWake)
+    local size, fd, err, errno, res, msg
+    fd, err = new_socket(psocket.AF_INET, psocket.SOCK_DGRAM, 0)
+    liteAssert(fd, err)
+    beaver:co_bind(fd)
+
+    local tDist = {family=psocket.AF_INET, addr=ip, port=53}
+    local query = packQuery(domain)
+
+    size, err, errno = psendto(fd, query, tDist)
+    if not size or size ~= #query then
+        print(format("sendto dns requst %s to %s, return size %d, hopo: %d, err: %s, errno: %d", domain, ip, size or -1, #query, err, errno))
+        beaver:co_exit(fd)
+        -- always resume from dns thread, so, do not wake up coWake.
+        return
+    end
+    beaver:co_set_tmo(fd, tmo)
+    res, err, errno = beaver:read(fd, 512)  -- will yield back.
+    if not res then
+        print(format("read dns requst %s to %s, return %s, errno: %d", domain, ip, err, errno))
+    end
+
+    if status(coWake) == "suspended" then  -- may wake for cancel.
+        local ips = nil
+        if res then
+            local parser = dnsParser.new(res)
+            local rec, e = parser:parse()
+            ips, e = getIPFromRec(rec, e)
+            if not ips then
+                print("dns parse failed.", e)
+            end
+        else
+            print(format("sendto dns requst %s to %s, return %s, errno: %d", domain, ip, err, errno))
+        end
+        res, msg = resume(coWake, ip, ips)
+        coReport(coWake, res, msg)
+    end
+    beaver:co_exit(fd)
+end
+
+local function dnsGets(beaver, domain, tmo)
+    local res, msg
+    local nowCo = running()
+    local cos = {}
+    for _, ip in ipairs(serverIPs) do
+        local co = create(getThread)
+        res, msg = resume(co, beaver, domain, ip, tmo, nowCo)
+        coReport(co, res, msg)
+        cos[ip] = co
+    end
+
+    local ips, ip = nil, nil
+    repeat
+        ip, ips = yield()  -- wake from getThread
+        cos[ip] = nil  -- release record.
+        if ips then
+            for head, co in pairs(cos) do
+                if ip ~= head then
+                    res, msg = resume(co, nil)  -- to kill other getThread
+                    coReport(co, res, msg)
+                    cos[head] = nil  -- release record.
+                end
+            end
+        else
+            if not next(cos) then  -- get none.
+                return nil
+            end
+        end
+    until ips
+    return ips
+end
+
 function CasyncDns:_setup(fd, tmo)
+    local requesting = self._requesting
+    local requstQue = self._requestQue
+
     local res
     local beaver = self._beaver
     local size, err, errno
-    local tDist = {family=psocket.AF_INET, addr=serverIP, port=53}
+    -- local tDist = {family=psocket.AF_INET, addr=serverIP, port=53}
     local failed = 0
+    beaver:co_set_tmo(fd, -1)
 
     while true do
-        beaver:co_set_tmo(fd, -1)
-        local domain, tVar = yield()   -- tVar contains {fid, coId}
+        self._working = false
+        local _ = yield()   -- tVar contains {fid, coId}
+        self._working = true
 
-        local query = packQuery(domain)
-        if query then
-            size, err, errno = psendto(fd, query, tDist)
-            if size then
-                beaver:co_set_tmo(fd, tmo)
-                res, err, errno = beaver:read(fd, 512)
-                local ips
-                if res then
-                    local parser = dnsParser.new(res)
-                    local rec, e = parser:parse()
-                    ips, e = getIPFromRec(rec, e)
-                    if not ips then
-                        print("dns parse failed.", e)
-                        failed = failed + 1
-                    else
-                        freshDns(domain, {ips, time()})
-                        failed = 0
-                    end
-                else
-                    print("dns read fialed.", err, errno)
-                    failed = failed + 1
-                end
-                wakesDns(self._requesting, domain, ips)
-            else
-                print("dns sentto fialed.", err, errno)
-                wakesDns(self._requesting, domain, nil)
-                failed = failed + 1
+        while true do
+            local domain, tVar = next(requstQue)
+            if not domain then  -- requstQue has picked up, back to yield.
+                break
             end
 
-            if failed > 256 then
+            requstQue[domain] = nil
+            requesting[domain] = tVar
+            local ips = dnsGets(beaver, domain, tmo)
+            if ips then
+                freshDns(domain, {ips, time()})
+                failed = 0
+            else
+                failed = 0
+            end
+            wakesDns(requesting, domain, ips)
+            if failed > 10 then
                 print("dns failed too many times.")  -- should never occur.
                 os.exit(1)
                 break
             end
-        else
-            wakesDns(self._requesting, domain, nil)
         end
     end
     self:stop()
@@ -256,10 +328,20 @@ function CasyncDns:request(domain, tVar) -- tVar contains {fid, coId}
         return
     end
 
-    self._requesting[domain] = {tVar}
-    local res, msg
-    res, msg = resume(self._co, domain, tVar)
-    coReport(self._co, res, msg)
+    local que = self._requestQue
+
+    if que[domain] then
+        insert(que[domain], {tVar})
+    else
+        que[domain] = {tVar}
+    end
+
+    if not self._working then  -- wake up setup
+        local co = self._co
+        local res, msg
+        res, msg = resume(co, domain)
+        coReport(co, res, msg)
+    end
 end
 
 return CasyncDns

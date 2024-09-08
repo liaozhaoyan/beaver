@@ -31,6 +31,7 @@ local print = print
 local create = coroutine.create
 local resume = coroutine.resume
 local status = coroutine.status
+local running = coroutine.running
 local traceback = debug.traceback
 
 function CcoBeaver:_init_()
@@ -42,11 +43,16 @@ function CcoBeaver:_del_()
 end
 
 function CcoBeaver:co_add(cb, fd)
-    self:add(fd)  -- add to epoll fd, defined in beaverIO.lua
+    self:add(fd)  -- add to epoll fd, defined in beaverIO.lua, will set fd to async mode.
     local co = create(function(o, obj, afd, tmo)  cb(o, obj, afd, tmo) end)
     self._cos[fd] = co  -- _cos defined in beaverIO.lua
 
     return co
+end
+
+function CcoBeaver:co_bind(fd, co)  --bind fd event to coroutine.
+    self:add(fd)
+    self._cos[fd] = co or running()
 end
 
 function CcoBeaver:co_exit(fd)

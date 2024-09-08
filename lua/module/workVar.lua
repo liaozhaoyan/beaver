@@ -43,6 +43,7 @@ local var = {
     -- for dns manager
     dnsWait = {},   -- just for dns.
     dnsId  = 1,     -- dns request co id,
+    dnsCache = {},
 
     -- for multi delay, loop >= 1
     periodWakeCo = {},   -- multi delayed,

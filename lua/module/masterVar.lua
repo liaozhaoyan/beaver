@@ -18,6 +18,7 @@ local cjson = require("cjson.safe")
 local M = {}
 
 local ipairs = ipairs
+local next = next
 local print = print
 local error = error
 local time = os.time
@@ -142,17 +143,9 @@ end
 
 local function checkDns(domain)
     local buf = var.dnsBuf[domain]
-    local now = time()
 
     if buf then
-        local t = buf[2]
-
-        if now - t > dnsOvertime then
-            var.dnsBuf[domain] = nil
-            return nil
-        else
             return buf[1]
-        end
     else
         return nil
     end
@@ -197,6 +190,33 @@ function M.msleep(ms)
     return timer:msleep(ms)
 end
 
+local function stripOverTimeDns(dnsBuf)
+    local msleep = M.msleep
+    while true do
+        msleep(1000 * dnsOvertime / 5)
+        local now = time()
+        local domain, buf
+
+        while true do
+            domain, buf = next(dnsBuf, domain)
+            if domain then
+                if now - buf[2] > dnsOvertime then
+                    dnsBuf[domain] = nil  -- strip.
+                end
+            else
+                break
+            end
+        end
+
+    end
+end
+
+local function stripDns(dnsBuf)
+    local co = create(stripOverTimeDns)
+    local res, msg = resume(co, dnsBuf)
+    coReport(co, res, msg)
+end
+
 function M.masterSetVar(beaver, conf, yaml)
     timer = beaver:setupTimer()
     var.thread = {
@@ -206,6 +226,7 @@ function M.masterSetVar(beaver, conf, yaml)
     }
 
     var.dns = CasyncDns.new(beaver, freshDns, wakeDns)
+    stripDns(var.dnsBuf)
 end
 
 function M.masterGetVar()
