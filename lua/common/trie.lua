@@ -1,3 +1,4 @@
+local require = require
 require("eclass")
 local lpeg = require("lpeg")
 local P, R, C, Ct = lpeg.P, lpeg.R, lpeg.C, lpeg.Ct

@@ -10,6 +10,7 @@ local system = require("common.system")
 local CasyncAccept = require("async.asyncAccept")
 local sockComm = require("common.sockComm")
 local cjson = require("cjson.safe")
+local dnsmatch = require("common.dnsmatch")
 
 local mathHuge = math.huge
 local type = type
@@ -27,6 +28,7 @@ local yield = coroutine.yield
 local resume = coroutine.resume
 local status = coroutine.status
 local jencode = cjson.encode
+local isdns = dnsmatch.isdns
 
 local timer
 local dnsOvertime = 30
@@ -69,6 +71,9 @@ function M.getIp(host)
         ip = getDnsBuf(var.dnsBuf, host)
         if ip then
             return ip
+        end
+        if not isdns(host) then
+            return nil, format("bad dns: host %s", host)
         end
         domain, ip = M.dnsReq(host)
         if not ip then
