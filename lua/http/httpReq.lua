@@ -7,6 +7,7 @@
 local require = require
 require("eclass")
 
+local system = require("common.system")
 local psocket = require("posix.sys.socket")
 local posix = require("posix")
 local CasyncClient = require("async.asyncClient")
@@ -224,7 +225,7 @@ function ChttpReq:_connKata(fd, beaver)
     if not res then
         return 3  -- need close.
     end
-    
+
     local clear = beaver:timerWait(fd)
     local e = yield()
     clear()

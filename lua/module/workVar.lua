@@ -11,9 +11,12 @@ local CasyncAccept = require("async.asyncAccept")
 local sockComm = require("common.sockComm")
 local cjson = require("cjson.safe")
 
+local mathHuge = math.huge
 local type = type
+local next = next
 local pairs = pairs
 local error = error
+local time = os.time
 local format = string.format
 local liteAssert = system.liteAssert
 local coReport = system.coReport
@@ -26,6 +29,7 @@ local status = coroutine.status
 local jencode = cjson.encode
 
 local timer
+local dnsOvertime = 30
 
 local var = {
     -- for server module manage.
@@ -43,18 +47,29 @@ local var = {
     -- for dns manager
     dnsWait = {},   -- just for dns.
     dnsId  = 1,     -- dns request co id,
-    dnsCache = {},
-
-    -- for multi delay, loop >= 1
-    periodWakeCo = {},   -- multi delayed,
-    periodWakeId = 1,    -- index
+    dnsBuf = {},   --> domain -> ip, overtime
 }
+
+local function getDnsBuf(dnsBuf, domain)
+    local now = time()
+    if dnsBuf[domain] then
+        if now > dnsBuf[domain][2] then
+            dnsBuf[domain] = nil
+        else
+            return dnsBuf[domain][1]
+        end
+    end
+end
 
 function M.getIp(host)
     local domain, ip
     if isIPv4(host) then
-        ip = host
+        return host
     else
+        ip = getDnsBuf(var.dnsBuf, host)
+        if ip then
+            return ip
+        end
         domain, ip = M.dnsReq(host)
         if not ip then
             return nil, format("bad dns: host %s, domain %s", host, domain)
@@ -91,41 +106,50 @@ local function echoDns(arg)
     local coId = arg.coId
     local co = var.dnsWait[coId]
 
+    local domain, ip, over = arg.domain, arg.ip, arg.over
+    over = over == -1 and mathHuge or over
+    var.dnsBuf[domain] = {ip, over}
     if status(co) == "suspended" then
-        local res, msg = resume(co, arg.domain, arg.ip)
+        local res, msg = resume(co, domain, ip)
         coReport(co, res, msg)
     end
     var.dnsWait[coId] = nil   -- free wait.
 end
 
-local function echoWake(arg)
-    local res, msg
-    local coId = arg.coId
-    local co = var.periodWakeCo[coId]
-
-    if type(co) == "thread" and status(co) == "suspended" then  -- co may set to nil
-        res, msg = resume(co, arg.period)  -- wake to M.periodWake
-        coReport(co, res, msg)
-        if arg.loop == 0 then
-            var.periodWakeCo[coId] = nil   -- free wait.
-        end
-    else
-        var.periodWakeCo[coId] = nil   -- dead.
-    end
-end
-
 local funcTable = {
     regThreadId = function(arg) return regThreadId(arg)  end,
     echoDns     = function(arg) return echoDns(arg)  end,
-    echoWake    = function(arg) return echoWake(arg)  end,
 }
 
 function M.call(arg)
     return funcTable[arg.func](arg.arg)
 end
 
+local function stripOverTimeDns(dnsBuf)
+    local msleep = M.msleep
+    while true do
+        msleep(1000 * dnsOvertime / 5)
+        local now = time()
+        local domain, buf
+
+        repeat
+            domain, buf = next(dnsBuf, domain)
+            if domain and now > buf[2] then
+                dnsBuf[domain] = nil  -- strip.
+            end
+        until not domain
+    end
+end
+
+local function stripDns(dnsBuf)
+    local co = create(stripOverTimeDns)
+    local res, msg = resume(co, dnsBuf)
+    coReport(co, res, msg)
+end
+
 function M.workerSetVar(beaver, conf, yaml)
     timer = beaver:setupTimer()
+    stripDns(var.dnsBuf)  -- strip overtime dns, to anti-dns-flood.
     var.thread = {
         beaver = beaver,
         conf = conf,

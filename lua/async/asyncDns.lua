@@ -45,6 +45,8 @@ local insert = table.insert
 local error = error
 local isIPv4 = sockComm.isIPv4
 
+local dnsOvertime
+local local_timer
 local freshDns
 local wakeDns
 local reqId = 0
@@ -108,7 +110,9 @@ local function lookupLocal(path)
     return res
 end
 
-function CasyncDns:_init_(beaver, fresh, wake)
+function CasyncDns:_init_(beaver, fresh, wake, timer, overtime)
+    local_timer = timer
+    dnsOvertime = overtime
     lookupServer()
     liteAssert(serverIPs)
 
@@ -177,8 +181,9 @@ end
 
 local function wakesDns(requesting, domain, ips)
     local requests = requesting[domain]
+    local over = time() + dnsOvertime
     for _, req in ipairs(requests) do  -- req contains {fid, coId}
-        wakeDns(domain, randomIp(ips), req[1], req[2])
+        wakeDns(domain, randomIp(ips), over, req[1], req[2])
     end
     requesting[domain] = nil
 end
@@ -226,9 +231,6 @@ local function getThread(beaver, domain, ip, tmo, coWake)
     end
     beaver:co_set_tmo(fd, tmo)
     res, err, errno = beaver:read(fd, 512)  -- will yield back.
-    if not res then
-        print(format("read dns requst %s to %s, return %s, errno: %d", domain, ip, err, errno))
-    end
 
     if status(coWake) == "suspended" then  -- may wake for cancel.
         local ips = nil
@@ -284,10 +286,7 @@ function CasyncDns:_setup(fd, tmo)
     local requesting = self._requesting
     local requstQue = self._requestQue
 
-    local res
     local beaver = self._beaver
-    local size, err, errno
-    -- local tDist = {family=psocket.AF_INET, addr=serverIP, port=53}
     local failed = 0
     beaver:co_set_tmo(fd, -1)
 
@@ -304,14 +303,25 @@ function CasyncDns:_setup(fd, tmo)
 
             requstQue[domain] = nil
             requesting[domain] = tVar
-            local ips = dnsGets(beaver, domain, tmo)
-            if ips then
-                freshDns(domain, {ips, time()})
-                failed = 0
-            else
-                failed = 0
-            end
+
+            local ips = nil
+            local try = 0
+            repeat
+                ips = dnsGets(beaver, domain, tmo)
+                if ips then
+                    freshDns(domain, {ips, time() + dnsOvertime})
+                    failed = 0
+                else
+                    try = try + 1
+                    local_timer:msleep(99)  -- try delayed 99ms for net. do not use masterVar sleep, it will nest required.
+                end
+            until ips or try > 10
+
             wakesDns(requesting, domain, ips)
+            if not ips then
+                failed = failed + 1
+            end
+
             if failed > 10 then
                 print("dns failed too many times.")  -- should never occur.
                 os.exit(1)

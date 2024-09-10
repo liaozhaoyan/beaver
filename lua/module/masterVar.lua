@@ -17,6 +17,7 @@ local cjson = require("cjson.safe")
 
 local M = {}
 
+local mathHuge = math.huge
 local ipairs = ipairs
 local next = next
 local print = print
@@ -86,7 +87,7 @@ local function pipeCtrlReg(arg)
                     if not r then
                         error(format("create pipe failed, %s, errno %d", w, errno))
                     end
-                 
+            
                     workerSend.id = i
                     configStr= ydump({config})
                     local pid = create_beaver(r, var.masterIn, worker.name or "worker", configStr)
@@ -127,13 +128,15 @@ local function freshDns(domain, tVar)  -- {ip, time}
     var.dnsBuf[domain] = tVar
 end
 
-local function wakeDns(domain, ip, fid, coId)
+local function wakeDns(domain, ip, over, fid, coId)
+
     local func = {
         func = "echoDns",
         arg = {
             coId = coId,
             domain = domain,
-            ip = ip
+            ip = ip,
+            over = over == mathHuge and -1 or over  -- -1 means no overtime, cannot encode by json.
         }
     }
     local co = var.workers[fid][4]  -- refer to pipeCtrlReg
@@ -143,10 +146,11 @@ end
 
 local function checkDns(domain)
     local buf = var.dnsBuf[domain]
-
-    if buf then
-            return buf[1]
+    local now = time()
+    if buf and now < buf[2] then
+        return buf[1], buf[2]
     else
+        var.dnsBuf[domain] = nil
         return nil
     end
 end
@@ -161,11 +165,11 @@ local function reqDns(arg)
     local fid = arg.id
     local coId = arg.coId
     local domain = arg.domain
-    local ips
+    local ips, over
 
-    ips = checkDns(domain)
+    ips, over = checkDns(domain)
     if ips then
-        wakeDns(domain, randomIp(ips), fid, coId)
+        wakeDns(domain, randomIp(ips), over, fid, coId)
     else
         var.dns:request(domain, {fid, coId})
     end
@@ -197,17 +201,12 @@ local function stripOverTimeDns(dnsBuf)
         local now = time()
         local domain, buf
 
-        while true do
+        repeat
             domain, buf = next(dnsBuf, domain)
-            if domain then
-                if now - buf[2] > dnsOvertime then
-                    dnsBuf[domain] = nil  -- strip.
-                end
-            else
-                break
+            if domain and now > buf[2] then
+                dnsBuf[domain] = nil  -- strip.
             end
-        end
-
+        until not domain
     end
 end
 
@@ -225,8 +224,8 @@ function M.masterSetVar(beaver, conf, yaml)
         yaml = yaml,
     }
 
-    var.dns = CasyncDns.new(beaver, freshDns, wakeDns)
-    stripDns(var.dnsBuf)
+    var.dns = CasyncDns.new(beaver, freshDns, wakeDns, timer, dnsOvertime)
+    stripDns(var.dnsBuf)   -- to anti dns leak, strip overtime dns.
 end
 
 function M.masterGetVar()
