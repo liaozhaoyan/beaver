@@ -263,6 +263,12 @@ function ChttpReq:reuse(resue)
     self._reuse = resue
 end
 
+function ChttpReq:sslHandler()
+    local fd = self._fd
+    local beaver = self._beaver
+    return beaver:sslHandler(fd)
+end
+
 local function setupHeader(headers)
     headers = headers or {}
     if not headers.Accept then
@@ -288,6 +294,26 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
     }
     local stream = commPackClientFrame(sendTable)
     local res, msg = self:_waitData(stream)
+    if type(res) ~= "table" then
+        -- closed by remote server.
+        self:close()
+        return nil
+    end
+    if reuse or self._reuse then
+        return res
+    end
+    self:close()
+    return res
+end
+
+function ChttpReq:sendBody(body, reuse)
+    if self._status ~= 1 then
+        self:close()
+        return {body = format("connected %s status is %d, should be 1.", self._domain, self._status), 
+                code = 500}
+    end
+
+    local res, msg = self:_waitData(body)
     if type(res) ~= "table" then
         -- closed by remote server.
         self:close()

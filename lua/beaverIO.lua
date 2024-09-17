@@ -108,6 +108,10 @@ function CbeaverIO:mod_fd(fd, wr)
     liteAssert(c_api_mod_fd(self._efd, fd, wr) == 0, traceback(format("mod fd %d failed.", fd)))
 end
 
+function CbeaverIO:sslHandler(fd)
+    return self._ssl[fd]
+end
+
 function CbeaverIO:_readFunction(fd)
     local handler = self._ssl[fd]
     if handler then
@@ -166,6 +170,8 @@ function CbeaverIO:read(fd, size)
         else
             return nil, "top read IO Error.", -ret
         end
+    else
+        return nil, "top read IO Error.", -ret
     end
 end
 
@@ -220,6 +226,8 @@ function CbeaverIO:reads(fd, maxLen, tmo)
             else
                 return nil, "top reads IO Error.", 5
             end
+        else
+            return nil, "top read IO Error.", -ret
         end
     end
     return readFd
