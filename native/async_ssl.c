@@ -107,16 +107,20 @@ int ssl_handshake(void * handle) {
 }
 
 void ssl_del(void *handle) {
-    int ret;
+    int ret = 0;
+    int tries = 0;
+
     if (handle == NULL) {
         return;
     }
     SSL *h = (SSL *)handle;
-    ret = SSL_shutdown(h);
-    if (ret < 0) {
-        int err = SSL_get_error(h, ret);
-        if (err > SSL_ERROR_SSL) {
-            fprintf(stderr, "SSL_shutdown failed. err: %d, OpenSSL error: %s\n", err, ERR_error_string(err, NULL));
+    while (ret == 0 && tries++ < 10) {
+        ret = SSL_shutdown(h);
+        if (ret < 0) {
+            int err = SSL_get_error(h, ret);
+            if (err > SSL_ERROR_SSL) {
+                fprintf(stderr, "SSL_shutdown failed. err: %d, OpenSSL error: %s\n", err, ERR_error_string(err, NULL));
+            }
         }
     }
     SSL_free(h);
