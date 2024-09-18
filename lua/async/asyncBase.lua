@@ -16,8 +16,8 @@ local coReport = system.coReport
 
 function CasyncBase:_init_(beaver, fd, tmo)
     tmo = tmo or -1
-    if tmo > 0 and tmo < 2 then
-        error("tmo must be greater than 2")
+    if tmo > 0 and tmo < 0.01 then
+        error("tmo must be greater than 0.01")
     end
     self._fd = fd
     self._beaver = beaver

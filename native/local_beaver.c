@@ -85,7 +85,7 @@ static int epoll_add(int efd, int fd) {
     int ret = 0;
 
     memset(&event, 0, sizeof(struct epoll_event));
-    event.events  = EPOLLIN;
+    event.events  = EPOLLIN | EPOLLERR | EPOLLRDHUP;
     event.data.fd = fd;
 
     ret = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &event);
