@@ -112,7 +112,7 @@ int init(int listen_fd) {
     int efd = 0;
     int ret = 0;
 
-    efd = epoll_create(NATIVE_EVENT_MAX);
+    efd = epoll_create1(EPOLL_CLOEXEC);
     if (efd < 0) {
         perror("error : cannot create epoll!\n");
         exit(1);
@@ -205,7 +205,6 @@ int poll_is_close(native_cell_t* ev) {
 int poll_fds(int efd, int tmo, native_events_t* nes) {
     struct epoll_event events[NATIVE_EVENT_MAX];
     int i, ret = 0;
-    unsigned int close_flag = EPOLLERR | EPOLLHUP | EPOLLRDHUP;
 
     ret = epoll_wait(efd, events, NATIVE_EVENT_MAX, tmo * 1000);
     if (ret < 0 && errno != EINTR) {   // EINTR should count as a normal event
