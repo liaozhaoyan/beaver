@@ -27,6 +27,7 @@ int ssl_read(void *handle, char *buff, int len)
             ret = -11;
             goto needContinue;
         } else {
+            fprintf(stderr, "ssl_read failed. ssl_err: %d, errno: %d, %s\n", err, errno, strerror(errno));
             ret = -EIO;
             goto readFailed;
         }
@@ -49,6 +50,7 @@ int ssl_write(void *handle, const char *buff, int len) {
             ret = -11;
             goto needContinue;
         } else {
+            fprintf(stderr, "ssl_write failed. ssl_err: %d, errno: %d, %s\n", err, errno, strerror(errno));
             ret = -EIO;
             goto writeFailed;
         }
@@ -117,9 +119,26 @@ void ssl_del(void *handle) {
     while (ret == 0 && tries++ < 10) {
         ret = SSL_shutdown(h);
         if (ret < 0) {
+            char buf[64];
+            int size;
             int err = SSL_get_error(h, ret);
-            if (err > SSL_ERROR_SSL) {
+            switch (err)
+            {
+            case SSL_ERROR_NONE:  //no error
+            case SSL_ERROR_SSL:  //no error
+                break;
+            case SSL_ERROR_WANT_WRITE:
+                break;
+            case SSL_ERROR_WANT_READ:
+                size = ssl_read(h, buf, 64 - 1);
+                if (size > 0) {
+                    buf[size] = '\0';
+                    fprintf(stderr, "SSL_shutdown, waste %d bytes: %s\n", size, buf);
+                }
+                break;
+            default:
                 fprintf(stderr, "SSL_shutdown failed. err: %d, OpenSSL error: %s\n", err, ERR_error_string(err, NULL));
+                break;
             }
         }
     }
