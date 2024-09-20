@@ -66,7 +66,7 @@ local function tmoGet(tReq)
     wait(coWake, 200)  -- 200ms tmo
     local res = yield()
     if type(res) == "number" then
-        return {body = "timeout"}
+        return {body = "timeout: " .. res}
     else
         return {body = res}
     end

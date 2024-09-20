@@ -65,7 +65,7 @@ function CbeaverIO:setupTimer()  -- should be called in master or worker.
 end
 
 function CbeaverIO:co_set_tmo(fd, tmo)
-    liteAssert(tmo < 0 or tmo >= 1, format("illegal tmo value: %d, should >= 1.", tmo))
+    liteAssert(tmo < 0 or tmo >= 0.002, format("illegal tmo value: %d, should >= 0.002.", tmo))
     self._tmoFd[fd] = tmo
 end
 

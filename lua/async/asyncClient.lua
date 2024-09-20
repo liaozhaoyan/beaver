@@ -10,6 +10,7 @@ local c_type, c_api = cffi.type, cffi.api
 local class = class
 local CasyncClient = class("asyncClient", CasyncBase)
 
+local pcall = pcall
 local print = print
 local type = type
 local tostring = tostring
@@ -60,6 +61,10 @@ function CasyncClient:wake(co, v)
     end
 end
 
+local function hostFdBacktoRead(beaver, fd)
+    beaver:mod_fd(fd, 0)
+end
+
 function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
     local res = self._status
     if res == 1 then -- connect ok.
@@ -69,7 +74,10 @@ function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
         if hostFd then
             beaver:mod_fd(hostFd, -1)  -- mask io event, only close event is working.
             w = yield()
-            beaver:mod_fd(hostFd, 0)  -- back host fd to read mode
+            -- after yield, hostFd my closed, so, need to hold this.
+            if w ~= nil then
+                pcall(hostFdBacktoRead, beaver, hostFd)
+            end
         else
             w = yield()
         end

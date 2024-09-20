@@ -102,6 +102,13 @@ int ssl_handshake(void * handle) {
             return 1;
         case SSL_ERROR_WANT_READ:
             return 2;
+        case SSL_ERROR_SYSCALL:
+            if (errno == 0) {
+                fprintf(stderr, "ssl_connect handshake failed. remote server close connection.\n");
+            } else {
+                fprintf(stderr, "ssl_connect handshake failed. err: SSL_ERROR_SYSCALL, errno: %d, %s\n", errno, strerror(errno));
+            }
+            return -1;
         default:
             fprintf(stderr, "ssl_connect handshake failed. err: %d, errno: %d, %s\n", err, errno, strerror(errno));
             return -1;
