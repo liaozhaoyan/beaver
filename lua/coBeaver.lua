@@ -28,13 +28,16 @@ local time = os.time
 local pairs = pairs
 local error = error
 local print = print
+local insert = table.insert
 local create = coroutine.create
 local resume = coroutine.resume
 local status = coroutine.status
+local yield = coroutine.yield
 local running = coroutine.running
 local traceback = debug.traceback
 
 function CcoBeaver:_init_()
+    self._yields = {}
     CbeaverIO._init_(self)
 end
 
@@ -58,6 +61,11 @@ end
 function CcoBeaver:co_exit(fd)
     self:remove(fd)
     self._cos[fd] = nil -- _cos defined in beaverIO.lua
+end
+
+function CcoBeaver:co_yield(...)
+    insert(self._yields, running())
+    return yield(...)
 end
 
 local function runCo(co, e)
@@ -107,13 +115,16 @@ function CcoBeaver:poll()
     local cos = self._cos
     while true do
         local nes = c_new("native_events_t")
-        local res = c_api_poll_fds(efd, 1, nes)
-
-        if res < 0 then
-            error(format("epoll failed, errno: %d", -res))
+        local ret = c_api_poll_fds(efd, 1000, nes)
+        if ret < 0 then
+            error(format("epoll failed, errno: %d", -ret))
         end
-
         _pollFd(cos, nes)
+        for _, co in pairs(self._yields) do
+            local res, msg = resume(co)
+            coReport(co, res, msg)
+        end
+        self._yields = {}
     end
 end
 

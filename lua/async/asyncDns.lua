@@ -130,7 +130,7 @@ function CasyncDns:_init_(beaver, fresh, wake, timer, overtime)
         freshDns(k, v)
     end
 
-    CasyncBase._init_(self, beaver, fd, 5)  -- accept never overtime.
+    CasyncBase._init_(self, beaver, fd, 0.5)  -- accept never overtime.
 end
 
 local function packQuery(domain)
@@ -214,6 +214,7 @@ local function getIPFromRec(rec, e)
 end
 
 local function getThread(beaver, domain, ip, tmo, coWake)
+    beaver:co_yield()  -- to confirm parent thread is suspended, then just use resume function.
     local size, fd, err, errno, res, msg
     fd, err = new_socket(psocket.AF_INET, psocket.SOCK_DGRAM, 0)
     liteAssert(fd, err)
@@ -232,18 +233,18 @@ local function getThread(beaver, domain, ip, tmo, coWake)
     beaver:co_set_tmo(fd, tmo)
     res, err, errno = beaver:read(fd, 512)  -- will yield back.
 
-    if status(coWake) == "suspended" then  -- may wake for cancel.
-        local ips = nil
-        if res then
-            local parser = dnsParser.new(res)
-            local rec, e = parser:parse()
-            ips, e = getIPFromRec(rec, e)
-            if not ips then
-                print("dns parse failed.", e)
-            end
-        else
-            print(format("sendto dns requst %s to %s, return %s, errno: %d", domain, ip, err, errno))
+    local ips = nil
+    if type(res) == "string" then
+        local parser = dnsParser.new(res)
+        local rec, e = parser:parse()
+        ips, e = getIPFromRec(rec, e)
+        if not ips then
+            print("dns parse failed.", e)
         end
+    elseif status(coWake) == "suspended" then  -- request for dns failed.
+        print(format("sendto dns requst %s to %s, return %s, errno: %d", domain, ip, err, errno))
+    end
+    if status(coWake) =="suspended" then  -- may wake for killed.
         res, msg = resume(coWake, ip, ips)
         coReport(coWake, res, msg)
     end
@@ -254,6 +255,7 @@ local function dnsGets(beaver, domain, tmo)
     local res, msg
     local nowCo = running()
     local cos = {}
+
     for _, ip in ipairs(serverIPs) do
         local co = create(getThread)
         res, msg = resume(co, beaver, domain, ip, tmo, nowCo)
@@ -263,20 +265,34 @@ local function dnsGets(beaver, domain, tmo)
 
     local ips, ip = nil, nil
     repeat
+        local_timer:wait(running(), tmo * 1000 + 1)
         ip, ips = yield()  -- wake from getThread
-        cos[ip] = nil  -- release record.
-        if ips then
-            for head, co in pairs(cos) do
-                if ip ~= head then
-                    res, msg = resume(co, nil)  -- to kill other getThread
-                    coReport(co, res, msg)
-                    cos[head] = nil  -- release record.
+        local_timer:wait(running(), -1)  -- clear
+        if type(ip) == "string" then
+            cos[ip] = nil  -- release record.
+            if ips then
+                for head, co in pairs(cos) do
+                    if ip ~= head then
+                        res, msg = resume(co, nil)  -- to kill other getThread
+                        coReport(co, res, msg)
+                        cos[head] = nil  -- release record.
+                    end
+                end
+            else
+                if not next(cos) then  -- get none.
+                    print("return overtime2: ", domain)
+                    return nil
                 end
             end
-        else
-            if not next(cos) then  -- get none.
-                return nil
+        else  -- overtime, to clear
+            print("get ip from dns failed, ", type(ip))
+            for _, co in pairs(cos) do
+                if status(co) == "suspended" then
+                    res, msg = resume(co, nil)  -- to kill other getThread
+                    coReport(co, res, msg)
+                end
             end
+            return
         end
     until ips
     return ips
@@ -292,7 +308,10 @@ function CasyncDns:_setup(fd, tmo)
 
     while true do
         self._working = false
-        local _ = yield()   -- tVar contains {fid, coId}
+        local r = yield()   -- tVar contains {fid, coId}
+        if type(r) ~= "nil" then
+            error("bad request wake.")
+        end
         self._working = true
 
         while true do
@@ -300,8 +319,7 @@ function CasyncDns:_setup(fd, tmo)
             if not domain then  -- requstQue has picked up, back to yield.
                 break
             end
-
-            requstQue[domain] = nil
+            requstQue[domain] = nil  -- remove from que.
             requesting[domain] = tVar
 
             local ips = nil
@@ -349,7 +367,7 @@ function CasyncDns:request(domain, tVar) -- tVar contains {fid, coId}
     if not self._working then  -- wake up setup
         local co = self._co
         local res, msg
-        res, msg = resume(co, domain)
+        res, msg = resume(co)
         coReport(co, res, msg)
     end
 end

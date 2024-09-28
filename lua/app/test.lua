@@ -33,10 +33,12 @@ local function index(tReq)
     return {body = string.format("beaver %d say hello.", counter)}
 end
 
-local proxy = {
-    ip = "172.16.0.119",
-    port = 3128
-}
+local proxy
+
+-- local proxy = {
+--     ip = "172.16.0.119",
+--     port = 3128
+-- }
 
 local function instance(tReq)
     local req = ChttpReq.new(tReq, "100.100.100.200", 80)

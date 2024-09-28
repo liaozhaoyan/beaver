@@ -55,8 +55,8 @@ local function _coReport(co, msg)
     local cells = {
         --"coroutine run failed, err message is:",
         msg or "resume dead thread",
-        --"\ncallback list:",
-        --debug.traceback(co)
+        "\ncallback list:",
+        traceback(co)
     }
     return concat(cells, "\n")
 end
