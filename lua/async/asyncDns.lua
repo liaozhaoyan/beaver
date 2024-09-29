@@ -180,10 +180,10 @@ local function packQuery(domain)
 end
 
 local function wakesDns(requesting, domain, ips)
-    local requests = requesting[domain]
+    local tVars = requesting[domain]
     local over = time() + dnsOvertime
-    for _, req in ipairs(requests) do  -- req contains {fid, coId}
-        wakeDns(domain, randomIp(ips), over, req[1], req[2])
+    for _, tVar in ipairs(tVars) do  -- req contains {fid, coId}
+        wakeDns(domain, randomIp(ips), over, tVar[1], tVar[2])
     end
     requesting[domain] = nil
 end
@@ -315,12 +315,12 @@ function CasyncDns:_setup(fd, tmo)
         self._working = true
 
         while true do
-            local domain, tVar = next(requstQue)
+            local domain, tVars = next(requstQue)
             if not domain then  -- requstQue has picked up, back to yield.
                 break
             end
             requstQue[domain] = nil  -- remove from que.
-            requesting[domain] = tVar
+            requesting[domain] = tVars
 
             local ips = nil
             local try = 0
@@ -359,7 +359,7 @@ function CasyncDns:request(domain, tVar) -- tVar contains {fid, coId}
     local que = self._requestQue
 
     if que[domain] then
-        insert(que[domain], {tVar})
+        insert(que[domain], tVar)
     else
         que[domain] = {tVar}
     end

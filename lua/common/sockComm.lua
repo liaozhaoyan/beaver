@@ -27,7 +27,7 @@ local b_connect_uds = c_api.b_connect_uds
 local ssl_connect_pre = c_api.ssl_connect_pre
 local ssl_accept_pre = c_api.ssl_accept_pre
 local ssl_handshake = c_api.ssl_handshake
-local ssl_del = c_api.ssl_del
+local ssl_free = c_api.ssl_free
 local vsock_socket = c_api.vsock_socket
 local vsock_connect = c_api.vsock_connect
 local vsock_bind = c_api.vsock_bind
@@ -240,7 +240,7 @@ function mt.cliSslHandshake(fd, beaver)
     until (ret <= 0)
     beaver:mod_fd(fd, 0)
     if ret < 0 then
-        ssl_del(handler)
+        ssl_free(handler)
         handler = nil
         return 3
     else
@@ -271,7 +271,7 @@ function mt.srvSslHandshake(beaver, fd, ctx)
     until (ret <= 0)
     beaver:mod_fd(fd, 0)
     if ret < 0 then
-        ssl_del(handler)
+        ssl_free(handler)
         handler = nil
         return 3
     else

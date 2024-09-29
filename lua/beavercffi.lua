@@ -57,7 +57,8 @@ int ssl_write(void *handle, const char *buff, int len);
 void *ssl_connect_pre(int fd, void* hCtx);
 void *ssl_accept_pre(int fd, void* hCtx);
 int ssl_handshake(void *handle);
-void ssl_del(void *handle);
+void ssl_shutdown(void *handle);
+void ssl_free(void *handle);
 void *ssl_server_new(const char* certificate, const char* key);
 void ssl_ctx_del(void *handle);
 

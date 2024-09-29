@@ -33,7 +33,8 @@ local c_api_b_read = c_api.b_read
 local c_api_b_write = c_api.b_write
 local c_api_ssl_read = c_api.ssl_read
 local c_api_ssl_write = c_api.ssl_write
-local c_api_ssl_del = c_api.ssl_del
+local c_api_ssl_free = c_api.ssl_free
+local c_api_ssl_shutdown = c_api.ssl_shutdown
 local c_api_b_yield = c_api.b_yield
 local yield = coroutine.yield
 local running = coroutine.running
@@ -82,11 +83,14 @@ end
 function CbeaverIO:remove(fd)
     liteAssert(c_api_del_fd(self._efd, fd) >= 0, traceback(format("del fd %d from epoll failed.", fd)))
     local handler = self._ssl[fd]
-    if handler then
-        c_api_ssl_del(handler)
+    if handler then  -- for ssl socket, should shutdown first. then close fd, then free at last.
+        c_api_ssl_shutdown(handler)
         self._ssl[fd] = nil
     end
     liteAssert(c_api_b_close(fd) >= 0, traceback(format("close fd %d failed.", fd)))
+    if handler then
+        c_api_ssl_free(handler)
+    end
     if self._tmoFd[fd] then  -- clear timer.
         timer:wait(self._tmoFd[fd], -1)
         self._tmoFd[fd] = nil
