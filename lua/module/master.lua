@@ -18,6 +18,7 @@ local cjson = require("cjson.safe")
 local class = class
 local Cmaster = class("master")
 
+local print = print
 local time = os.time
 local exit = os.exit
 local liteAssert = system.liteAssert
@@ -76,6 +77,8 @@ function Cmaster:proc()
     coReport(co, res, msg)
 
     beaver:poll()
+    print("Unexpected exit from the epoll loop for master.")  -- master should not exit.
+    exit(1)
     return 0
 end
 
