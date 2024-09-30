@@ -117,6 +117,7 @@ int ssl_handshake(void * handle) {
 
 void ssl_shutdown(void *handle) {
     int ret = 0;
+    unsigned long err_code;
     int tries = 0;
 
     if (handle == NULL) {
@@ -143,8 +144,14 @@ void ssl_shutdown(void *handle) {
                     fprintf(stderr, "SSL_shutdown, waste %d bytes: %s\n", size, buf);
                 }
                 break;
+            case SSL_ERROR_SYSCALL:
+                err_code = ERR_get_error();
+                if (err_code != 0 || errno != 0) {
+                    fprintf(stderr, "SSL_shutdown failed. err: SSL_ERROR_SYSCALL, OpenSSL error: %s, errno: %d, %s\n", ERR_error_string(err_code, NULL), errno, strerror(errno));
+                }
+                break;
             default:
-                fprintf(stderr, "SSL_shutdown failed. err: %d, OpenSSL error: %s, errno:%d, %s\n", err, ERR_error_string(err, NULL), errno, strerror(errno));
+                fprintf(stderr, "SSL_shutdown failed. err: %d, OpenSSL error: %s, errno:%d, %s\n", err, ERR_error_string(ERR_get_error(), NULL), errno, strerror(errno));
                 break;
             }
         }
