@@ -149,13 +149,15 @@ function ChttpReq:_setup(fd, tmo)
         local _ = clear and clear()
         local t = type(e)
         if t == "string" then -- has data to send
-            local msg
-            res, msg = beaver:write(fd, e)
-            if not res then
-                print("http write error.", msg)
-                self._status = 0
-                self:wake(co, nil)
-                break
+            if #e > 0 then  -- for watcher event, may send empty string
+                local msg
+                res, msg = beaver:write(fd, e)
+                if not res then
+                    print("http write error.", msg)
+                    self._status = 0
+                    self:wake(co, nil)
+                    break
+                end
             end
             clear = beaver:timerWait(fd)
             e = nil  -- wait next yeild.
@@ -340,6 +342,25 @@ end
 
 function ChttpReq:delete(uri, headers, body, reuse)
     return self:_req("DELETE", uri, headers, body, reuse)
+end
+
+function ChttpReq:poll()
+    if self._status ~= 1 then
+        self:close()
+        return {body = format("connected %s status is %d, should be 1.", self._domain, self._status), 
+                code = 500}
+    end
+    local res, msg = self:_waitData("")  -- empty string mean poll
+    if type(res) ~= "table" then
+        -- closed by remote server.
+        self:close()
+        return nil
+    end
+    if self._reuse then
+        return res
+    end
+    self:close()
+    return res
 end
 
 return ChttpReq
