@@ -185,7 +185,7 @@ local function prefixDollar(s, fread) -- $
     if s then
         local size, rest = unpack(split(s, "\r\n", 1))
         size = tonumber(size)
-        if size > 0 then
+        if size and size > 0 then
             s = waitLength(rest, fread, size + 2)
             if s then
                 return sub(s, 1, size), sub(s, size + 3)

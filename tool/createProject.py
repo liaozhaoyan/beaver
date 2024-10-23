@@ -16,7 +16,8 @@ worker:
 
 
 def createProject(projName):
-    os.mkdir(projName)
+    if not os.path.exists(projName):
+        os.mkdir(projName)
     confPath = os.path.join(projName, "main")
     os.mkdir(confPath)
     confFile = os.path.join(confPath, "config.yaml")
@@ -30,5 +31,5 @@ if __name__ == '__main__':
     assert len(sys.argv) >= 3, "need path and project name args"
     assert os.path.isdir(sys.argv[1]), "%s is not a dir" % sys.argv[1]
     projName = os.path.join(sys.argv[1], sys.argv[2])
-    assert not os.path.exists(projName), "%s is already exist." % projName
+    # assert not os.path.exists(projName), "%s is already exist." % projName
     createProject(projName)
