@@ -31,7 +31,7 @@ local function parseParam(param)
     local tParam = split(param, "&")
     local res = {}
     for _, s in ipairs(tParam) do
-        local kv = split(s, "=")
+        local kv = split(s, "=", 1)
         if #kv ~= 2 then
             print(format("bad param %s", tostring(s)))
             return nil

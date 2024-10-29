@@ -190,6 +190,8 @@ local function prefixDollar(s, fread) -- $
             if s then
                 return sub(s, 1, size), sub(s, size + 3)
             end
+        else
+            print("bad line: ", s)
         end
     end
     return nil
