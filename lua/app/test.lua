@@ -10,6 +10,7 @@ local system = require("common.system")
 local pystring = require("pystring")
 local cjson = require("cjson.safe")
 local ChttpReq = require("http.httpReq")
+local ChttpPool = require("http.httpPool")
 local httpRead = require("http.httpRead")
 local Credis = require("client.redis")
 local CcliBase = require("client.cliBase")
@@ -34,11 +35,21 @@ local function index(tReq)
 end
 
 local proxy
+local pool = ChttpPool.new()
 
 -- local proxy = {
 --     ip = "172.16.0.119",
 --     port = 3128
 -- }
+
+local function poolTest(tReq)
+    local tRes, msg = pool:get("http://www.baidu.com/")
+    if tRes then
+        return {body = tRes.body}
+    else
+        return {body = "msg"}
+    end
+end
 
 local function instance(tReq)
     local req = ChttpReq.new(tReq, "100.100.100.200", 80)
@@ -210,6 +221,7 @@ function Ctest:_init_(inst, conf)
     inst:post("/rcmds", rcmds)
     inst:get("/uds", uds)
     inst:get("/sha", sha_check)
+    inst:get("/pool", poolTest)
 end
 
 return Ctest

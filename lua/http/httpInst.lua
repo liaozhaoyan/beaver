@@ -12,6 +12,7 @@ local httpComm = require("http.httpComm")
 local httpRead = require("http.httpRead")
 local Ctrie = require("common.trie")
 
+local print = print
 local liteAssert = system.liteAssert
 local ipairs = ipairs
 local pairs = pairs
@@ -72,7 +73,8 @@ local function echo404(path, verb)
     }
 end
 
-local function echo501(verb)
+local function echo501(verb, path)
+    print(format("path %s verb %s is not implemented\n", path, verb))
     return {
         code = 501,
         headers = {
@@ -118,7 +120,7 @@ local function _proc(cbs, verb, tReq)
             return echo503(tReq.path, lastError())
         end
     end
-    return echo501(verb)
+    return echo501(verb, tReq.path)
 end
 
 function ChttpInst:setProbe(probe)
