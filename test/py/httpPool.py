@@ -1,6 +1,7 @@
 import threading
 import requests
 import random
+import time
 
 origUrl = "http://127.0.0.1:3385/pool"
 threadNum = 80
@@ -13,15 +14,16 @@ def get(url):
     except Exception as e:
         print(str(e))
 
-threads = []
+while True:
+    threads = []
 
-for i in range(threadNum):
-    t = threading.Thread(target=get, args=(origUrl,))
-    threads.append(t)
-    t.start()
+    for i in range(threadNum):
+        t = threading.Thread(target=get, args=(origUrl,))
+        threads.append(t)
+        t.start()
 
-for t in threads:
-    t.join()
+    for t in threads:
+        t.join()
 
-print("all done.")
-
+    print("all done.")
+    time.sleep(1)

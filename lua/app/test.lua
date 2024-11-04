@@ -11,6 +11,7 @@ local pystring = require("pystring")
 local cjson = require("cjson.safe")
 local ChttpReq = require("http.httpReq")
 local ChttpPool = require("http.httpPool")
+local ChttpKeepPool = require("http.httpKeepPool")
 local httpRead = require("http.httpRead")
 local Credis = require("client.redis")
 local CcliBase = require("client.cliBase")
@@ -36,18 +37,31 @@ end
 
 local proxy
 local pool = ChttpPool.new()
-
+local keepConfig = {
+    host = "www.baidu.com",
+    port = 80
+}
+local keepPool = ChttpKeepPool.new(keepConfig)
 -- local proxy = {
 --     ip = "172.16.0.119",
 --     port = 3128
 -- }
+
+local function keepPoolTest(tReq)
+    local tRes, msg = keepPool:get("http://www.baidu.com/")
+    if tRes then
+        return {body = tRes.body}
+    else
+        return {body = msg}
+    end
+end
 
 local function poolTest(tReq)
     local tRes, msg = pool:get("http://www.baidu.com/")
     if tRes then
         return {body = tRes.body}
     else
-        return {body = "msg"}
+        return {body = msg}
     end
 end
 
@@ -222,6 +236,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/uds", uds)
     inst:get("/sha", sha_check)
     inst:get("/pool", poolTest)
+    inst:get("/keep", keepPoolTest)
 end
 
 return Ctest
