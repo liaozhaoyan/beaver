@@ -299,7 +299,7 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
     if type(res) ~= "table" then
         -- closed by remote server.
         self:close()
-        return nil
+        return nil, msg
     end
     if reuse or self._reuse then
         return res

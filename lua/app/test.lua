@@ -7,6 +7,7 @@
 require("eclass")
 
 local system = require("common.system")
+local workVar = require("module.workVar")
 local pystring = require("pystring")
 local cjson = require("cjson.safe")
 local ChttpReq = require("http.httpReq")
@@ -17,6 +18,10 @@ local Credis = require("client.redis")
 local CcliBase = require("client.cliBase")
 local socket = require("socket")
 local digest = require("common.digest")
+local bit = require("bit")
+local posix = require("posix")
+local unistd = require("posix.unistd")
+local CperfFd = require("client.perfFd")
 local redisTest = require("app.redisTest")
 
 local class = class
@@ -218,10 +223,27 @@ local function probe(code)
     print("code: ", code)
 end
 
+local function testPipe()
+    local fd = posix.open("/tmp/beaver_fifo", posix.O_RDONLY + posix.O_NONBLOCK)
+    if fd then
+        local beaver = workVar.workerGetVar().beaver
+        print("open: fd", fd)
+        local function cb(f)
+            local s = unistd.read(f, 1024)
+            print("read from fd:", s)
+            return 0
+        end
+        local function cbEvent(f, event)
+            print(f, event)
+            return 0
+        end
+        CperfFd.new(beaver, fd, cb, cbEvent, 2)
+    end
+end
+
 function Ctest:_init_(inst, conf)
     -- redisTest.start()
     -- inst:setProbe(probe)
-
     inst:get("/", index)
     inst:get("/instance", instance)
     inst:get("/bing", bing)
@@ -237,6 +259,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/sha", sha_check)
     inst:get("/pool", poolTest)
     inst:get("/keep", keepPoolTest)
+    testPipe()
 end
 
 return Ctest
