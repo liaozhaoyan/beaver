@@ -3,7 +3,7 @@ local pystring = require("pystring")
 local find = pystring.find
 local unpack = unpack
 local lpeg = require("lpeg")
-local P, R, S, C = lpeg.P, lpeg.R, lpeg.S, lpeg.C
+local P, R, S, C, Ct = lpeg.P, lpeg.R, lpeg.S, lpeg.C, lpeg.Ct
 
 -- 模式定义
 local digit = R('09')
@@ -18,8 +18,10 @@ local uriPath = (C(P"/" * (letter + digit + allowed_punct + S("-_~!$&'()*+,;=:/?
 local end_of_string = P(-1)
 
 -- 完整的模式
-local url_pattern = lpeg.Ct(scheme * host * port * path * end_of_string)
-local url_path_pattern = lpeg.Ct(uriScheme * host * port * uriPath)
+local url_pattern_host = C((P("http://") + P("https://")) * (letter + digit + allowed_punct)^1 * (P":" * digit^1)^-1)
+local url_pattern_host_uri = Ct(url_pattern_host * uriPath * end_of_string)
+local url_pattern = Ct(scheme * host * port * path * end_of_string)
+local url_path_pattern = Ct(uriScheme * host * port * uriPath)
 
 local mt = {}
 
@@ -60,6 +62,17 @@ function mt.parsePath(url)
         else  -- 4
             return unpack(res)
         end
+    end
+end
+
+function mt.parseHostUri(url)
+    local res = url_pattern_host_uri:match(url)
+    if res then
+        local len = #res
+        if len == 1 then
+            return res[1], "/"
+        end
+        return unpack(res)
     end
 end
 

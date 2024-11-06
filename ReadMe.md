@@ -136,7 +136,7 @@ local request = require("http.request")
 local http_get = request.get
 ```
 
-## 1.2、get(url, header, body, tmo, proxy, maxLen)
+## 1.2、get(url, header, body, tReq, tmo, proxy, maxLen)
 ```lua
 local tRes, msg = http_get("http://www.baidu.com/")
 if tRes then
@@ -146,20 +146,21 @@ else
 end
 ```
 参数说明：
-* url: 完整请求路径，需要包含请求方法
+* url: 完整请求路径，需要包含请求方法，不可省略 https:// 或 http:// 开头
 * header： http 首部，可以为空
 * body: http 内容，可以为空
+* tReq: 关联请求table，在httpInst 场景需要传入
 * tmo: 超时时间，可以为空
 * proxy: 代理配置，可以为空
 * maxLen: 最大接收缓冲区长度，可以为空
 
-## 1.3、post(url, header, body, tmo, proxy, maxLen)
+## 1.3、post(url, header, body, tReq, tmo, proxy, maxLen)
 参考1.2
 
-## 1.4、put(url, header, body, tmo, proxy, maxLen)
+## 1.4、put(url, header, body, tReq, tmo, proxy, maxLen)
 参考1.2
 
-## 1.5、delete(url, header, body, tmo, proxy, maxLen)
+## 1.5、delete(url, header, body, tReq, tmo, proxy, maxLen)
 参考1.2
 
 # 2、 httpPool
@@ -187,8 +188,7 @@ new 有3 个参数：
     local reqs = {
         url = url,   -- 请求url 
         verb = "GET",  -- 方法 
-        host = domain,  -- 主机名 如果不配置，则从url 里面解析
-        port = tonumber(port),  -- 端口号，如果不配置，则从url 里面解析
+        host = host,  -- 主机名 如果不配置，则从url 里面解析
         uri = uri,   -- uri 请求路径，如果不配置，则从url 里面解析
         headers = headers -- http 首部结构体 可以为空
         body = body  -- http 内容 可以为空
@@ -221,8 +221,7 @@ new 有4 个参数：
 * guardPeriod 巡检周期，不配置默认为2秒
 
 conf 参数列表
-* host：目标名，可以为domain 或者 ip
-* port: 端口名
+* host：目标头，如 http://www.baidu.com
 * keepMax： 长连接最长空闲保持时间
 * tmo: 连接超时
 * proxy： 代理参数
@@ -231,7 +230,7 @@ conf 参数列表
 ### 2.2.2、req 请求函数 ChttpKeepPool:req(reqs)
 ```lua
     local reqs = {
-            url = url,  -- url, 对应的host 和 port 段必须和httpKeepPool保持一致
+            url = url,  -- url, 对应的host段必须和httpKeepPool保持一致
             verb = "GET",
             headers = headers,  -- 可以为空
             body = body  -- 可以为空

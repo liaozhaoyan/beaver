@@ -46,8 +46,7 @@ end
 local proxy
 local pool = ChttpPool.new()
 local keepConfig = {
-    host = "www.baidu.com",
-    port = 80
+    host = "http://www.baidu.com",
 }
 local keepPool = ChttpKeepPool.new(keepConfig)
 -- local proxy = {
@@ -74,7 +73,7 @@ local function poolTest(tReq)
 end
 
 local function instance(tReq)
-    local tRes, msg = http_get("http://100.100.100.200/latest/meta-data/instance-id")
+    local tRes, msg = http_get("http://100.100.100.200/latest/meta-data/instance-id", nil, nil, tReq)
     if tRes then
         return tRes
     else

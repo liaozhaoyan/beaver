@@ -5,27 +5,27 @@ local workVar = require("module.workVar")
 local parseUrl = require("common.parseUrl")
 local tonumber = tonumber
 
-local parsePath = parseUrl.parsePath
+local parseHostUri = parseUrl.parseHostUri
 local beaver = workVar.workerGetVar().beaver
 
-local function setupReq(url, tmo, proxy, maxLen)
-    local _, domain, port, uri = parsePath(url)
-    if not domain then
+local function setupReq(url, tReq, tmo, proxy, maxLen)
+    local host, uri = parseHostUri(url)
+    if not host then
         return nil, "bad url: " .. url
     end
-    local tReq = {
+    tReq = tReq or {
         beaver = beaver
     }
 
-    local req = ChttpReq.new(tReq, domain, tonumber(port), tmo, proxy, maxLen)
+    local req = ChttpReq.new(tReq, host, nil, tmo, proxy, maxLen)
     if req:status() ~= 1 then
         return nil, "http connect failed."
     end
     return req, uri
 end
 
-function mt.get(url, header, body, tmo, proxy, maxLen)
-    local req, msg = setupReq(url, tmo, proxy, maxLen)
+function mt.get(url, header, body, tReq, tmo, proxy, maxLen)
+    local req, msg = setupReq(url, tReq, tmo, proxy, maxLen)
     if not req then
         return req, msg
     end
@@ -33,8 +33,8 @@ function mt.get(url, header, body, tmo, proxy, maxLen)
     return req:get(uri, header, body)
 end
 
-function mt.post(url, header, body, tmo, proxy, maxLen)
-    local req, msg = setupReq(url, tmo, proxy, maxLen)
+function mt.post(url, header, body, tReq, tmo, proxy, maxLen)
+    local req, msg = setupReq(url, tReq, tmo, proxy, maxLen)
     if not req then
         return req, msg
     end
@@ -42,8 +42,8 @@ function mt.post(url, header, body, tmo, proxy, maxLen)
     return req:post(uri, header, body)
 end
 
-function mt.put(url, header, body, tmo, proxy, maxLen)
-    local req, msg = setupReq(url, tmo, proxy, maxLen)
+function mt.put(url, header, body, tReq, tmo, proxy, maxLen)
+    local req, msg = setupReq(url, tReq, tmo, proxy, maxLen)
     if not req then
         return req, msg
     end
@@ -51,8 +51,8 @@ function mt.put(url, header, body, tmo, proxy, maxLen)
     return req:put(uri, header, body)
 end
 
-function mt.delete(url, header, body, tmo, proxy, maxLen)
-    local req, msg = setupReq(url, tmo, proxy, maxLen)
+function mt.delete(url, header, body, tReq, tmo, proxy, maxLen)
+    local req, msg = setupReq(url, tReq, tmo, proxy, maxLen)
     if not req then
         return req, msg
     end

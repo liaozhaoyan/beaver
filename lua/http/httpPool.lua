@@ -19,7 +19,7 @@ local type = type
 local error = error
 local format = string.format
 local msleep = workVar.msleep
-local parsePath = parseUrl.parsePath
+local parseHostUri = parseUrl.parseHostUri
 
 local class = class
 
@@ -110,7 +110,7 @@ end
 local function httpPoolwork(o, reqs)
     local res, msg
     beaver:co_yield()  -- release callchain from ChttpPool:req
-    local req = ChttpReq.new(reqs.tReq, reqs.host, reqs.port, reqs.tmo, reqs.proxy, reqs.maxLen)
+    local req = ChttpReq.new(reqs.tReq, reqs.host, nil, reqs.tmo, reqs.proxy, reqs.maxLen)
     res = req:_req(reqs.verb, reqs.uri, reqs.headers, reqs.body)
     local coWake = o:freeConn(running())
     if status(coWake) == "suspended" then  -- only to wake suspended coroutine.
@@ -155,12 +155,11 @@ function ChttpPool:req(reqs)
         return nil, "need url and verb arg."
     end
     if not reqs.host then
-        local _, domain, port, uri = parsePath(reqs.url)
-        if not domain then
+        local host, uri = parseHostUri(reqs.url)
+        if not host then
             return nil, "no domain info in url: " .. reqs.url
         end
-        reqs.host = domain
-        reqs.port = tonumber(port)
+        reqs.host = host
         reqs.uri = uri
     end
     if self:connFull() then  -- connect is full, add to pool
@@ -186,10 +185,12 @@ function ChttpPool:req(reqs)
 end
 
 function ChttpPool:get(url, tmo, proxy, maxLen)
-    local _, domain, port, uri = parsePath(url)
+    local host, uri = parseHostUri(url)
+    if not host then
+        return nil, "bad url: " .. url
+    end
     local reqs = {
-        host = domain,
-        port = tonumber(port),
+        host = host,
         verb = "GET",
         url = url,
         uri = uri,

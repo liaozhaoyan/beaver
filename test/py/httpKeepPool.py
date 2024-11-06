@@ -10,7 +10,7 @@ def get(url):
     try:
         print("get start", url)
         res = requests.get(url, timeout=random.randint(10, 20))
-        print("get success, %d, %d" % (res.status_code, len(res.content)))
+        print("get success, %d, %s" % (res.status_code, len(res.content)))
     except Exception as e:
         print(str(e))
 

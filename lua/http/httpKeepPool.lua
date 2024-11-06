@@ -21,7 +21,7 @@ local error = error
 local msleep = workVar.msleep
 local type = type
 local time = os.time
-local parsePath = parseUrl.parsePath
+local parseHostUri = parseUrl.parseHostUri
 local tonumber = tonumber
 local class = class
 
@@ -31,11 +31,9 @@ local keepMaxSeconds = 10 -- keep 10 seconds
 local ChttpKeepPool = class("httpKeepPool", ChttpPool)
 
 function ChttpKeepPool:_init_(conf, maxConn, maxPool, guardPeriod)
-    conf.port = tonumber(conf.port)
     conf.keepMax = tonumber(conf.keepMax) or keepMaxSeconds
     self._conf = conf
     self._host = conf.host
-    self._port = conf.port
     self._idle = {}  -- for idle connection. key is coroutine, value is timestamp.
     ChttpPool._init_(self, maxConn, maxPool, guardPeriod)
 end
@@ -90,14 +88,14 @@ local function httpPoolwork(o, reqs)
             if req then
                 req:close()
             end
-            req = ChttpReq.new(tReq, conf.host, conf.port, conf.tmo, conf.proxy, conf.maxLen)
+            req = ChttpReq.new(tReq, conf.host, nil, conf.tmo, conf.proxy, conf.maxLen)
             if req:status() ~= 1 then
-                print(format("create http req failed, domain:%s port:%s", conf.host, conf.port))
+                print(format("create http req failed, host:%s", conf.host))
                 break
             end
             req:reuse(true)  -- remember to close when req:status() == 1
         end
-        res = req:_req(reqs.verb, reqs.url, reqs.headers, reqs.body)
+        res = req:_req(reqs.verb, reqs.uri, reqs.headers, reqs.body)
         local coWake = reqs._toWake
         if status(coWake) == "suspended" then  -- only to wake suspended coroutine.
             res, msg = resume(coWake, res)  -- wake to ChttpPool:req
@@ -149,8 +147,9 @@ function ChttpKeepPool:req(reqs)
         return nil, "the pool is canceled."
     end
 
-    local _, domain, port, _ = parsePath(reqs.url)
-    if (domain == self._host and tonumber(port) == self._port) then  -- domain and port match
+    local host, uri = parseHostUri(reqs.url)
+    if host == self._host then  -- domain and port match
+        reqs.uri = uri
         if self:connFull() then
             if not self:poolFull() then
                 reqs._toWake = running()
@@ -171,7 +170,7 @@ function ChttpKeepPool:req(reqs)
             return nil, format("local connection is closed.")
         end
     else
-        return nil, format("domain:%s port:%s not match for this pool", domain, port)
+        return nil, format("host:%s not match for this pool", host)
     end
 end
 
