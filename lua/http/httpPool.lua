@@ -16,6 +16,7 @@ local pairs = pairs
 local coReport = system.coReport
 local print = print
 local type = type
+local error = error
 local format = string.format
 local msleep = workVar.msleep
 local parsePath = parseUrl.parsePath
@@ -27,10 +28,16 @@ local beaver = workVar.workerGetVar().beaver
 local ChttpPool = class("httpPool")
 
 local function gurad(o, guardPeriod)  -- pick dead connection from conn
+    local t
     beaver:co_yield()
     while true do
-        msleep(guardPeriod * 1000)
-        o:guardLoop()
+        t = msleep(guardPeriod * 1000)
+        if t then  -- timer call
+            o:guardLoop()
+        else -- notify to die
+            o:recycle()
+            break
+        end
     end
 end
 
@@ -47,6 +54,26 @@ function ChttpPool:_init_(maxConn, maxPool, guardPeriod)
     local co = create(gurad)
     res, msg = resume(co, self, guardPeriod or 2)  -- gurad per 2 seconds default.
     coReport(co, res, msg)
+    self._coGuard = co
+    self._canceled = false
+end
+
+function ChttpPool:_del_()
+    self:cancel()
+end
+
+function ChttpPool:cancel()
+    -- just notify guard thread to die, the other resource will recycled.
+    self._canceled = true
+    local co = self._coGuard
+    if status(co) == "suspended" then
+        local res, msg = resume(co)  -- wake guard to dead
+        coReport(co, res, msg)
+    end
+end
+
+function ChttpReq:recycle()  -- call from guard thread.
+    -- nothing to do. self._poll will auto exit.
 end
 
 function ChttpPool:poolCount()
@@ -118,21 +145,33 @@ function ChttpPool:pickPool2Conn()
 end
 
 function ChttpPool:req(reqs)
-    if reqs.tReq then
-        reqs.tReq.fd = nil  -- strip host fd
-    else
-        reqs.tReq = {
-            beaver = beaver
-        }
+    if self._canceled then
+        return nil, "the pool is canceled."
     end
-    reqs._toWake = running()
+    reqs.tReq = {
+        beaver = beaver
+    }
+    if not reqs.url or not reqs.verb then
+        return nil, "need url and verb arg."
+    end
+    if not reqs.host then
+        local _, domain, port, uri = parsePath(reqs.url)
+        if not domain then
+            return nil, "no domain info in url: " .. reqs.url
+        end
+        reqs.host = domain
+        reqs.port = tonumber(port)
+        reqs.uri = uri
+    end
     if self:connFull() then  -- connect is full, add to pool
         if not self:poolFull() then  -- pool is not full, add to pool
+            reqs._toWake = running()
             self:poolAdd(reqs)
         else   -- pool is full, return nil.
-            return nil, "pool is full"
+            return nil, "pool is full."
         end
     else    -- connect is not full, create new connection
+        reqs._toWake = running()
         self:_req(reqs)
     end
 
@@ -142,17 +181,18 @@ function ChttpPool:req(reqs)
         return res, msg
     else
         -- local connect may cloesed, then will resume a cdata closed event.
-        return nil, format("local connection is closed.")
+        return nil, "local connection is closed."
     end
 end
 
 function ChttpPool:get(url, tmo, proxy, maxLen)
-    local _, domain, port, _ = parsePath(url)
+    local _, domain, port, uri = parsePath(url)
     local reqs = {
         host = domain,
         port = tonumber(port),
         verb = "GET",
-        uri = url,
+        url = url,
+        uri = uri,
         tmo = tmo or 10,
         proxy = proxy,
         maxLen = maxLen or 2 * 1024 * 1024

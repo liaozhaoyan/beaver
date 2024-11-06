@@ -32,11 +32,22 @@ local ChttpKeepPool = class("httpKeepPool", ChttpPool)
 
 function ChttpKeepPool:_init_(conf, maxConn, maxPool, guardPeriod)
     conf.port = tonumber(conf.port)
+    conf.keepMax = tonumber(conf.keepMax) or keepMaxSeconds
     self._conf = conf
     self._host = conf.host
     self._port = conf.port
     self._idle = {}  -- for idle connection. key is coroutine, value is timestamp.
     ChttpPool._init_(self, maxConn, maxPool, guardPeriod)
+end
+
+function ChttpKeepPool:recycle()
+    local res, msg
+
+    for co, _  in pairs(self._idle) do
+        res, msg = resume(co)
+        coReport(co, res, msg)
+    end
+    self._idle = nil
 end
 
 function ChttpKeepPool:confGet()
@@ -134,16 +145,21 @@ function ChttpKeepPool:_req(reqs)
 end
 
 function ChttpKeepPool:req(reqs)
+    if self._canceled then
+        return nil, "the pool is canceled."
+    end
+
     local _, domain, port, _ = parsePath(reqs.url)
     if (domain == self._host and tonumber(port) == self._port) then  -- domain and port match
-        reqs._toWake = running()
         if self:connFull() then
             if not self:poolFull() then
+                reqs._toWake = running()
                 self:poolAdd(reqs)
             else
                 return nil, "pool is full"
             end
         else
+            reqs._toWake = running()
             self:_req(reqs)
         end
         local res, msg
@@ -159,10 +175,12 @@ function ChttpKeepPool:req(reqs)
     end
 end
 
-function ChttpKeepPool:get(url)
+function ChttpKeepPool:get(url, headers, body)
     local reqs = {
             url = url,
             verb = "GET",
+            headers = headers,
+            body = body,
         }
     return self:req(reqs)
 end
@@ -177,14 +195,35 @@ function ChttpKeepPool:post(url, headers, body)
     return self:req(reqs)
 end
 
+function ChttpKeepPool:put(url, headers, body)
+    local reqs = {
+            url = url,
+            verb = "PUT",
+            headers = headers,
+            body = body,
+        }
+    return self:req(reqs)
+end
+
+function ChttpKeepPool:delete(url, headers, body)
+    local reqs = {
+            url = url,
+            verb = "DELETE",
+            headers = headers,
+            body = body,
+        }
+    return self:req(reqs)
+end
+
 function ChttpKeepPool:guardLoop()  -- call from guard thread
     ChttpPool.guardLoop(self)  -- check connection is alive
 
     local res, msg
     local now = time()
     local c = 0
+    local keepMax = self._conf.keepMax
     for co, ts in pairs(self._idle) do
-        if now - ts > keepMaxSeconds then
+        if now - ts > keepMax then
             res, msg = resume(co, nil)  -- overtime, close idle connection. call httpPoolwork 
             coReport(co, res, msg)
         end

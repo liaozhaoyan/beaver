@@ -128,4 +128,127 @@ worker:
       port: 3385
       entry: test  # entry path
 
+# 1、http request
+http request 是一个常规的http 短连接客户端，如果需要使用长连接，需要掌握httpReq 的模块使用
+## 1.1、依赖库
+```lua
+local request = require("http.request")
+local http_get = request.get
+```
+
+## 1.2、get(url, header, body, tmo, proxy, maxLen)
+```lua
+local tRes, msg = http_get("http://www.baidu.com/")
+if tRes then
+    return tRes
+else
+    return {body = msg, code = 403}
+end
+```
+参数说明：
+* url: 完整请求路径，需要包含请求方法
+* header： http 首部，可以为空
+* body: http 内容，可以为空
+* tmo: 超时时间，可以为空
+* proxy: 代理配置，可以为空
+* maxLen: 最大接收缓冲区长度，可以为空
+
+## 1.3、post(url, header, body, tmo, proxy, maxLen)
+参考1.2
+
+## 1.4、put(url, header, body, tmo, proxy, maxLen)
+参考1.2
+
+## 1.5、delete(url, header, body, tmo, proxy, maxLen)
+参考1.2
+
+# 2、 httpPool
+
+httpPool 是http 连接池的实现，分为短连接池（ChttpPool）和长连接池(ChttpKeepPool)。
+
+## 2.1、短连接池 （ChttpPool）
+
+短连接池通常用于分散接入侧的连接压力，用于缓解后端服务并发压力，
+
+### 2.1.1、构造函数
+
+```lua
+local ChttpPool = require("http.httpPool")
+local pool = ChttpPool.new()
+```
+new 有3 个参数：
+* maxConn 连接池最大并发连接数， 不配置默认为4
+* maxPool 最大连接池连接数量，不配置默认为1000
+* guardPeriod 巡检周期，不配置默认为2秒
+
+### 2.1.2、req 请求函数 ChttpPool:req(reqs)
+参数reqs 请求列表
+```lua
+    local reqs = {
+        url = url,   -- 请求url 
+        verb = "GET",  -- 方法 
+        host = domain,  -- 主机名 如果不配置，则从url 里面解析
+        port = tonumber(port),  -- 端口号，如果不配置，则从url 里面解析
+        uri = uri,   -- uri 请求路径，如果不配置，则从url 里面解析
+        headers = headers -- http 首部结构体 可以为空
+        body = body  -- http 内容 可以为空
+        tmo = tmo or 10,  -- 超时时间 可以为空
+        proxy = proxy,  -- 代理配置  可以为空
+        maxLen = maxLen or 2 * 1024 * 1024 -- 最大长度， 可以为空
+    }
+    return pool:req(reqs)
+```
+
+### 2.1.3、ChttpPool:get(url, tmo, proxy, maxLen)
+参数参考2.1.2，只是加上了verb 方法。
+
+### 2.1.4、ChttpPool:cancel()
+停用连接池，后续连接请求将进不来
+
+## 2.2、长连接池 （ChttpKeepPool）
+长连接池通常用于与后端服务保持长连接，通常用于后端连接服务优化。
+
+### 2.2.1、构造函数
+
+```lua
+local ChttpKeepPool = require("http.httpPool")
+local pool = ChttpKeepPool.new(conf)
+```
+new 有4 个参数：
+* conf 配置参数，成员参考后面描述
+* maxConn 连接池最大并发连接数， 不配置默认为4
+* maxPool 最大连接池连接数量，不配置默认为1000
+* guardPeriod 巡检周期，不配置默认为2秒
+
+conf 参数列表
+* host：目标名，可以为domain 或者 ip
+* port: 端口名
+* keepMax： 长连接最长空闲保持时间
+* tmo: 连接超时
+* proxy： 代理参数
+* maxLen: 最大接收缓冲区
+
+### 2.2.2、req 请求函数 ChttpKeepPool:req(reqs)
+```lua
+    local reqs = {
+            url = url,  -- url, 对应的host 和 port 段必须和httpKeepPool保持一致
+            verb = "GET",
+            headers = headers,  -- 可以为空
+            body = body  -- 可以为空
+        }
+    return self:req(reqs)
+```
+
+### 2.2.3、ChttpKeepPool:get(url, headers, body)
+参考  2.2.2
+### 2.2.4、ChttpKeepPool:post(url, headers, body)
+参考  2.2.2
+### 2.2.5、ChttpKeepPool:put(url, headers, body)
+参考  2.2.2
+### 2.2.6、ChttpKeepPool:delete(url, headers, body)
+参考  2.2.2
+
+### 2.2.7、ChttpKeepPool:cancel()
+参考 2.1.4
+
 

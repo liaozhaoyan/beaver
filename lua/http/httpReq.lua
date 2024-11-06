@@ -289,7 +289,7 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
     headers = headers or {}
     headers.Host = self._domain
     local sendTable = {
-        url = uri,
+        uri = uri,
         method = verb,
         headers = setupHeader(headers),
         body = body or "",
@@ -319,7 +319,7 @@ function ChttpReq:sendBody(body, reuse)
     if type(res) ~= "table" then
         -- closed by remote server.
         self:close()
-        return nil
+        return nil, msg
     end
     if reuse or self._reuse then
         return res

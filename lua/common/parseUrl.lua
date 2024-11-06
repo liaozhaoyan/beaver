@@ -50,12 +50,12 @@ function mt.parsePath(url)
     if res then
         local len = #res
         if len == 2 then -- only scheme host
-            return res[1], res[2], sslScheme[res[1]] and "443" or "80"
+            return res[1], res[2], sslScheme[res[1]] and "443" or "80", "/"
         elseif len == 3 then
             if res[3]:sub(1,1) == "/" then  -- has path, no port
                 return res[1], res[2], sslScheme[res[1]] and "443" or "80", res[3]
             else
-                return res[1], res[2], res[3], nil
+                return res[1], res[2], res[3], "/"
             end
         else  -- 4
             return unpack(res)

@@ -14,6 +14,7 @@ local ChttpReq = require("http.httpReq")
 local ChttpPool = require("http.httpPool")
 local ChttpKeepPool = require("http.httpKeepPool")
 local httpRead = require("http.httpRead")
+local request = require("http.request")
 local Credis = require("client.redis")
 local CcliBase = require("client.cliBase")
 local socket = require("socket")
@@ -29,6 +30,8 @@ local Ctest = class("test")
 local collectgarbage = collectgarbage
 local string = string
 local sha256 = digest.sha256
+local unpack = unpack
+local http_get = request.get
 
 collectgarbage("setpause", 150)
 collectgarbage("setstepmul", 300)
@@ -62,7 +65,7 @@ local function keepPoolTest(tReq)
 end
 
 local function poolTest(tReq)
-    local tRes, msg = pool:get("http://www.baidu.com/")
+    local tRes, msg = pool:get("http://www.baidu.com")
     if tRes then
         return {body = tRes.body}
     else
@@ -71,12 +74,11 @@ local function poolTest(tReq)
 end
 
 local function instance(tReq)
-    local req = ChttpReq.new(tReq, "100.100.100.200", 80)
-    local tRes = req:get("/latest/meta-data/instance-id")
+    local tRes, msg = http_get("http://100.100.100.200/latest/meta-data/instance-id")
     if tRes then
-        return {body = tRes.body}
+        return tRes
     else
-        return {body = "unknown"}
+        return {body = msg, code = 403}
     end
 end
 

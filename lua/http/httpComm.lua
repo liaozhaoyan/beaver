@@ -129,8 +129,8 @@ function mt.packServerFrame(res)
     return concat(tHttp, "\r\n")
 end
 
-local function packCliLine(method, url)
-    local t = {method, url, "HTTP/1.1"}
+local function packCliLine(method, uri)
+    local t = {method, uri, "HTTP/1.1"}
     return concat(t, " ")
 end
 
@@ -168,7 +168,7 @@ end
 
 function mt.packClientFrame(res)
     local tHttp = {
-        packCliLine(res.method, res.url),
+        packCliLine(res.method, res.uri),
         packCliHeaders(res.headers, #res.body),
         "",
         res.body

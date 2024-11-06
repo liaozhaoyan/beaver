@@ -23,7 +23,7 @@ end
 
 function CperfFd:close()
     local co = self._co
-    if status(co) == "running" then
+    if status(co) == "normal" then
         self._beaver:co_yield()  -- release callchain from _setup function
     end
 
@@ -44,7 +44,6 @@ function CperfFd:_setup(fd, tmo)
     local beaver = self._beaver
     beaver:co_yield()
 
-    print(fd, "tmo", tmo)
     beaver:co_set_tmo(fd, tmo)
 
     local cb = self._cb
