@@ -18,7 +18,6 @@ function CperfFd:_init_(beaver, fd, cbIn, cbEvent, tmo)
     self._cb = cbIn
     self._cbEvent = cbEvent
     CasyncBase._init_(self, beaver, fd, tmo)
-
 end
 
 function CperfFd:close()

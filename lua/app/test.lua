@@ -23,6 +23,7 @@ local bit = require("bit")
 local posix = require("posix")
 local unistd = require("posix.unistd")
 local CperfFd = require("client.perfFd")
+local Cpopen = require("client.popen")
 local redisTest = require("app.redisTest")
 
 local class = class
@@ -229,17 +230,36 @@ local function testPipe()
     if fd then
         local beaver = workVar.workerGetVar().beaver
         print("open: fd", fd)
-        local function cb(f)
-            local s = unistd.read(f, 1024)
+        local function cb(_fd)
+            local s = unistd.read(_fd, 1024)
             print("read from fd:", s)
             return 0
         end
-        local function cbEvent(f, event)
-            print(f, event)
+        local function cbEvent(_fd, event)
+            print(fd, event)
             return 0
         end
         CperfFd.new(beaver, fd, cb, cbEvent, 2)
     end
+end
+
+local function testPopen()
+    local beaver = workVar.workerGetVar().beaver
+    local p
+    local function cb(fd)
+        local s = unistd.read(fd, 1024)
+        print("read from fd:", s)
+        return 0
+    end
+    local function cbEvent(fd, event)
+        print("evnet", fd, event)
+        if event == 1 then
+            local rets = p:wait()
+            print("pid stat:", rets[1][2], "pid: code:", rets[1][3])
+        end
+        return 0
+    end
+    p = Cpopen.new(beaver, {"ls", "-l"}, cb, cbEvent)
 end
 
 function Ctest:_init_(inst, conf)
@@ -261,6 +281,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/pool", poolTest)
     inst:get("/keep", keepPoolTest)
     testPipe()
+    testPopen()
 end
 
 return Ctest
