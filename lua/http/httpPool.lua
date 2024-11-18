@@ -162,6 +162,9 @@ function ChttpPool:req(reqs)
         reqs.host = host
         reqs.uri = uri
     end
+    if not reqs.uri or not reqs.verb then
+        return nil, "need uri or verb args for reqs."
+    end
     if self:connFull() then  -- connect is full, add to pool
         if not self:poolFull() then  -- pool is not full, add to pool
             reqs._toWake = running()

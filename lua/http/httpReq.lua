@@ -284,7 +284,7 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
     if self._status ~= 1 then
         self:close()
         return {body = format("connected %s status is %d, should be 1.", self._domain, self._status), 
-                code = 500}
+                code = 424}
     end
     headers = headers or {}
     headers.Host = self._domain
@@ -312,7 +312,7 @@ function ChttpReq:sendBody(body, reuse)
     if self._status ~= 1 then
         self:close()
         return {body = format("connected %s status is %d, should be 1.", self._domain, self._status), 
-                code = 500}
+                code = 424}
     end
 
     local res, msg = self:_waitData(body)
@@ -348,7 +348,7 @@ function ChttpReq:poll()
     if self._status ~= 1 then
         self:close()
         return {body = format("connected %s status is %d, should be 1.", self._domain, self._status), 
-                code = 500}
+                code = 424}
     end
     local res, msg = self:_waitData("")  -- empty string mean poll
     if type(res) ~= "table" then

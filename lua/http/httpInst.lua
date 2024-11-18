@@ -73,10 +73,10 @@ local function echo404(path, verb)
     }
 end
 
-local function echo501(verb, path)
+local function echo405(verb, path)
     print(format("path %s verb %s is not implemented\n", path, verb))
     return {
-        code = 501,
+        code = 405,
         headers = {
             ["Content-Type"] = "text/plain",
         },
@@ -120,7 +120,7 @@ local function _proc(cbs, verb, tReq)
             return echo503(tReq.path, lastError())
         end
     end
-    return echo501(verb, tReq.path)
+    return echo405(verb, tReq.path)
 end
 
 function ChttpInst:setProbe(probe)

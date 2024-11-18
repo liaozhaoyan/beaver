@@ -233,8 +233,12 @@ local function prefixStar(s, fread)    -- *
         local cells = {}
         local cell
         for i = 1, num do
-            cell, rest = prefixDollar(sub(rest, 2), fread)
-            cells[i] = cell
+            if rest then
+                cell, rest = exec_sym(rest, fread)
+                cells[i] = cell
+            else
+                break
+            end
         end
         return cells, rest
     end
