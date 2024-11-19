@@ -14,7 +14,7 @@ local uriScheme = ((C(letter^1) * P"://"))^1
 local host = C((letter + digit + allowed_punct)^1)
 local port = (P":" * C(digit^1))^-1
 local path = P("/")^0
-local uriPath = (C(P"/" * (letter + digit + allowed_punct + S("-_~!$&'()*+,;=:/?@#%"))^0))^0
+local uriPath = (C(P"/" * (letter + digit + S("-_~.!$&'()*+,;=:/?@#%[]{}"))^0))^0
 local end_of_string = P(-1)
 
 -- 完整的模式

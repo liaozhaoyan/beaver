@@ -196,4 +196,9 @@ host, path = parseHostUri(url)
 assert(host == "https://www.baidu.com")
 assert(path == "/a/b/c?d=e")
 
+url = "http://127.0.0.1:3605/api/v1/livetrace_proxy/prometheus/api/v1/query?query=max(sysom_proc_cpu_total{instance!=%22%22})%20by%20(instance)"
+host, path = parseHostUri(url)
+assert(host == "http://127.0.0.1:3605")
+assert(path == "/api/v1/livetrace_proxy/prometheus/api/v1/query?query=max(sysom_proc_cpu_total{instance!=%22%22})%20by%20(instance)")
+
 print("testUrlParse success")
