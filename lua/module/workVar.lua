@@ -39,6 +39,7 @@ local var = {
     dnsReq = {},
     upstream = {},
     httpServer = {},
+    tcpServer = {},
 
     -- for connect module manage
     httpReq = {},
@@ -251,6 +252,10 @@ local instTable = {
         app.new(inst, conf)
         return inst
     end,
+    tcpServer = function(conf)
+        local app = require(format("app.%s", conf.entry))
+        return app.new(conf)
+    end
 }
 
 local function setupInst(conf)
