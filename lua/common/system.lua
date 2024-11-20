@@ -229,8 +229,8 @@ end
 
 local randomseed = math.randomseed
 local random = math.random
+randomseed(time())
 function system.guid()
-    randomseed(time())
     local seed={'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'}
     local tb={}
     for i = 1,32 do
