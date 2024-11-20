@@ -29,7 +29,7 @@ local function send_file(ctxt)
 end
 
 -- epoll 可读事件回调，ctxt 为上下文数据，
--- 读数据建议采用 beaver:read 方法, 不配置长度时，默认读取64k
+-- 读数据建议采用 beaver:read 方法, 如果不配置长度时，默认读取64k
 -- 
 function CudsServer:read(beaver, fd, ctxt)  -- should 
     local s = beaver:read(fd, 1024 * 1024)
@@ -46,7 +46,7 @@ function CudsServer:read(beaver, fd, ctxt)  -- should
     end
 end
 
--- 关闭事件回调，无需close fd 和释放cxt
+-- 关闭事件回调，无需close fd 和释放ctxt
 function CudsServer:close(beaver, fd, ctxt)
     send_file(ctxt)
     print("udsServer close: ", fd, ctxt.total)
