@@ -1,5 +1,6 @@
 require("eclass")
 
+local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
 local workVar = require("module.workVar")
 local sockComm = require("common.sockComm")
@@ -12,7 +13,8 @@ local type = type
 local print = print
 local running = coroutine.running
 local yield = coroutine.yield
-local pcall = pcall
+local systemPcall = system.pcall
+local lastError = system.lastError
 local srvSslHandshake = sockComm.srvSslHandshake
 
 function CtcpServer:_init_(beaver, fd, bfd, addr, conf, inst, ctx)
@@ -40,12 +42,13 @@ function CtcpServer:_setup(fd, tmo)
     if ctx then
         ret = srvSslHandshake(beaver, fd, ctx)
     end
+    local ctxt = {}
 
     if ret == 1 then
         if inst.accept then  -- first write
-            local ok, res = pcall(inst.accept, inst, beaver, fd)
+            local ok, _ = systemPcall(inst.accept, inst, beaver, fd, ctxt)
             if not ok then
-                print("tcpServer accept error: ", res)
+                print("tcpServer accept error: ", lastError())
                 goto stop_client
             end
         end
@@ -54,9 +57,9 @@ function CtcpServer:_setup(fd, tmo)
             if type(e) ~= "cdata" or e.ev_in < 1 then
                 break
             end
-            local ok, res = pcall(inst.read, inst, beaver, fd)
+            local ok, res = systemPcall(inst.read, inst, beaver, fd, ctxt)
             if not ok then
-                print("tcpServer read error: ", res)
+                print("tcpServer read error: ", lastError())
                 break
             end
             if not res then  -- read error
@@ -66,9 +69,9 @@ function CtcpServer:_setup(fd, tmo)
     end
     ::stop_client::
     if inst.close then
-        local ok, res = pcall(inst.close, inst, beaver, fd)
+        local ok, _ = systemPcall(inst.close, inst, beaver, fd, ctxt)
         if not ok then
-            print("tcpServer close error: ", res)
+            print("tcpServer close error: ", lastError())
         end
     end
 
