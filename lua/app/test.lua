@@ -24,6 +24,7 @@ local posix = require("posix")
 local unistd = require("posix.unistd")
 local CperfFd = require("client.perfFd")
 local Cpopen = require("client.popen")
+local executor = require("client.excute")
 local redisTest = require("app.redisTest")
 
 local class = class
@@ -32,6 +33,7 @@ local collectgarbage = collectgarbage
 local string = string
 local sha256 = digest.sha256
 local unpack = unpack
+local execute = executor.execute
 local http_get = request.get
 
 collectgarbage("setpause", 150)
@@ -231,7 +233,7 @@ local function testPipe()
         local beaver = workVar.workerGetVar().beaver
         print("open: fd", fd)
         local function cb(_fd)
-            local s = unistd.read(_fd, 1024)
+            local s = beaver:read(_fd)
             print("read from fd:", s)
             return 0
         end
@@ -247,7 +249,7 @@ local function testPopen()
     local beaver = workVar.workerGetVar().beaver
     local p
     local function cb(fd)
-        local s = unistd.read(fd, 1024)
+        local s = beaver:read(fd)
         print("read from fd:", s)
         return 0
     end
@@ -282,6 +284,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/keep", keepPoolTest)
     testPipe()
     testPopen()
+    print(execute("sleep 10"))
 end
 
 return Ctest
