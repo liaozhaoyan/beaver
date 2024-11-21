@@ -166,6 +166,11 @@ int mod_fd(int efd, int fd, int wr) {
         case -1:   //no read and write
             event.events = EPOLLERR | EPOLLRDHUP;
             break;
+        case -2:  //already cloesed, do not trig any more.
+            return del_fd(efd, fd);
+        case -3:  //for case 2, add fd back to epoll fd, 
+            // then will remove it by beaverIO:remove(fd)
+            return add_fd(efd, fd);
         default:
             fprintf(stderr, "bad wr mode %d for mod_fd", wr);
     }

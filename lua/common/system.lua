@@ -6,6 +6,7 @@
 local require = require
 local serpent = require("common.serpent")
 local block = serpent.block
+local unistd = require("posix.unistd")
 local system = {}
 local type = type
 local print = print
@@ -229,7 +230,7 @@ end
 
 local randomseed = math.randomseed
 local random = math.random
-randomseed(time())
+randomseed(time()+unistd.getpid())
 function system.guid()
     local seed={'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'}
     local tb={}
