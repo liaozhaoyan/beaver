@@ -248,7 +248,7 @@ function M.serverRead(fread, parseParam)
     return serverParse(fread, stream, parseParam)
 end
 
-local function clientParse(fread, stream)
+local function clientParse(fread, stream, headType)
     local tStatus = split(stream, "\r\n", 1)
     if #tStatus < 2 then
         print("bad stream format.")
@@ -289,18 +289,22 @@ local function clientParse(fread, stream)
     end
     tRes.headers = headers
     tRes.body = body
+
+    if headType then
+        return tRes
+    end
     if waitHttpRest(fread, tRes) < 0 then
         return nil
     end
     return tRes
 end
 
-function M.clientRead(fread, tmo)
+function M.clientRead(fread, headType, tmo)
     local stream, msg = waitHttpHead(fread)
     if stream == nil then   -- read return stream or error code or nil
         return nil, msg
     end
-    return clientParse(fread, stream)
+    return clientParse(fread, stream, headType)
 end
 
 return M

@@ -10,3 +10,5 @@ if result then
 else
     print("没有找到匹配的子串")
 end
+
+print(lrexlib.match("javaCpu", "javaCpu"))

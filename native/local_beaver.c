@@ -20,6 +20,8 @@
 
 #define EPOLL_CLOSE_FLAG (EPOLLERR | EPOLLHUP | EPOLLRDHUP)
 
+int del_fd(int efd, int fd);
+
 int setsockopt_reuse_port(int fd){
     int opt =1;
     int r = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, (char*)&opt, sizeof(int));

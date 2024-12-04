@@ -113,6 +113,18 @@ local function singleGet(tReq, url, coWake)
     end
 end
 
+local function head(tReq)
+    local url = "http://www.baidu.com/"
+    local req = ChttpReq.new(tReq, url, nil, nil, proxy)
+    local tRes = req:head(url)
+    if tRes then
+        system.dumps(tRes.headers)
+        return {body = "ok"}
+    else
+        return {body = "unknown"}
+    end
+end
+
 local function bulk(tReq)
     local urls = {"https://cn.bing.com/", "http://www.baidu.com/"}
 
@@ -271,6 +283,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/instance", instance)
     inst:get("/bing", bing)
     inst:get("/baidu", baidu)
+    inst:get("/head", head)
     inst:get("/bulk", bulk)
     inst:get("/unkown", unkown)
     inst:get("/gc", gcInfo)
@@ -284,7 +297,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/keep", keepPoolTest)
     testPipe()
     testPopen()
-    print(execute("sleep 10"))
+    -- print(execute("sleep 10"))
 end
 
 return Ctest

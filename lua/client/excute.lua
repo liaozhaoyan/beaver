@@ -63,7 +63,7 @@ function mt.execute(cmd)
     local co = running()
     local p
     local function cb(fd)
-        beaver.read(fd)
+        beaver:read(fd)
         return 0
     end
     local function cbEvent(fd, event)

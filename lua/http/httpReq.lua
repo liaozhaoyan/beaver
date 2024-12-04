@@ -10,6 +10,7 @@ require("eclass")
 local system = require("common.system")
 local psocket = require("posix.sys.socket")
 local posix = require("posix")
+local pystring = require("pystring")
 local CasyncClient = require("async.asyncClient")
 local workVar = require("module.workVar")
 local parseUrl = require("common.parseUrl")
@@ -31,6 +32,7 @@ local clientRead = httpRead.clientRead
 local getIp = workVar.getIp
 local parse = parseUrl.parse
 local isSsl = parseUrl.isSsl
+local startswith = pystring.startswith
 
 local httpConnectTmo = 10
 
@@ -142,6 +144,7 @@ function ChttpReq:_setup(fd, tmo)
     end
 
     local clear
+    local headType = false
     while status == 1 do
         if not e then
             e = yield()
@@ -151,6 +154,11 @@ function ChttpReq:_setup(fd, tmo)
         if t == "string" then -- has data to send
             if #e > 0 then  -- for watcher event, may send empty string
                 local msg
+                if startswith(e, "HEAD") then
+                    headType = true
+                else
+                    headType = false
+                end
                 res, msg = beaver:write(fd, e)
                 if not res then
                     print("http write error.", msg)
@@ -176,7 +184,7 @@ function ChttpReq:_setup(fd, tmo)
             if ev_in > 0 then
                 clear = nil -- clear timerWait call back.
                 local fread = beaver:reads(fd, maxLen, tmo)
-                local tRes, msg = clientRead(fread, tmo / 2)
+                local tRes, msg = clientRead(fread, headType, tmo / 2)
                 if not tRes then
                     -- print("get remote closed.", msg)
                     self._status = 0
@@ -326,6 +334,10 @@ function ChttpReq:sendBody(body, reuse)
     end
     self:close()
     return res
+end
+
+function ChttpReq:head(uri, headers, body, reuse)
+    return self:_req("HEAD", uri, headers, body, reuse)
 end
 
 function ChttpReq:post(uri, headers, body, reuse)
