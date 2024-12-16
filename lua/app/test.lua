@@ -6,6 +6,7 @@
 
 require("eclass")
 
+local cjson = require("cjson.safe")
 local system = require("common.system")
 local workVar = require("module.workVar")
 local pystring = require("pystring")
@@ -26,6 +27,7 @@ local CperfFd = require("client.perfFd")
 local Cpopen = require("client.popen")
 local executor = require("client.excute")
 local redisTest = require("app.redisTest")
+local CclickHouse = require("client.clickHouse")
 
 local class = class
 local Ctest = class("test")
@@ -33,6 +35,7 @@ local collectgarbage = collectgarbage
 local string = string
 local sha256 = digest.sha256
 local unpack = unpack
+local jencode = cjson.encode
 local execute = executor.execute
 local http_get = request.get
 
@@ -276,6 +279,17 @@ local function testPopen()
     p = Cpopen.new(beaver, {"ls", "-l"}, cb, cbEvent)
 end
 
+local function clickHouse()
+    local ck = CclickHouse.new("http://172.16.3.178:8123", "prof", "prof", "Sysom123")
+    -- local ok, msg = ck:execute("SELECT COUNT(beg) FROM prof_on;")
+    local ok, res = ck:execute("SELECT beg, instance, content FROM prof_on WHERE beg == 1734276180;")
+    if ok then
+        return {body = jencode(res)}
+    else
+        return {body = res, code = "400"}
+    end
+end
+
 function Ctest:_init_(inst, conf)
     -- redisTest.start()
     -- inst:setProbe(probe)
@@ -295,6 +309,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/sha", sha_check)
     inst:get("/pool", poolTest)
     inst:get("/keep", keepPoolTest)
+    inst:get("/clickhouse", clickHouse)
     testPipe()
     testPopen()
     -- print(execute("sleep 10"))
