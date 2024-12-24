@@ -62,7 +62,7 @@ function CasyncClient:wake(co, v)
 end
 
 local function hostFdBacktoRead(beaver, fd)
-    beaver:mod_fd(fd, 0)
+    return beaver:mod_fd(fd, 0)
 end
 
 function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
@@ -72,7 +72,9 @@ function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
     elseif res == 2 then -- connecting
         local w
         if hostFd then
-            beaver:mod_fd(hostFd, -1)  -- mask io event, only close event is working.
+            if beaver:mod_fd(hostFd, -1) ~= 0 then -- mask io event, only close event is working.
+                return 3
+            end
             w = yield()
             -- after yield, hostFd my closed, so, need to hold this.
             if w ~= nil then
@@ -190,16 +192,21 @@ function CasyncClient:_waitData(stream)
             end
 
             if selfFd then
-                beaver:mod_fd(selfFd, -1)  -- to block fd other event, mask io event, only close event is working. 
+                if beaver:mod_fd(selfFd, -1) ~= 0 then  -- to block fd other event, mask io event, only close event is working. 
+                    return nil, "local socket closeed1."
+                end
                 e = yield()
                 if type(e) == "cdata" then
                     if e.ev_close == 1 and e.fd == selfFd then
-                        return nil, "local socket closeed."
+                        return nil, "local socket closeed2."
                     else
                         error(format("beaver report bug: fd: %d, in: %d, out: %d", e.fd, e.ev_in, e.ev_out))
                     end
                 end
-                beaver:mod_fd(selfFd, 0)  -- back to read mode
+
+                if beaver:mod_fd(selfFd, 0) ~= 0 then -- back to read mode
+                    return nil, "local socket closeed3."
+                end
             else
                 e = yield()
             end

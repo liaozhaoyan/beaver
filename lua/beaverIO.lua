@@ -109,7 +109,8 @@ function CbeaverIO:ssl_add(fd, handler)
 end
 
 function CbeaverIO:mod_fd(fd, wr)
-    liteAssert(c_api_mod_fd(self._efd, fd, wr) == 0, traceback(format("mod fd %d failed.", fd)))
+    return c_api_mod_fd(self._efd, fd, wr)
+    -- liteAssert(c_api_mod_fd(self._efd, fd, wr) == 0, traceback(format("mod fd %d failed.", fd)))
 end
 
 function CbeaverIO:sslHandler(fd)

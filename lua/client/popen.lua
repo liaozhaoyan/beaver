@@ -30,7 +30,9 @@ end
 function Cpopen:wait()
     local rets = {}
     if self._pfd then
-        self._beaver:mod_fd(self._pfd.fd, -2)
+        if self._beaver:mod_fd(self._pfd.fd, -2) ~= 0 then
+            return rets
+        end
         -- remove fd from epoll at first, to avoid epoll close fd hangup event.
         msleep(5)  --need sleep for waitpid exit.
         for i, pid in ipairs(self._pfd.pids) do

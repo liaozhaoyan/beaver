@@ -146,11 +146,15 @@ local function waitConnect(beaver, fd, down)
     if res == 1 then -- connect ok.
         return true
     elseif res == 2 then -- connecting
-        beaver:mod_fd(fd, -1)  -- mask io event, other close event is working.
+        if beaver:mod_fd(fd, -1) ~= 0 then  -- mask io event, other close event is working.
+            return false
+        end
         local w = yield()
         local t = type(w)
         if t == "number" and w == 1 then  -- 0 is ok
-            beaver:mod_fd(fd, 0)  -- back to read mode
+            if beaver:mod_fd(fd, 0) ~=0 then  -- back to read mode
+                return false
+            end
             return true
         else
             if t ~= "number" then

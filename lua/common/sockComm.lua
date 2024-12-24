@@ -180,7 +180,9 @@ end
 function mt.connect(fd, tPort, beaver)
     local res = tryConnect(fd, tPort)
     if res == 2 then -- 2 means connecting  refer to aysync.asyncClient _init_
-        beaver:mod_fd(fd, 1)  -- modify fd to writeable
+        if beaver:mod_fd(fd, 1) ~= 0 then  -- modify fd to writeable
+            return 3, nil
+        end
         local clear = beaver:timerWait(fd)
         local e = yield()
         clear()
@@ -194,7 +196,9 @@ function mt.connect(fd, tPort, beaver)
             return 3, nil -- connected failed, unexpected event
         elseif e.ev_out > 0 then
             if check_connected(fd) == 0 then
-                beaver:mod_fd(fd, 0)   -- modify fd to readonly
+                if beaver:mod_fd(fd, 0) ~= 0 then  -- modify fd to readonly
+                    return 3, nil
+                end
                 return 1, nil  -- connected success  refer to aysync.asyncClient _init_
             else
                 return 3, nil
@@ -227,18 +231,24 @@ function mt.cliSslHandshake(fd, beaver)
     repeat
         ret = ssl_handshake(handler)
         if ret == 1 then
-            beaver:mod_fd(fd, 1)
+            if beaver:mod_fd(fd, 1) ~= 0 then
+                ret = -1
+            end
             if handshakeYield(fd, beaver) then
                 ret = -1
             end
         elseif ret == 2 then
-            beaver:mod_fd(fd, 0)
+            if beaver:mod_fd(fd, 0) ~= 0 then
+                ret = -1
+            end
             if handshakeYield(fd, beaver) then
                 ret = -1
             end
         end
     until (ret <= 0)
-    beaver:mod_fd(fd, 0)
+    if beaver:mod_fd(fd, 0) ~= 0 then
+        ret = -1
+    end
     if ret < 0 then
         ssl_free(handler)
         handler = nil
@@ -258,18 +268,24 @@ function mt.srvSslHandshake(beaver, fd, ctx)
     repeat
         ret = ssl_handshake(handler)
         if ret == 1 then
-            beaver:mod_fd(fd, 1)
+            if beaver:mod_fd(fd, 1) ~= 0 then
+                ret = -1
+            end
             if handshakeYield( fd, beaver) then
                 ret = -1
             end
         elseif ret == 2 then
-            beaver:mod_fd(fd, 0)
+            if beaver:mod_fd(fd, 0) ~= 0 then
+                ret = -1
+            end
             if handshakeYield(fd, beaver) then
                 ret = -1
             end
         end
     until (ret <= 0)
-    beaver:mod_fd(fd, 0)
+    if beaver:mod_fd(fd, 0) ~= 0 then
+        ret = -1
+    end
     if ret < 0 then
         ssl_free(handler)
         handler = nil
