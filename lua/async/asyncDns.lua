@@ -213,7 +213,7 @@ local function getIPFromRec(rec, e)
     end
 end
 
-local function getThread(beaver, domain, ip, tmo, coWake)
+local function getThread(beaver, domain, ip, tmo, coWake, obj)
     beaver:co_yield()  -- to confirm parent thread is suspended, then just use resume function.
     local size, fd, err, errno, res, msg
     fd, err = new_socket(psocket.AF_INET, psocket.SOCK_DGRAM, 0)
@@ -244,21 +244,21 @@ local function getThread(beaver, domain, ip, tmo, coWake)
     elseif status(coWake) == "suspended" then  -- request for dns failed.
         print(format("sendto dns requst %s to %s, return %s, errno: %d", domain, ip, err, errno))
     end
-    if status(coWake) =="suspended" then  -- may wake for killed.
+    if status(coWake) =="suspended" and obj._working then  -- may wake for killed, or main thread is not working, see setup function.
         res, msg = resume(coWake, ip, ips)
         coReport(coWake, res, msg)
     end
     beaver:co_exit(fd)
 end
 
-local function dnsGets(beaver, domain, tmo)
+local function dnsGets(beaver, domain, tmo, obj)
     local res, msg
     local nowCo = running()
     local cos = {}
 
     for _, ip in ipairs(serverIPs) do
         local co = create(getThread)
-        res, msg = resume(co, beaver, domain, ip, tmo, nowCo)
+        res, msg = resume(co, beaver, domain, ip, tmo, nowCo, obj)
         coReport(co, res, msg)
         cos[ip] = co
     end
@@ -325,7 +325,7 @@ function CasyncDns:_setup(fd, tmo)
             local ips = nil
             local try = 0
             repeat
-                ips = dnsGets(beaver, domain, tmo)
+                ips = dnsGets(beaver, domain, tmo, self)
                 if ips then
                     freshDns(domain, {ips, time() + dnsOvertime})
                     failed = 0
