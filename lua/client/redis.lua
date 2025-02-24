@@ -225,8 +225,7 @@ local function prefixColon(s, fread)  -- :  number
 end
 
 local function prefixStar(s, fread)    -- *
-    local start
-    s, start = waitBlock(s, fread)
+    s, _ = waitBlock(s, fread)
     if s then
         local num, rest = unpack(split(s, "\r\n", 1))
         num = tonumber(num)
@@ -234,7 +233,10 @@ local function prefixStar(s, fread)    -- *
         local cell
         for i = 1, num do
             if rest then
-                cell, rest = exec_sym(rest, fread)
+                if rest == "" then
+                    rest, _ = waitBlock(rest, fread)
+                end
+                 cell, rest = exec_sym(rest, fread)
                 cells[i] = cell
             else
                 break
@@ -301,15 +303,20 @@ local function prefixExclamation(s, fread)     -- ! Blob error
 end
 
 local function prefixPercent(s, fread)     -- % for map
-    local start
-    s, start = waitBlock(s, fread)
+    s, _ = waitBlock(s, fread)
     if s then
         local num, rest = unpack(split(s, "\r\n", 1))
         num = tonumber(num)
         local cells = {}
         local k, v
         for i = 1, num do
+            if rest == "" then
+                rest, _ = waitBlock(rest, fread)
+            end
             k, rest = exec_sym(rest, fread)
+            if rest == "" then
+                rest, _ = waitBlock(rest, fread)
+            end
             v, rest = exec_sym(rest, fread)
             if k and v then
                 cells[k] = v
@@ -323,14 +330,16 @@ local function prefixPercent(s, fread)     -- % for map
 end
 
 local function prefixTilde(s, fread)       -- ~ for list
-    local start
-    s, start = waitBlock(s, fread)
+    s, _ = waitBlock(s, fread)
     if s then
         local num, rest = unpack(split(s, "\r\n", 1))
         num = tonumber(num)
         local cells = {}
         local cell
         for i = 1, num do
+            if rest == "" then
+                rest, _ = waitBlock(rest, fread)
+            end
             cell, rest = exec_sym(rest, fread)
             if cell then
                 cells[i] = cell
