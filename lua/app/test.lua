@@ -10,7 +10,6 @@ local cjson = require("cjson.safe")
 local system = require("common.system")
 local workVar = require("module.workVar")
 local pystring = require("pystring")
-local cjson = require("cjson.safe")
 local ChttpReq = require("http.httpReq")
 local ChttpPool = require("http.httpPool")
 local ChttpKeepPool = require("http.httpKeepPool")
@@ -38,6 +37,8 @@ local unpack = unpack
 local jencode = cjson.encode
 local execute = executor.execute
 local http_get = request.get
+
+local beaver = workVar.workerGetVar().beaver
 
 collectgarbage("setpause", 150)
 collectgarbage("setstepmul", 300)
@@ -242,10 +243,33 @@ local function probe(code)
     print("code: ", code)
 end
 
+local function testKmsg()
+    local fd = posix.open("/dev/kmsg", posix.O_RDONLY + posix.O_NONBLOCK)
+    if fd then
+        local res, err, errno
+        print("open /dev/kmsg: fd", fd)
+        res, err, errno = unistd.lseek(fd, 0, posix.SEEK_END)
+        if not res then
+            print("lseek error:", err, errno)
+            return
+        end
+        
+        local function cb(_fd)
+            local s = beaver:read(_fd)
+            print("read from kmsg fd:", s)
+            return 0
+        end
+        local function cbEvent(_fd, event)
+            print("kmsg event:", _fd, event)
+            return 0
+        end
+        CperfFd.new(beaver, fd, cb, cbEvent, -1)  -- -1 never timeout
+    end
+end
+
 local function testPipe()
     local fd = posix.open("/tmp/beaver_fifo", posix.O_RDONLY + posix.O_NONBLOCK)
     if fd then
-        local beaver = workVar.workerGetVar().beaver
         print("open: fd", fd)
         local function cb(_fd)
             local s = beaver:read(_fd)
@@ -261,7 +285,6 @@ local function testPipe()
 end
 
 local function testPopen()
-    local beaver = workVar.workerGetVar().beaver
     local p
     local function cb(fd)
         local s = beaver:read(fd)
@@ -312,6 +335,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/clickhouse", clickHouse)
     testPipe()
     testPopen()
+    testKmsg()
     -- print(execute("sleep 10"))
 end
 
