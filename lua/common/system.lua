@@ -136,6 +136,13 @@ function system.keyCount(tbl)
     return count
 end
 
+function system.hasKey(tbl)
+    for _, _ in pairs(tbl) do
+        return true
+    end
+    return false
+end
+
 function system.dictCopy(tbl)
     local cp = {}
     assert(type(tbl) == "table")

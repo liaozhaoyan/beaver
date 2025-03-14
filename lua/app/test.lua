@@ -219,6 +219,7 @@ local function rcmds(tReq)
         pipe[cmd](pipe, unpack(args))
     end
     local res = pipe:send()
+    r:close()
     if res then
         return {body = cjson.encode(res)}
     end
@@ -251,9 +252,10 @@ local function testKmsg()
         res, err, errno = unistd.lseek(fd, 0, posix.SEEK_END)
         if not res then
             print("lseek error:", err, errno)
+            posix.close(fd)
             return
         end
-        
+
         local function cb(_fd)
             local s = beaver:read(_fd)
             print("read from kmsg fd:", s)
