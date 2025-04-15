@@ -1,7 +1,10 @@
 local require = require
+
+local system = require("common.system")
 local yield = coroutine.yield
 local resume = coroutine.resume
 local running = coroutine.running
+local coReport = system.coReport
 local insert = table.insert
 local lpeg = require("lpeg")
 local Cpopen = require("client.popen")
@@ -69,7 +72,8 @@ function mt.execute(cmd)
     local function cbEvent(fd, event)
         if event == 1 then
             local rets = p:wait()
-            resume(co, rets[1][3])  --wake up execut
+            local res, msg = resume(co, rets[1][3])  --wake up execut
+            coReport(co, res, msg)
         end
         return 0
     end

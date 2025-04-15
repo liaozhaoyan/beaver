@@ -137,6 +137,9 @@ function system.keyCount(tbl)
 end
 
 function system.hasKey(tbl)
+    if type(tbl) ~= "table" then
+        return false
+    end
     for _, _ in pairs(tbl) do
         return true
     end
