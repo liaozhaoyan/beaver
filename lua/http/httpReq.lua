@@ -295,7 +295,9 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
                 code = 424}
     end
     headers = headers or {}
-    headers.Host = self._domain
+    if not headers.Host then
+        headers.Host = self._domain
+    end
     local sendTable = {
         uri = uri,
         method = verb,
