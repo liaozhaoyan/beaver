@@ -61,7 +61,7 @@ function mt.parse_command_line(command_line)
     return cmds
 end
 
-function mt.execute(cmd)
+function mt.execute(cmd, tmo)
     local cmds = mt.parse_command_line(cmd)
     local co = running()
     local p
@@ -78,12 +78,40 @@ function mt.execute(cmd)
         return 0
     end
 
-    p = Cpopen.new(beaver, cmds, cb, cbEvent)
+    p = Cpopen.new(beaver, cmds, cb, cbEvent, tmo)
     local code = yield()
     if code ~= 0 then
         print("execute ", cmd, "failed, code:", code)
     end
     return code
+end
+
+function mt.popen(cmd, tmo)
+    local cmds = mt.parse_command_line(cmd)
+    local co = running()
+    local p
+    local c, cells = 1, {}
+    local function cb(fd)
+        cells[c] = beaver:read(fd)
+        c = c + 1
+        return 0
+    end
+    local function cbEvent(fd, event)
+        if event == 1 then
+            local rets = p:wait()
+
+            local ok, msg = resume(co, rets[1][3])  --wake up execut
+            coReport(co, ok, msg)
+        end
+        return 0
+    end
+
+    p = Cpopen.new(beaver, cmds, cb, cbEvent, tmo)
+    local code = yield()
+    if code ~= 0 then
+        print("execute ", cmd, "failed, code:", code)
+    end
+    return table.concat(cells, ""), code
 end
 
 return mt

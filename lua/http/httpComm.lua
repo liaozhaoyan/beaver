@@ -8,9 +8,11 @@
 local require = require
 local pystring = require("pystring")
 local sockerUrl = require("socket.url")
+local zlib = require("zlib")
 
 local tostring = tostring
 local tonumber = tonumber
+local find = string.find
 local print = print
 local ipairs = ipairs
 local pairs = pairs
@@ -22,6 +24,7 @@ local format = string.format
 local os_date = os.date
 local os_time = os.time
 local type = type
+local deflate = zlib.deflate
 
 local mt = {}
 
@@ -90,16 +93,19 @@ local function originServerHeader()
     }
 end
 
-local function packServerHeaders(headers, len) -- just for http out.
+local function packServerHeaders(headers, body, gzip) -- just for http out.
     local heads = {}
     if not headers then
         headers = {
             ["Content-Type"] = "text/plain",
         }
     end
+    if gzip then
+        headers["Content-Encoding"] = "gzip"
+    end
 
     if not headers["Content-Length"] then
-        headers["Content-Length"] = tonumber(len)
+        headers["Content-Length"] = #body
     end
     local origin = originServerHeader()
 
@@ -118,13 +124,19 @@ local function packServerHeaders(headers, len) -- just for http out.
 end
 
 function mt.packServerFrame(res)
-    local body = res.body
+    local body = res.body or ""
     if body and type(body) ~= "string" then
         body = tostring(body)
     end
+    local gzip = false
+    if res["accept-encoding"] and find(res["accept-encoding"], "gzip") and body and #body > 0 then
+        gzip = true
+        local compressor = deflate()
+        body = compressor(body, "finish")
+    end
     local tHttp = {
         packStat(res.code),
-        packServerHeaders(res.headers, body and #body or 0),
+        packServerHeaders(res.headers, body, gzip),
         "",
         body
     }

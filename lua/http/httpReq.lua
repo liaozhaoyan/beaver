@@ -321,8 +321,7 @@ end
 function ChttpReq:sendBody(body, reuse)
     if self._status ~= 1 then
         self:close()
-        return {body = format("connected %s status is %d, should be 1.", self._domain, self._status), 
-                code = 424}
+        return {body = format("connected %s status is %d, should be 1.", self._domain, self._status), code = 424}
     end
 
     local res, msg = self:_waitData(body)

@@ -34,6 +34,7 @@ end
 function ChttpServer:_setup(fd, tmo)
     local beaver = self._beaver
     local module = self._conf.func
+    local gzip = self._conf.gzip
 
     local inst = self._inst
     local session = {}
@@ -55,7 +56,7 @@ function ChttpServer:_setup(fd, tmo)
             end
        
             local fread = beaver:reads(fd, nil, tmo / 2)
-            local tRes = inst:proc(fread, session, clients, beaver, fd)
+            local tRes = inst:proc(fread, session, clients, beaver, fd, gzip)
 
             if tRes then
                 local s = inst:packServerFrame(tRes)

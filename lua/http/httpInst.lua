@@ -38,7 +38,6 @@ function ChttpInst:_init_()
     self:setProbe(nil)
 end
 
-
 function ChttpInst:_verbRegister(verb, path, func)
     local cb = self._cbs[verb]
 
@@ -143,7 +142,7 @@ function ChttpInst:packServerFrame(tReq)
     return commPackServerFrame(tReq)
 end
 
-function ChttpInst:proc(fread, session, clients, beaver, fd)
+function ChttpInst:proc(fread, session, clients, beaver, fd, gzip)
     local tReq = serverRead(fread)
     if tReq then
         tReq.session = session
@@ -153,10 +152,15 @@ function ChttpInst:proc(fread, session, clients, beaver, fd)
         local call = self._call
         local tRes = call(tReq.verb, tReq)
         local keep = true
-        if tReq.headers and tReq.headers.connection then
-            local con = tReq.headers.connection
-            if lower(con) ~= 'keep-alive' then
-                keep = false
+        if tReq.headers then
+            if tReq.headers.connection then
+                local con = tReq.headers.connection
+                if lower(con) ~= 'keep-alive' then
+                    keep = false
+                end
+            end
+            if gzip then
+                tRes['accept-encoding'] = tReq.headers["accept-encoding"]
             end
         end
         tRes.keep = keep

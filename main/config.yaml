@@ -19,6 +19,7 @@ worker:
       mode: "TCP"
       bind: "0.0.0.0"
       port: 3385
+      gzip: true
       entry: test  # entry path
     - func: "tcpServer"
       mode: "TCP"
