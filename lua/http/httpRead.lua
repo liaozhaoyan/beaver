@@ -252,6 +252,10 @@ local function serverParse(fread, stream, parseParam)
     end
     if headers["content-encoding"] and headers["content-encoding"] == "gzip" then
         tReq.body = decompress(tReq.body)
+        if tReq.body == nil then
+            tReq.code = 400
+            tReq.body = "gzip decompress error."
+        end
     end
     return tReq
 end
@@ -315,7 +319,10 @@ local function clientParse(fread, stream, headType)
     end
     if headers["content-encoding"] and headers["content-encoding"] == "gzip" then
         tRes.body = decompress(tRes.body)
-
+        if tRes.body == nil then
+            tRes.code = 501
+            tRes.body = "gzip decompress error."
+        end
     end
     return tRes
 end
