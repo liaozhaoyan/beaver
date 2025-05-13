@@ -9,6 +9,7 @@
 local M = {}
 local sockerUrl = require("socket.url")
 local pystring = require("pystring")
+local zlib = require("zlib")
 
 local split = pystring.split
 local lstrip = pystring.lstrip
@@ -24,8 +25,20 @@ local format = string.format
 local lower = string.lower
 local concat = table.concat
 local insert = table.insert
+local pcall = pcall
+local inflate = zlib.inflate
 
 local defaultHttpReadOvertime = 10
+
+local function decompress(data)
+    local inflater = zlib.inflate()
+    local success, decompressed_data = pcall(inflater, data, "finish")
+    if success then
+        return decompressed_data
+    else
+        return nil
+    end
+end
 
 local function parseParam(param)
     local tParam = split(param, "&")
@@ -237,6 +250,9 @@ local function serverParse(fread, stream, parseParam)
     if waitHttpRest(fread, tReq) < 0 then
         return nil
     end
+    if headers["content-encoding"] and headers["content-encoding"] == "gzip" then
+        tReq.body = decompress(tReq.body)
+    end
     return tReq
 end
 
@@ -287,6 +303,7 @@ local function clientParse(fread, stream, headType)
         k = lower(k)
         headers[k] = lstrip(v)
     end
+
     tRes.headers = headers
     tRes.body = body
 
@@ -295,6 +312,10 @@ local function clientParse(fread, stream, headType)
     end
     if waitHttpRest(fread, tRes) < 0 then
         return nil
+    end
+    if headers["content-encoding"] and headers["content-encoding"] == "gzip" then
+        tRes.body = decompress(tRes.body)
+
     end
     return tRes
 end

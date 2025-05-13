@@ -179,3 +179,18 @@ b64_decode函数提供Base64解码功能
 url_encode函数提供URL编码功能，遵循RFC3986标准
 * 入参1: 待编码的URL字符串, string类型
 * 出参1: 编码后的URL字符串, string类型
+
+# 4、 支持http 压缩
+## server 压缩支持
+需要在server 配置中添加gzip 配置，默认压缩级别为6
+```yaml
+worker:
+  - number: 1   # worker process
+    funcs:
+    - func: "httpServer"
+      mode: "TCP"
+      bind: "0.0.0.0"
+      port: 3385
+      gzip: true
+      entry: test  # entry path
+```

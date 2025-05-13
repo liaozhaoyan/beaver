@@ -100,7 +100,7 @@ end
 
 local function baidu(tReq)
     local req = ChttpReq.new(tReq, "http://www.baidu.com/", nil, nil, proxy)
-    local tRes = req:get("HTTP://www.baidu.com/")
+    local tRes = req:get("HTTP://www.baidu.com/", {["accept-encoding"] = "gzip"})
     if tRes then
         return {body = tRes.body}
     else
