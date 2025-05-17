@@ -9,10 +9,13 @@ local require = require
 local pystring = require("pystring")
 local sockerUrl = require("socket.url")
 local zlib = require("zlib")
+local struct = require("struct")
 
 local tostring = tostring
 local tonumber = tonumber
 local find = string.find
+local char = string.char
+local pack = struct.pack
 local print = print
 local ipairs = ipairs
 local pairs = pairs
@@ -25,6 +28,7 @@ local os_date = os.date
 local os_time = os.time
 local type = type
 local deflate = zlib.deflate
+local crc32 = zlib.crc32
 
 local mt = {}
 
@@ -93,15 +97,15 @@ local function originServerHeader()
     }
 end
 
-local function packServerHeaders(headers, body, gzip) -- just for http out.
+local function packServerHeaders(headers, body, zip) -- just for http out.
     local heads = {}
     if not headers then
         headers = {
             ["Content-Type"] = "text/plain",
         }
     end
-    if gzip then
-        headers["Content-Encoding"] = "gzip"
+    if zip then
+        headers["Content-Encoding"] = zip
     end
 
     if not headers["Content-Length"] then
@@ -123,20 +127,68 @@ local function packServerHeaders(headers, body, gzip) -- just for http out.
     return concat(heads, "\r\n")
 end
 
+local function _deflate(data)
+    local compressor = deflate(5, 15)
+    return compressor(data, "finish")
+end
+
+
+local function gzip(data)
+    local compressor = deflate(5,15)
+    local gzip_data = {}
+    gzip_data[1] = char(0x1F, 0x8B) -- magic number
+    gzip_data[2] = char(0x08, 0x08)  -- compression method, flags, has file name
+    gzip_data[3] = pack("<I4", os_time() % (2^32)) -- modification time
+    gzip_data[4] = char(0x02, 0x03) -- extra flags, OS type
+    gzip_data[5] = "a"  -- extension file name.
+    gzip_data[6] = char(0x00) -- end
+    local cSize = #data
+    local crc = 0
+    crc = crc32(crc, data)
+    gzip_data[7] = compressor(data, "finish"):sub(3):sub(1, -5)  -- strip head 2 bytes and  end 4 bytes
+    gzip_data[8] = pack("<I4", crc) -- crc
+    gzip_data[9] = pack("<I4", cSize) -- size
+    local r = concat(gzip_data)
+    return r
+end
+
+local compressor_func = {
+    ["deflate"] = _deflate,
+    ["gzip"] = gzip,
+}
+
+local function transfer_encoding(data, mode)
+    local func = compressor_func[mode]
+    if func then
+        return func(data)
+    else
+        return nil, format("unsupport compress mode %s", mode)
+    end
+end
+
+function mt.compress(data, mode)
+    return transfer_encoding(data, mode)
+end
+
 function mt.packServerFrame(res)
     local body = res.body or ""
     if body and type(body) ~= "string" then
         body = tostring(body)
     end
-    local gzip = false
-    if res["accept-encoding"] and find(res["accept-encoding"], "gzip") and body and #body > 0 then
-        gzip = true
-        local compressor = deflate()
-        body = compressor(body, "finish")
+    local zip = nil
+    local encoding = res["accept-encoding"]
+    if encoding and body and #body > 0 then
+        if find(encoding, "deflate") then
+            zip = "deflate"
+            body = _deflate(body)
+        elseif find(encoding, "gzip") then
+            zip = "gzip"
+            body = gzip(body)
+        end
     end
     local tHttp = {
         packStat(res.code),
-        packServerHeaders(res.headers, body, gzip),
+        packServerHeaders(res.headers, body, zip),
         "",
         body
     }

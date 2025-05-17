@@ -37,8 +37,10 @@ local unpack = unpack
 local jencode = cjson.encode
 local execute = executor.execute
 local http_get = request.get
+local parseParams = httpRead.parseParams
 
 local beaver = workVar.workerGetVar().beaver
+local getIp = workVar.getIp
 
 collectgarbage("setpause", 150)
 collectgarbage("setstepmul", 300)
@@ -161,7 +163,7 @@ local function unkown(tReq)
 end
 
 local function svg(tReq)
-    httpRead.parseParams(tReq)
+    parseParams(tReq)
     system.dumps(tReq)
     local body = [[<svg width="100" height="100">
     <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />
@@ -232,6 +234,17 @@ local function uds(tReq)
     cli:close()
     if res then
         return {body = cjson.encode(res)}
+    end
+end
+
+local function dns(tReq)
+    parseParams(tReq)
+    if tReq.queries and tReq.queries["domain"] then
+        local domain = tReq.queries["domain"]
+        local ip = getIp(domain)
+        return {body = string.format("domain: %s, ip: %s", domain, ip)}
+    else
+        return {body = "no domain."}
     end
 end
 
@@ -331,6 +344,7 @@ function Ctest:_init_(inst, conf)
     inst:post("/rcmd", rcmd)
     inst:post("/rcmds", rcmds)
     inst:get("/uds", uds)
+    inst:get("/dns", dns)
     inst:get("/sha", sha_check)
     inst:get("/pool", poolTest)
     inst:get("/keep", keepPoolTest)

@@ -30,13 +30,33 @@ local inflate = zlib.inflate
 
 local defaultHttpReadOvertime = 10
 
-local function decompress(data)
+local function _inflate(data)
     local inflater = zlib.inflate()
     local success, decompressed_data = pcall(inflater, data, "finish")
     if success then
         return decompressed_data
     else
         return nil
+    end
+end
+
+local decompress_func = {
+    ["deflate"] = _inflate,
+    ["gzip"] = _inflate
+}
+
+local function transfer_encoding(tRes)
+    local headers = tRes.headers
+    local func = decompress_func[headers["content-encoding"]]
+    if func then
+        tRes.body = func(tRes.body)
+        if tRes.body == nil then
+            tRes.code = 501
+            tRes.body = "decompress error."
+        end
+    else
+        tRes.code = 501
+        tRes.body = "not support content-encoding: " .. headers["content-encoding"]
     end
 end
 
@@ -250,12 +270,9 @@ local function serverParse(fread, stream, parseParam)
     if waitHttpRest(fread, tReq) < 0 then
         return nil
     end
-    if headers["content-encoding"] and headers["content-encoding"] == "gzip" then
-        tReq.body = decompress(tReq.body)
-        if tReq.body == nil then
-            tReq.code = 400
-            tReq.body = "gzip decompress error."
-        end
+
+    if headers["content-encoding"] then
+        transfer_encoding(tReq)
     end
     return tReq
 end
@@ -317,12 +334,8 @@ local function clientParse(fread, stream, headType)
     if waitHttpRest(fread, tRes) < 0 then
         return nil
     end
-    if headers["content-encoding"] and headers["content-encoding"] == "gzip" then
-        tRes.body = decompress(tRes.body)
-        if tRes.body == nil then
-            tRes.code = 501
-            tRes.body = "gzip decompress error."
-        end
+    if headers["content-encoding"] then
+        transfer_encoding(tRes)
     end
     return tRes
 end
