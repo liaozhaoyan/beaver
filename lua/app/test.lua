@@ -38,6 +38,8 @@ local jencode = cjson.encode
 local execute = executor.execute
 local http_get = request.get
 local parseParams = httpRead.parseParams
+local getenv = os.getenv
+local split = pystring.split
 
 local beaver = workVar.workerGetVar().beaver
 local getIp = workVar.getIp
@@ -58,10 +60,24 @@ local keepConfig = {
     host = "http://www.baidu.com",
 }
 local keepPool = ChttpKeepPool.new(keepConfig)
--- local proxy = {
---     ip = "172.16.0.119",
---     port = 3128
--- }
+
+local function setupPorxy()
+    local http_proxy = getenv("http_proxy")
+    if http_proxy then
+        local _, body = unpack(split(http_proxy, "//"))
+        if body then
+            local host, port = unpack(split(body, ":"))
+            if host and tonumber(port) then
+                proxy = {
+                    ip = host,
+                    port = tonumber(port),
+                }
+                print("proxy:", proxy.ip, proxy.port)
+                keepConfig.proxy = proxy
+            end
+        end
+    end
+end
 
 local function keepPoolTest(tReq)
     local tRes, msg = keepPool:get("http://www.baidu.com/")
@@ -187,10 +203,10 @@ local function rcmd(tReq)
     local r = Credis.new(tReq, "127.0.0.1", 6379, nil, "alibaba")
     local s = tReq.body
 
-    local cmd, argStr = unpack(pystring.split(s, " ", 1))
+    local cmd, argStr = unpack(split(s, " ", 1))
     local args = {}
     if argStr then
-        args = pystring.split(argStr, ":")
+        args = split(argStr, ":")
     end
     local res = r[cmd](r, unpack(args))
 
@@ -211,12 +227,12 @@ local function rcmds(tReq)
     local pipe = r:pipeline()
 
     local s = tReq.body
-    local cmds = pystring.split(s, "\n")
+    local cmds = split(s, "\n")
     for _, cmdLine in ipairs(cmds) do
-        local cmd, argStr = unpack(pystring.split(cmdLine, " ", 1))
+        local cmd, argStr = unpack(split(cmdLine, " ", 1))
         local args = {}
         if argStr then
-            args = pystring.split(argStr, ":")
+            args = split(argStr, ":")
         end
         pipe[cmd](pipe, unpack(args))
     end
@@ -329,6 +345,7 @@ local function clickHouse()
 end
 
 function Ctest:_init_(inst, conf)
+    setupPorxy()
     -- redisTest.start()
     -- inst:setProbe(probe)
     inst:get("/", index)

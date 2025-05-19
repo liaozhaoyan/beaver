@@ -4,9 +4,9 @@ import time
 from requests.exceptions import Timeout
 
 urls = [
-        "http://172.16.0.129:3385/bing",
-        "http://172.16.0.129:3385/baidu",
-        "http://172.16.0.129:3385/instance"
+        "http://127.0.0.1:3385/bing",
+        "http://127.0.0.1:3385/baidu",
+        "http://127.0.0.1:3385/instance"
         ]
 
 
@@ -19,7 +19,7 @@ def single(loop, body=False):
                 print("catched tmo.")
             if body:
                 print(res.content)
-        res = requests.get("http://172.16.0.129:3385/var/%d" % i)
+        res = requests.get("http://127.0.0.1:3385/var/%d" % i)
         if body:
             print(res.content)
 

@@ -90,7 +90,7 @@ local function httpPoolwork(o, reqs)
             end
             req = ChttpReq.new(tReq, conf.host, nil, conf.tmo, conf.proxy, conf.maxLen)
             if req:status() ~= 1 then
-                print(format("create http req failed, host:%s", conf.host))
+                print(format("create http req failed, host:%s, proxy:%s, stat:%d", conf.host, system.dump(conf.proxy), req:status()))
                 break
             end
             req:reuse(true)  -- remember to close when req:status() == 1

@@ -37,3 +37,4 @@ headers = {
     "Accept-Encoding": "gzip"  # 仅接受 gzip 格式的响应内容
 }
 response = requests.get(url, headers=headers)
+print(response.status_code)

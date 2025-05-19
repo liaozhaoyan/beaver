@@ -1,7 +1,7 @@
 import requests
 
-cmdUrl = "http://172.16.0.129:3385/rcmd"
-pipeUrl = "http://172.16.0.129:3385/rcmds"
+cmdUrl = "http://127.0.0.1:3385/rcmd"
+pipeUrl = "http://127.0.0.1:3385/rcmds"
 
 data = "set hello:world1."
 response = requests.post(cmdUrl, data=data)

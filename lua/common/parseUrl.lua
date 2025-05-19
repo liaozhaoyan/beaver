@@ -8,7 +8,7 @@ local P, R, S, C, Ct = lpeg.P, lpeg.R, lpeg.S, lpeg.C, lpeg.Ct
 -- 模式定义
 local digit = R('09')
 local letter = R('az', 'AZ')
-local allowed_punct = S("-.")
+local allowed_punct = S("-._")
 local scheme = ((C(letter^1) * P"://"))^-1
 local uriScheme = ((C(letter^1) * P"://"))^1
 local host = C((letter + digit + allowed_punct)^1)
