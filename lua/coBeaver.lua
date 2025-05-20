@@ -64,7 +64,8 @@ function CcoBeaver:co_exit(fd)
 end
 
 function CcoBeaver:co_yield(...)
-    insert(self._yields, running())
+    self._yields[running()] = 1
+    -- insert(self._yields, running())
     return yield(...)
 end
 
@@ -120,7 +121,7 @@ function CcoBeaver:poll()
             error(format("epoll failed, errno: %d", -ret))
         end
         _pollFd(cos, nes)
-        for _, co in pairs(self._yields) do
+        for co, _ in pairs(self._yields) do
             local res, msg = resume(co)
             coReport(co, res, msg)
         end

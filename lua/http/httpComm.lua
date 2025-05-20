@@ -7,6 +7,7 @@
 --- refer to https://blog.csdn.net/a19881029/article/details/14002273
 local require = require
 local pystring = require("pystring")
+local system = require("common.system")
 local sockerUrl = require("socket.url")
 local zlib = require("zlib")
 local struct = require("struct")
@@ -200,6 +201,7 @@ local function packCliLine(method, uri)
     return concat(t, " ")
 end
 
+local acceptEncoding = "deflate, gzip"
 local originCliHeader = {
     ["User-Agent"] = "beaverCli/0.1.0",
     Connection = "Keep-Alive",
@@ -216,6 +218,9 @@ local function packCliHeaders(headers, len)
     if not headers["Content-Length"] and len > 0 then
         headers["Content-Length"] = tonumber(len)
     end
+    if not headers["Accept-Encoding"] and acceptEncoding then
+        headers["Accept-Encoding"] = acceptEncoding
+    end
     local origin = originCliHeader
 
     local c = 0
@@ -228,7 +233,6 @@ local function packCliHeaders(headers, len)
         c = c + 1
         heads[c] = concat({k, v}, ": ")
     end
-
     return concat(heads, "\r\n")
 end
 
@@ -240,6 +244,14 @@ function mt.packClientFrame(res)
         res.body
     }
     return concat(tHttp, "\r\n")
+end
+
+function mt.setEncoding(coding)
+    if #coding > 0 then
+        acceptEncoding = coding
+    else
+        acceptEncoding = false
+    end
 end
 
 return mt

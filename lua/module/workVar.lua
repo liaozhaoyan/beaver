@@ -11,6 +11,7 @@ local CasyncAccept = require("async.asyncAccept")
 local sockComm = require("common.sockComm")
 local cjson = require("cjson.safe")
 local dnsmatch = require("common.dnsmatch")
+local httpComm = require("http.httpComm")
 
 local mathHuge = math.huge
 local type = type
@@ -29,6 +30,7 @@ local resume = coroutine.resume
 local status = coroutine.status
 local jencode = cjson.encode
 local isdns = dnsmatch.isdns
+local setEncoding = httpComm.setEncoding
 
 local timer
 local dnsOvertime = 30
@@ -161,6 +163,9 @@ function M.workerSetVar(beaver, conf, yaml)
         conf = conf,
         yaml = yaml
     }
+    if yaml.worker.clientCoding then
+        setEncoding(yaml.worker.clientCoding)
+    end
 end
 
 function M.workerGetVar()

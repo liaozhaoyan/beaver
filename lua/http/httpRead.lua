@@ -6,7 +6,9 @@
 
 -- refer to https://blog.csdn.net/zx_emily/article/details/83024065
 
+local require = require
 local M = {}
+local system = require("common.system")
 local sockerUrl = require("socket.url")
 local pystring = require("pystring")
 local zlib = require("zlib")

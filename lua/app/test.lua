@@ -57,7 +57,7 @@ end
 local proxy
 local pool = ChttpPool.new()
 local keepConfig = {
-    host = "http://www.baidu.com",
+    host = "https://www.baidu.com",
 }
 local keepPool = ChttpKeepPool.new(keepConfig)
 
@@ -80,7 +80,7 @@ local function setupPorxy()
 end
 
 local function keepPoolTest(tReq)
-    local tRes, msg = keepPool:get("http://www.baidu.com/")
+    local tRes, msg = keepPool:get("https://www.baidu.com/")
     if tRes then
         return {body = tRes.body}
     else
@@ -118,7 +118,7 @@ end
 
 local function baidu(tReq)
     local req = ChttpReq.new(tReq, "http://www.baidu.com/", nil, nil, proxy)
-    local tRes = req:get("HTTP://www.baidu.com/", {["accept-encoding"] = "gzip"})
+    local tRes = req:get("HTTP://www.baidu.com/")
     if tRes then
         return {body = tRes.body}
     else

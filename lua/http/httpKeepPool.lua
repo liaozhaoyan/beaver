@@ -22,6 +22,9 @@ local msleep = workVar.msleep
 local type = type
 local time = os.time
 local parseHostUri = parseUrl.parseHostUri
+local parse = parseUrl.parse
+local isSsl = parseUrl.isSsl
+
 local tonumber = tonumber
 local class = class
 
@@ -81,6 +84,19 @@ local function httpPoolwork(o, reqs)
     local tReq = {
         beaver = beaver
     }
+    local host, tmo, proxy, maxLen = conf.host, conf.tmo, conf.proxy, conf.maxLen
+
+    local scheme, domain, port = parse(host)
+    local head
+    if proxy then
+        if isSsl(scheme) then
+            port = port or 443
+            head = format("HTTPS://%s:%d", domain, port)
+        else
+            port = port or 80
+            head = format("HTTP://%s:%d", domain, port)
+        end
+    end
 
     local req
     while true do
@@ -88,14 +104,18 @@ local function httpPoolwork(o, reqs)
             if req then
                 req:close()
             end
-            req = ChttpReq.new(tReq, conf.host, nil, conf.tmo, conf.proxy, conf.maxLen)
+            req = ChttpReq.new(tReq, host, nil, tmo, proxy, maxLen)
             if req:status() ~= 1 then
-                print(format("create http req failed, host:%s, proxy:%s, stat:%d", conf.host, system.dump(conf.proxy), req:status()))
+                print(format("create http req failed, host:%s, proxy:%s, stat:%d", conf.host, system.dump(proxy), req:status()))
                 break
             end
             req:reuse(true)  -- remember to close when req:status() == 1
         end
-        res = req:_req(reqs.verb, reqs.uri, reqs.headers, reqs.body)
+        local uri = reqs.uri
+        if head then
+            uri = format("%s%s", head, uri)
+        end
+        res = req:_req(reqs.verb, uri, reqs.headers, reqs.body)
         local coWake = reqs._toWake
         if status(coWake) == "suspended" then  -- only to wake suspended coroutine.
             res, msg = resume(coWake, res)  -- wake to ChttpPool:req
@@ -109,10 +129,10 @@ local function httpPoolwork(o, reqs)
             o:conn2idle()
 
             -- wake from resume, from ChttpKeepPool:_req, pick from next(self._idle)
-            reqs = yield(0)  -- yield 0 means reuse connection.
+            reqs = yield(0)  -- yield 0 means reuse connection， for httpReq.
             if reqs then
-                beaver:co_yield() -- release callchain from ChttpPool:_req, self._idle co wake. 
                 o:idle2conn(reqs, running())  -- set connection to working stat.
+                beaver:co_yield() -- release callchain from ChttpPool:_req, self._idle co wake. 
             else
                 -- guard thread may close idle connection if overtime.
                 o:idle2die() -- set connection to die stat.

@@ -205,6 +205,8 @@ function mt.connect(fd, tPort, beaver)
             end
         elseif e.ev_close > 0 then
             return 3, nil
+        else
+            error("connected failed, unexpected event.", e.ev_close, e.ev_in, e.ev_out)
         end
     end
     return res, true
