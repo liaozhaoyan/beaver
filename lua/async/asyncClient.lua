@@ -44,7 +44,6 @@ function CasyncClient:_init_(tReq, hostFd, tPort, tmo)
     CasyncBase._init_(self, beaver, fd, tmo)
     local res = self:_waitConnected(beaver, hostFd)
     if res ~= 1 then  -- connect
-        print("connect res is : ", res)
         return
     end
 end
@@ -101,7 +100,6 @@ function CasyncClient:_waitConnected(beaver, hostFd)  -- this fd is server fd,
             end
             return 3
         elseif t == "nil" then   -- wake from local stream close.
-            print("bad nil: ", t, w, hostFd)
             return 3 -- 3 connect failed, refer to sockComm, 3 means connect failed.
         else
             error(format("beaver report bug: type: %s, %s", t, tostring(w)))
