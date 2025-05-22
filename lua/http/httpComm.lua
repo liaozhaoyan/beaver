@@ -171,6 +171,19 @@ function mt.compress(data, mode)
     return transfer_encoding(data, mode)
 end
 
+local plainTextType = {
+    ["text/plain"] = true,
+    ["text/html"] = true,
+    ["text/css"] = true,
+    ["application/x-www-form-urlencoded"] = true,
+    ["application/javascript"] = true,
+    ["application/xml"] = true,
+    ["application/json"] = true,
+    ["application/xhtml+xml"] = true,
+    ["application/atom+xml"] = true,
+    ["application/x-protobuf"] = true,
+    ["application/x-thrift"] = true,
+}
 function mt.packServerFrame(res)
     local body = res.body or ""
     if body and type(body) ~= "string" then
@@ -178,7 +191,7 @@ function mt.packServerFrame(res)
     end
     local zip = nil
     local encoding = res["accept-encoding"]
-    if encoding and body and #body > 0 then
+    if encoding and body and not plainTextType[res["Content-Type"]] and #body >= 512 then
         if find(encoding, "deflate") then
             zip = "deflate"
             body = _deflate(body)
