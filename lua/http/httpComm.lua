@@ -191,7 +191,7 @@ function mt.packServerFrame(res)
     end
     local zip = nil
     local encoding = res["accept-encoding"]
-    if encoding and body and not plainTextType[res["Content-Type"]] and #body >= 512 then
+    if encoding and body and plainTextType[res["Content-Type"]] and #body >= 512 then
         if find(encoding, "deflate") then
             zip = "deflate"
             body = _deflate(body)
