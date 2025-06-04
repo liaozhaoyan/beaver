@@ -43,6 +43,7 @@ local split = pystring.split
 
 local beaver = workVar.workerGetVar().beaver
 local getIp = workVar.getIp
+local pingMaster = workVar.pingMaster
 
 collectgarbage("setpause", 150)
 collectgarbage("setstepmul", 300)
@@ -344,6 +345,12 @@ local function clickHouse()
     end
 end
 
+local function ping(tReq)
+    local s, seq = "hello", nil
+    s, seq = pingMaster(s)
+    return {body = string.format("ping: %s, seq: %d", s, seq)}
+end
+
 function Ctest:_init_(inst, conf)
     setupPorxy()
     -- redisTest.start()
@@ -366,6 +373,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/pool", poolTest)
     inst:get("/keep", keepPoolTest)
     inst:get("/clickhouse", clickHouse)
+    inst:get("/ping", ping)
     testPipe()
     testPopen()
     testKmsg()

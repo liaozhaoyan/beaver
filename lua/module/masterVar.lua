@@ -179,10 +179,31 @@ local function reqDns(arg)
     end
 end
 
+local ping_seq = 1
+local function ping(arg)
+    local fid = arg.id
+    local coId = arg.coId
+    local s = arg.str
+
+    local func = {
+        func = "pong",
+        arg = {
+            coId = coId,
+            seq = ping_seq,
+            str = s
+        }
+    }
+    ping_seq = ping_seq + 1
+    local co = var.workers[fid][4]  -- refer to pipeCtrlReg
+    local res, msg = resume(co, jencode(func))
+    coReport(co, res, msg)
+end
+
 local funcTable = {
     pipeCtrlReg = function(arg) return pipeCtrlReg(arg)  end,
     workerReg = function(arg) return workerReg(arg) end,
     reqDns = function(arg) return reqDns(arg)  end,
+    ping = function(arg) return ping(arg) end,
 }
 
 function M.call(arg)

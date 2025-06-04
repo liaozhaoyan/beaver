@@ -53,6 +53,10 @@ local var = {
     dnsWait = {},   -- just for dns.
     dnsId  = 1,     -- dns request co id,
     dnsBuf = {},   --> domain -> ip, overtime
+
+    -- for pingpong
+    pingWait = {},   -- just for pingpong.
+    pingId  = 1,     -- ping request co id,
 }
 
 local function getDnsBuf(dnsBuf, domain)
@@ -129,9 +133,22 @@ local function echoDns(arg)
     var.dnsWait[coId] = nil   -- free wait.
 end
 
+local function pong(arg)  -- refer to masterVar ping function.
+    local coId = arg.coId
+    local co = var.pingWait[coId]
+
+    local s, seq = arg.s, arg.seq
+    if status(co) =="suspended" then
+        local res, msg = resume(co, s, seq)
+        coReport(co, res, msg)
+    end
+    var.pingWait[coId] = nil
+end
+
 local funcTable = {
     regThreadId = function(arg) return regThreadId(arg)  end,
     echoDns     = function(arg) return echoDns(arg)  end,
+    pong        = function(arg) return pong(arg)  end,
 }
 
 function M.call(arg)
@@ -248,6 +265,29 @@ function M.dnsReq(domain)
     local ip
     domain, ip = yield()
     return domain, ip
+end
+
+local function pingGetCoId()
+    local ret = var.pingId
+    var.pingWait[ret] = running()
+    var.pingId = var.pingId + 1
+    return ret
+end
+
+-- ping master, resume from pong fucntion.
+-- @param s: string
+-- @return: s string, seq int
+function M.pingMaster(s)
+    local func = {
+        func = "ping",
+        arg = {
+            id = var.id,
+            coId = pingGetCoId(),
+            str = s
+        }
+    }
+    pipeOut(jencode(func))
+    return yield()
 end
 
 function M.msleep(ms)
