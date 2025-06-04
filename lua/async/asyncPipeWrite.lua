@@ -46,12 +46,12 @@ function CasyncPipeWrite:_setup(fd, tmo)
             beaver:co_yield()  -- release call from CasyncPipeWrite:write
             while c < self._c do
                 local ret, err, errno = beaver:pipeWrite(fd, self._que[c])  -->pipe write may yield out
+                self._que[c] = nil
                 c = c + 1
                 if not ret then -- fd close event?
                     print(format("pipe write fd %d closed.", fd))
                     break
                 end
-                self._que[c] = nil
             end
         else  -- fd close event?
             print(format("write fd %d closed. for event", fd))
