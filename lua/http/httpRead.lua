@@ -15,10 +15,10 @@ local zlib = require("zlib")
 
 local split = pystring.split
 local lstrip = pystring.lstrip
+local join = pystring.join
 local type = type
 local ipairs = ipairs
 local print = print
-local unpack = unpack
 local tonumber = tonumber
 local tostring = tostring
 local find = string.find
@@ -125,7 +125,7 @@ local function waitChuckData(fread, s, size)
         local add = fread()
         local t = type(add)
         if t == "string" then
-            s = concat({s, add})
+           s = s .. add
         else
             -- print(format("chunk data type: %s, unknown error., %s", t, tostring(s)))
             return nil
@@ -141,9 +141,9 @@ local function waitChuckSize(fread, s)
         local add, msg = fread()
         local t = type(add)
         if t == "string" then
-            s = concat({s, add})
+            s = s .. add
         else
-            -- print(format("chunk size type: %s, undnown error., %s", t, msg))
+            print(format("chunk size type: %s, undnown error., %s", t, msg))
             return nil
         end
     end
@@ -162,7 +162,8 @@ local function readChunks(fread, tReq)
         end
         s = waitChuckSize(fread, s)
         if s then
-            size, s = unpack(split(s, "\r\n", 1))
+            local res = split(s, "\r\n", 1)
+            size, s = res[1], res[2]
             len = tonumber(size, 16)
             if len then
                 bodies = waitChuckData(fread, s, len)
@@ -171,12 +172,15 @@ local function readChunks(fread, tReq)
                     s = sub(bodies, len + 2)
                     insert(cells, body)
                 else
+                    print("2: wait chunk data error.")
                     return -2
                 end
             else
+                print("3: wait chunk data error.")
                 return -3
             end
         else
+            print("1: wait chunk size error.")
             return -1
         end
     end
@@ -192,16 +196,20 @@ local function waitHttpRest(fread, tReq)
 
         local rest = lenInfo - lenData
         if rest > 200 * 1024 * 1024 then  -- limit max body len
+            print("buffer is to large.")
             return -1
         end
 
         if waitDataRest(fread, rest, tReq) < 0 then
+            print("wait http data error.")
             return -2
         end
     else  -- chunk mode
         local chunked = tReq.headers["transfer-encoding"]
         if chunked == "chunked" or (tReq.body and #tReq.body > 0) then
-            if readChunks(fread, tReq) < 0 then
+            local ret = readChunks(fread, tReq)
+            if ret < 0 then
+                print("read chunks error.", ret)
                 return -3
             end
         else
@@ -217,7 +225,7 @@ local function waitHttpHead(fread)
         local s, msg = fread()
         local t = type(s)
         if t == "string" then
-            stream = concat({stream, s})
+            stream = stream .. s
             if find(stream, "\r\n\r\n") then
                 return stream
             end
@@ -234,14 +242,14 @@ local function serverParse(fread, stream, parseParam)
         return nil
     end
 
-    local stat, heads = unpack(tStatus)
+    local stat, heads = tStatus[1], tStatus[2]
     local tStat = split(stat, " ", 2)
     if #tStat < 3 then
         print(format("bad stat: %s", tostring(stat)))
         return nil
     end
 
-    local verb, url, version = unpack(tStat)
+    local verb, url, version = tStat[1], tStat[2], tStat[3]
     local tReq
     tReq = M.parseUrl(url, parseParam)
     tReq.verb = lower(verb)
@@ -253,7 +261,7 @@ local function serverParse(fread, stream, parseParam)
         print(format("bad head: %s", tostring(heads)))
         return nil
     end
-    local headerStr, body = unpack(tHead)
+    local headerStr, body = tHead[1], tHead[2]
     local tHeader = split(headerStr, "\r\n")
     local headers = {}
     for _, s in ipairs(tHeader) do
@@ -262,7 +270,7 @@ local function serverParse(fread, stream, parseParam)
             print(format("bad head kv value: %s", tostring(s)))
             return nil
         end
-        local k, v = unpack(tKv)
+        local k, v = tKv[1], tKv[2]
         k = lower(k)
         headers[k] = lstrip(v)
     end
@@ -270,7 +278,7 @@ local function serverParse(fread, stream, parseParam)
     tReq.headers = headers
     tReq.body = body
     if waitHttpRest(fread, tReq) < 0 then
-        return nil
+        return nil, "wait http rest error."
     end
 
     if headers["content-encoding"] then
@@ -291,38 +299,37 @@ local function clientParse(fread, stream, headType)
     local tStatus = split(stream, "\r\n", 1)
     if #tStatus < 2 then
         print("bad stream format.")
-        return nil
+        return nil, "bad stream format."
     end
 
-    local stat, heads = unpack(tStatus)
+    local stat, heads = tStatus[1], tStatus[2]
     local tStat = split(stat, " ", 2)
     if #tStat < 3 then
         print(format("bad stat: %s", tostring(stat)))
-        return nil
+        return nil, "bad stat." .. stat
     end
 
-    local vers, code, descr = unpack(tStat)
     local tRes = {
-        vers = vers,
-        code = code,
-        descr = descr
+        vers = tStat[1],
+        code = tStat[2],
+        descr = tStat[3],
     }
 
     local tHead = split(heads, "\r\n\r\n", 1)
     if #tHead < 2 then
         print(format("bad head: %s", tostring(heads)))
-        return nil
+        return nil, "bad head."
     end
-    local headerStr, body = unpack(tHead)
+    local headerStr, body = tHead[1], tHead[2]
     local tHeader = split(headerStr, "\r\n")
     local headers = {}
     for _, s in ipairs(tHeader) do
         local tKv = split(s, ":", 1)
         if #tKv < 2 then
             print(format("bad head kv value: %s", tostring(s)))
-            return nil
+            return nil, "bad head kv value."
         end
-        local k, v = unpack(tKv)
+        local k, v = tKv[1], tKv[2]
         k = lower(k)
         headers[k] = lstrip(v)
     end
@@ -334,7 +341,8 @@ local function clientParse(fread, stream, headType)
         return tRes
     end
     if waitHttpRest(fread, tRes) < 0 then
-        return nil
+        print("wait http rest error.")
+        return nil, "wait http rest error."
     end
     if headers["content-encoding"] then
         transfer_encoding(tRes)

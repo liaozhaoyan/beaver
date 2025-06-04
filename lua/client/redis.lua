@@ -149,7 +149,7 @@ local function waitBlock(s, fread)
         end
         local add = fread(defaultRedisReadOvertime)
         if add then
-            s = concat({s, add})
+            s = s .. add
         else
             return nil
         end
@@ -160,7 +160,7 @@ local function waitLength(s, fread, length)
     while #s < length do
         local add = fread(defaultRedisReadOvertime)
         if add then
-            s = concat({s, add})
+            s = s .. add
         else
             return nil
         end

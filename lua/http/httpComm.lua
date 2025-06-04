@@ -22,6 +22,7 @@ local ipairs = ipairs
 local pairs = pairs
 local concat = table.concat
 local split = pystring.split
+local map_format = pystring.map_format
 local url_unescape = sockerUrl.unescape
 local url_parse = sockerUrl.parse
 local format = string.format
@@ -91,15 +92,7 @@ local function packStat(code)   -- only for server.
     return concat(t, " ")
 end
 
-local function originServerHeader()
-    return {
-        server = "beaver/0.1.0",
-        date = os_date("%a, %d %b %Y %H:%M:%S %Z", os_time()),
-    }
-end
-
 local function packServerHeaders(headers, body, zip) -- just for http out.
-    local heads = {}
     if not headers then
         headers = {
             ["Content-Type"] = "text/plain",
@@ -108,24 +101,17 @@ local function packServerHeaders(headers, body, zip) -- just for http out.
     if zip then
         headers["Content-Encoding"] = zip
     end
-
     if not headers["Content-Length"] then
         headers["Content-Length"] = #body
     end
-    local origin = originServerHeader()
-
-    local c = 1
-    for k, v in pairs(origin) do
-        heads[c] = concat({k, v}, ": ")
-        c = c + 1
+    if not headers["Date"] then
+        headers["Date"] = os_date("%a, %d %b %Y %H:%M:%S %Z", os_time())
+    end
+    if not headers["Server"] then
+        headers["Server"] = "beaver/0.1.0"
     end
 
-    for k, v in pairs(headers) do
-        heads[c] = concat({k, v}, ": ")
-        c = c + 1
-    end
-
-    return concat(heads, "\r\n")
+    return map_format("{k}: {v}", headers, "\r\n")
 end
 
 local function _deflate(data)
@@ -215,13 +201,8 @@ local function packCliLine(method, uri)
 end
 
 local acceptEncoding = "deflate, gzip"
-local originCliHeader = {
-    ["User-Agent"] = "beaverCli/0.1.0",
-    Connection = "Keep-Alive",
-}
 local function packCliHeaders(headers, len)
     len = len or 0
-    local heads = {}
 
     if not headers then
         headers = {
@@ -234,19 +215,13 @@ local function packCliHeaders(headers, len)
     if not headers["Accept-Encoding"] and acceptEncoding then
         headers["Accept-Encoding"] = acceptEncoding
     end
-    local origin = originCliHeader
-
-    local c = 0
-    for k, v in pairs(origin) do
-        c = c + 1
-        heads[c] = concat({k, v}, ": ")
+    if not headers["User-Agent"] then
+        headers["User-Agent"] = "beaverCli/0.1.0"
     end
-
-    for k, v in pairs(headers) do
-        c = c + 1
-        heads[c] = concat({k, v}, ": ")
+    if not headers["Connection"] then
+        headers["Connection"] = "Keep-Alive"
     end
-    return concat(heads, "\r\n")
+    return map_format("{k}: {v}", headers, "\r\n")
 end
 
 function mt.packClientFrame(res)

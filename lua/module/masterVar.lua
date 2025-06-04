@@ -129,7 +129,6 @@ local function freshDns(domain, tVar)  -- {ip, time}
 end
 
 local function wakeDns(domain, ip, over, fid, coId)
-
     local func = {
         func = "echoDns",
         arg = {

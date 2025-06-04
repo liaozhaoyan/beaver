@@ -6,6 +6,7 @@ local resume = coroutine.resume
 local running = coroutine.running
 local coReport = system.coReport
 local insert = table.insert
+local concat = table.concat
 local lpeg = require("lpeg")
 local Cpopen = require("client.popen")
 local workVar = require("module.workVar")
@@ -111,7 +112,7 @@ function mt.popen(cmd, tmo)
     if code ~= 0 then
         print("execute ", cmd, "failed, code:", code)
     end
-    return table.concat(cells, ""), code
+    return concat(cells), code
 end
 
 return mt

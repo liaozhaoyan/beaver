@@ -108,21 +108,21 @@ end
 
 local function bing(tReq)
     local req = ChttpReq.new(tReq, "http://cn.bing.com/", nil, nil, proxy)
-    local tRes = req:get("http://cn.bing.com/")
+    local tRes, msg = req:get("HTTP://cn.bing.com/")
     if tRes then
         return {body = tRes.body}
     else
-        return {body = "unknown"}
+        return {body = msg, code = 403}
     end
 end
 
 local function baidu(tReq)
     local req = ChttpReq.new(tReq, "http://www.baidu.com/", nil, nil, proxy)
-    local tRes = req:get("HTTP://www.baidu.com/")
+    local tRes, msg = req:get("HTTP://www.baidu.com/")
     if tRes then
         return {body = tRes.body}
     else
-        return {body = "unknown"}
+        return {body = msg, code =403}
     end
 end
 
