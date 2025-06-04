@@ -18,6 +18,7 @@ local type = type
 local next = next
 local pairs = pairs
 local error = error
+local jencode = cjson.encode
 local time = os.time
 local format = string.format
 local liteAssert = system.liteAssert
@@ -28,7 +29,6 @@ local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
 local status = coroutine.status
-local jencode = cjson.encode
 local isdns = dnsmatch.isdns
 local setEncoding = httpComm.setEncoding
 
@@ -90,6 +90,12 @@ function M.workerSetPipeOut(coOut)
     var.coOut = coOut
 end
 
+local function pipeOut(stream)
+    local co = var.coOut
+    local res, msg = resume(co, stream)
+    coReport(co, res, msg)
+end
+
 local function regThreadId(arg)
     var.id = arg.id
     local func = {
@@ -99,8 +105,7 @@ local function regThreadId(arg)
         }
     }
 
-    local res, msg = resume(var.coOut, jencode(func))
-    coReport(var.coOut, res, msg)
+    pipeOut(jencode(func))
 
     if var.setupCb then
         local call = var.setupCb.func
@@ -218,6 +223,17 @@ local function dnsGetCoId()
     return ret
 end
 
+function M.log(level, msg)
+    local func = {
+        func = "log",
+        arg = {
+            l = level,
+            m = msg,
+        }
+    }
+    pipeOut(jencode(func))
+end
+
 function M.dnsReq(domain)
     local func = {
         func = "reqDns",
@@ -228,9 +244,9 @@ function M.dnsReq(domain)
         }
     }
 
-    local res, msg = resume(var.coOut, cjson.encode(func))
-    coReport(var.coOut, res, msg)
-    local domain, ip = yield()
+    pipeOut(jencode(func))
+    local ip
+    domain, ip = yield()
     return domain, ip
 end
 

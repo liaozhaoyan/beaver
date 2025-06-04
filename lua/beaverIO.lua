@@ -348,33 +348,10 @@ function CbeaverIO:pipeRead(fd)
     return res, err, errno
 end
 
-local function blockeWrite(func, fd, stream)
-    local res
-    local buf = buffer.new()
-    buf:put(stream)
-    local ptr, len = buf:ref()
-
-    repeat
-        res = c_api_b_write(fd, ptr, len)
-        if res < 0 then
-            if res == -11 then  -- EAGAIN ?
-                res = 0
-                c_api_b_yield()  -- thread should yield
-            else
-               return nil, "innner write IO Error.", -res 
-            end
-        end
-
-        buf:skip(res)  -- move to next
-        ptr, len = buf:ref()
-    until len <= 0
-    return 0
-end
-
 function CbeaverIO:pipeWrite(fd, stream)
     local len = #stream
-    local buff = concat({s_pack("<i", len), stream})
-    return blockeWrite(c_api.b_write, fd, buff)
+    local buff = s_pack("<i", len) .. stream
+    return self:write(fd, buff)
 end
 
 return CbeaverIO

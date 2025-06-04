@@ -4,6 +4,7 @@
 --- DateTime: 2024/1/7 8:43 AM
 ---
 
+local require = require
 local unistd = require("posix.unistd")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local CasyncDns = require("async.asyncDns")
@@ -52,13 +53,18 @@ function M.masterSetPipeOut(coOut)
     var.coOut = coOut
 end
 
+local function pipeOut(stream)
+    local co = var.coOut
+    local res, msg = resume(co, stream)
+    coReport(co, res, msg)
+end
+
 local function workerPipeOut(beaver, fOut)
     local w = CasyncPipeWrite.new(beaver, fOut, 10)
 
     while true do
         local stream = yield()
-        local res, err, errno = w:write(stream)
-        liteAssert(res, err)
+        w:write(stream)
     end
 end
 
@@ -103,17 +109,16 @@ local function pipeCtrlReg(arg)
                             id = w,
                         }
                     }
-    
+
                     res, msg = resume(co, jencode(func))
-                    coReport(var.coOut, res, msg)
+                    coReport(co, res, msg)
                 end
             end
         end
 
         var.setup = true
         local ret = {ret = 0}
-        res, msg = resume(var.coOut, jencode(ret))
-        coReport(var.coOut, res, msg)
+        pipeOut(jencode(ret))
     end
     return 0
 end

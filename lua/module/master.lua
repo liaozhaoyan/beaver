@@ -4,7 +4,7 @@
 --- DateTime: 2024/1/4 10:58 PM
 ---
 
-
+local require = require
 require("eclass")
 local unistd = require("posix.unistd")
 local CcoBeaver = require("coBeaver")
@@ -43,8 +43,7 @@ local function pipeOut(beaver, fOut)
 
     while true do
         local stream = yield()
-        local res, err, errno = w:write(stream)
-        liteAssert(res, err)
+        w:write(stream)
     end
 end
 

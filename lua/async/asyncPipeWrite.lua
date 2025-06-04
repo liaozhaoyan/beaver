@@ -23,33 +23,35 @@ local status = coroutine.status
 local format = string.format
 
 function CasyncPipeWrite:_init_(beaver, fd, tmo)
-    self._toWake = running()
     self._tmo = tmo
+
+    self._working = false
+    self._c = 1
+    self._que = {}
     CasyncBase._init_(self, beaver, fd, -1)
 end
 
 function CasyncPipeWrite:_setup(fd, tmo)
-    local res, msg
-    local co = self._toWake
     self._coSelf = running()
 
     local beaver = self._beaver
     tmo = self._tmo
     beaver:co_set_tmo(fd, tmo)
+    local c = self._c
     while true do
+        self._working = false
         local stream = yield()
         if type(stream) == "string" then
-            local ret, err, errno = beaver:pipeWrite(fd, stream)  -->pipe write may yield out
-            if status(co) == "normal" then  --> write not yield
-                yield(ret, err, errno)
-            else
-                res, msg = resume(co, ret, err, errno)
-                coReport(co, res, msg)
-            end
-
-            if not ret then -- fd close event?
-                print(format("pipe write fd %d closed.", fd))
-                break
+            self._working = true
+            beaver:co_yield()  -- release call from CasyncPipeWrite:write
+            while c < self._c do
+                local ret, err, errno = beaver:pipeWrite(fd, self._que[c])  -->pipe write may yield out
+                c = c + 1
+                if not ret then -- fd close event?
+                    print(format("pipe write fd %d closed.", fd))
+                    break
+                end
+                self._que[c] = nil
             end
         else  -- fd close event?
             print(format("write fd %d closed. for event", fd))
@@ -60,15 +62,12 @@ function CasyncPipeWrite:_setup(fd, tmo)
 end
 
 function CasyncPipeWrite:write(stream)
-    local res, msg, err, errno = resume(self._coSelf, stream)
-    coReport(self._coSelf, res, msg)
-    if msg then  -- write function may write to pipe, if stream is short enough, write will return at once
-        local ret = msg
-        res, msg = resume(self._coSelf)  -->task will yield after write success.
-        coReport(self._coSelf, res, msg)
-        return ret, err, errno
-    else --> the pipe call from if stream is too long, the task may be yield.
-        return yield()
+    self._que[self._c] = stream
+    self._c = self._c + 1
+    if not self._working then
+        local co = self._coSelf
+        local res, msg = resume(co, "run.")
+        coReport(co, res, msg)
     end
 end
 
