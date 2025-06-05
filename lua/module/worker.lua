@@ -15,6 +15,7 @@ local workVar = require("module.workVar")
 
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
+local buffer = require("string.buffer")
 
 local class = class
 local Cworker = class("master")
@@ -27,7 +28,7 @@ local create = coroutine.create
 local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
-local pipeDecode = system.pipeDecode
+local pipeDecode = buffer.decode
 local yload = lyaml.load
 local wcall = workVar.call
 

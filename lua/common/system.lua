@@ -6,6 +6,7 @@
 local require = require
 local serpent = require("common.serpent")
 local pystring = require("pystring")
+local buffer = require("string.buffer")
 local split = pystring.split
 local block = serpent.block
 local unistd = require("posix.unistd")
@@ -26,6 +27,8 @@ local gsub = string.gsub
 local format = string.format
 local byte = string.byte
 local rep = string.rep
+local bencode = buffer.encode
+local bdecode = buffer.decode
 
 function system.deepcopy(object)
     local lookup_table = {}
@@ -273,22 +276,6 @@ function system.randomStr(n)
         s[i] = t[random(tSize)]
     end
     return concat(s)
-end
-
---- translate args to pipe encode
---- --
---- @param args table string table, first is funcntion name, next is arg1, arg2 ..
---- @return string 
-function system.pipeEncode(args)
-    return concat(args, "\0")
-end
-
---- translate pipe decode to args
---- --
---- @param s string pipe string to dncode
---- @return table 
-function system.pipeDecode(s)
-    return split(s, "\0")
 end
 
 return system

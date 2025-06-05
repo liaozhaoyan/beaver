@@ -15,6 +15,7 @@ local masterVar = require("module.masterVar")
 
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
+local buffer = require("string.buffer")
 
 local class = class
 local Cmaster = class("master")
@@ -28,7 +29,7 @@ local create = coroutine.create
 local yield = coroutine.yield
 local resume = coroutine.resume
 local format = string.format
-local pipeDecode = system.pipeDecode
+local pipeDecode = buffer.decode
 local yload = lyaml.load
 local mcall = masterVar.call
 

@@ -39,7 +39,7 @@ int poll_fds(int efd, int tmo, native_events_t* nes);
 int setsockopt_reuse_port(int fd);
 int check_connected(int fd);
 int b_read(int fd, void *buf, int count);
-int b_write(int fd, void *buf, int count);
+int b_write(int fd, const char *buf, int offet, int count);
 int b_socket(int domain, int type, int protocol);
 int b_accept(int fd);
 int b_listen(int fd, int backlog);
@@ -53,7 +53,7 @@ int b_close(int fd);
 void deinit(int efd);
 
 int ssl_read(void *handle, char *buff, int len);
-int ssl_write(void *handle, const char *buff, int len);
+int ssl_write(void *handle, const char *buff, int offset, int len);
 void *ssl_connect_pre(int fd, void* hCtx);
 void *ssl_accept_pre(int fd, void* hCtx);
 int ssl_handshake(void *handle);

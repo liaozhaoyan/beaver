@@ -241,12 +241,12 @@ end
 function CbeaverIO:_writeFunction(fd)
     local handler = self._ssl[fd]
     if handler then
-        return function (ptr, len)
-            return c_api_ssl_write(handler, ptr, len)
+        return function (ptr, offset, len)
+            return c_api_ssl_write(handler, ptr, offset, len)
         end
     else
-        return function (ptr, len)
-            return c_api_b_write(fd, ptr, len)
+        return function (ptr, offset, len)
+            return c_api_b_write(fd, ptr, offset, len)
         end
     end
 end
@@ -255,11 +255,10 @@ function CbeaverIO:write(fd, stream)
     local res
     local ret
 
-    local buf = buffer_new()
-    buf:put(stream)
-    local ptr, len = buf:ref()
+    local offset = 0
+    local len = #stream
     local writeFucntion = self:_writeFunction(fd)
-    ret = writeFucntion(ptr, len)
+    ret = writeFucntion(stream, offset, len)
     if ret == -11 then  -- full EAGAIN ?
         ret = 0
     end
@@ -271,7 +270,10 @@ function CbeaverIO:write(fd, stream)
                 return nil, "epoll mod_fd failed.", -res
             end
 
-            while ret < len do
+            while len > ret do
+                len = len - ret
+                offset = offset + ret
+
                 local co = running()
                 timer:wait(co, self._tmoFd[fd] * 1000)
                 local e = yield()
@@ -289,10 +291,7 @@ function CbeaverIO:write(fd, stream)
                     return nil, format("write fd %d is already closed.", fd), 32
                 elseif e.ev_out then
                     -- print("write fd %d need  to write %d.", fd, len - ret)
-                    buf:skip(ret)  -- move to next
-
-                    ptr, len = buf:ref()
-                    ret = writeFucntion(ptr, len)
+                    ret = writeFucntion(stream, offset, len)
                     if ret < 0 then
                         if ret == -11 then  -- EAGAIN ?
                             ret = 0

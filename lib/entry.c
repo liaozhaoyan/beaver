@@ -40,6 +40,15 @@ int is_thread_alive(pthread_t thread) {
     }
 }
 
+static int add_little_endian_ul(char* msg, int index, unsigned long value) {
+    int i;
+    msg[index ++] = 0x11;  // 0x11 is for unsigned long
+    for (i = 0; i < 8; i++) {
+        msg[index + i] = (value >> (8 * i)) & 0xFF;
+    }
+    return index + 8;
+}
+
 #define BEAVER_MASTER_DETECT_LOOP 3
 #define MSG_SIZE 64
 int start_beaver(char * path) {
@@ -90,18 +99,11 @@ int start_beaver(char * path) {
         goto endThread;
     }
 
-    strcpy(msg, "pipeCtrlReg");
-    int index = strlen(msg);
-
-    char buff[32];
-    len = snprintf(buff, 32, "%d", pipeR[1]);
-    memcpy(msg + index + 1, buff, len);
-    index += len + 1;
-    msg[index] = '\0';
-    len = snprintf(buff, 32, "%d", pipeW[0]);
-    memcpy(msg + index + 1, buff, len);
-    index += len + 1;
-    msg[index] = '\0';
+    const char *ctrlReg = "\x0C\x04\x2B\x70\x69\x70\x65\x43\x74\x72\x6C\x52\x65\x67";  // lua table, has 3 cell ,fist is string pipeCtrlReg
+    memcpy(msg, ctrlReg, strlen(ctrlReg));
+    int index = strlen(ctrlReg);
+    index = add_little_endian_ul(msg, index, pipeR[1]);  // next is int masterIn
+    index = add_little_endian_ul(msg, index, pipeW[0]);  // next is int masterOut
 
     // 0 for read, 1 for write, for master Read
     printf("pipeCtrlReg: %d\n", index);
@@ -129,8 +131,10 @@ int start_beaver(char * path) {
         }
     }
 
-    // register pipe.
-    len = snprintf(msg, MSG_SIZE, "masterExit");
+    // register pipe, never run how.
+    const char* masterExit = "\x0C\x02\x2A\x6D\x61\x73\x74\x65\x72\x45\x78\x69\x74";
+    memcpy(msg, masterExit, strlen(masterExit));
+    len = strlen(masterExit);
     ret = ctrl_write(pipeR[1], msg, len);   // 1 is for write
     if (ret < 0) {
         goto endMainExit;

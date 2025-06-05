@@ -353,8 +353,8 @@ int b_read(int fd, void *buf, int count) {
     return ret;
 }
 
-int b_write(int fd, void *buf, int count) {
-    int ret = write(fd, buf, count);
+int b_write(int fd, const char* buf, int offset, int count) {
+    int ret = write(fd, buf + offset, count);
     if (ret < 0) {
         return -errno;
     }

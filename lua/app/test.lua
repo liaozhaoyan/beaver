@@ -351,6 +351,23 @@ local function ping(tReq)
     return {body = string.format("ping: %s, seq: %d", s, seq)}
 end
 
+local function _ping(i)
+    local s, seq = "hello" .. i, nil
+    s, seq = pingMaster(s)
+    if seq % 100 == 0 then
+        print("ping ok, seq:", seq)
+    end
+    -- print("ping ok, seq:", seq)
+end
+
+local function pings(tReq)
+    for i = 1, 10000 do
+        local co = coroutine.create(_ping)
+        coroutine.resume(co, i)
+    end
+    return {body = "pings ok."}
+end
+
 function Ctest:_init_(inst, conf)
     setupPorxy()
     -- redisTest.start()
@@ -374,6 +391,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/keep", keepPoolTest)
     inst:get("/clickhouse", clickHouse)
     inst:get("/ping", ping)
+    inst:get("/pings", pings)
     testPipe()
     testPopen()
     testKmsg()

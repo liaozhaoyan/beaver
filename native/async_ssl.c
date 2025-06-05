@@ -40,9 +40,9 @@ int ssl_read(void *handle, char *buff, int len)
     return ret;
 }
 
-int ssl_write(void *handle, const char *buff, int len) {
+int ssl_write(void *handle, const char *buff, int offset, int len) {
     int ret = 0;
-    ret = SSL_write((SSL *)handle, buff, len);
+    ret = SSL_write((SSL *)handle, buff + offset, len);
 
     if (ret < 0) {
         int err = SSL_get_error((SSL *)handle, ret);

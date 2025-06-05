@@ -9,6 +9,7 @@ local unistd = require("posix.unistd")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local CasyncDns = require("async.asyncDns")
 local system = require("common.system")
+local buffer = require("string.buffer")
 
 local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
@@ -32,7 +33,7 @@ local resume = coroutine.resume
 local format = string.format
 local running = coroutine.running
 local create_beaver = c_api.create_beaver
-local pipeEncode = system.pipeEncode
+local pipeEncode = buffer.encode
 local ydump = lyaml.dump
 local deepcopy = system.deepcopy
 local tonumber = tonumber
@@ -105,7 +106,7 @@ local function pipeCtrlReg(arg)
     
                     local func = {
                         "regThreadId",
-                        tonumber(w)
+                        w
                     }
 
                     res, msg = resume(co, pipeEncode(func))
@@ -121,7 +122,7 @@ local function pipeCtrlReg(arg)
 end
 
 local function workerReg(arg)
-    local w = tonumber(arg[2])
+    local w = arg[2]
     print(format("thread %d is already online", w))
     var.workers[w][1] = true
 end
@@ -133,10 +134,10 @@ end
 local function wakeDns(domain, ip, over, fid, coId)
     local func = {
         "echoDns",
-        tostring(coId),
+        coId,
         domain,
         ip,
-        tostring(over == mathHuge and -1 or over), -- -1 means no overtime, cannot encode by tonumber.
+        over == mathHuge and -1 or over, -- -1 means no overtime, cannot encode by tonumber.
     }
     local co = var.workers[fid][4]  -- refer to pipeCtrlReg
     local res, msg = resume(co, pipeEncode(func))
@@ -161,8 +162,8 @@ local function randomIp(ips)
 end
 
 local function reqDns(arg)
-    local fid = tonumber(arg[2]) or error(format("bad fid: %s", arg[2]))
-    local coId = tonumber(arg[3]) or error(format("bad coId: %s", arg[3]))
+    local fid = arg[2]
+    local coId = arg[3]
     local domain = arg[4]
     local ips, over
 
@@ -176,15 +177,15 @@ end
 
 local ping_seq = 1
 local function ping(arg)
-    local fid = tonumber(arg[2])
-    local coId = tonumber(arg[3])
+    local fid = arg[2]
+    local coId = arg[3]
     local s = arg[4]
 
     local func = {
         "pong",
-        tostring(coId),
+        coId,
         s,
-        tostring(ping_seq),
+        ping_seq,
     }
     ping_seq = ping_seq + 1
     local co = var.workers[fid][4]  -- refer to pipeCtrlReg

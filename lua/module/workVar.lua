@@ -9,16 +9,16 @@ local require = require
 local system = require("common.system")
 local CasyncAccept = require("async.asyncAccept")
 local sockComm = require("common.sockComm")
-local cjson = require("cjson.safe")
 local dnsmatch = require("common.dnsmatch")
 local httpComm = require("http.httpComm")
+local buffer = require("string.buffer")
 
 local mathHuge = math.huge
 local type = type
 local next = next
 local pairs = pairs
 local error = error
-local pipeEncode = system.pipeEncode
+local pipeEncode = buffer.encode
 local time = os.time
 local format = string.format
 local liteAssert = system.liteAssert
@@ -31,8 +31,6 @@ local resume = coroutine.resume
 local status = coroutine.status
 local isdns = dnsmatch.isdns
 local setEncoding = httpComm.setEncoding
-local tonumber = tonumber
-local tostring = tostring
 
 local timer
 local dnsOvertime = 30
@@ -104,7 +102,7 @@ end
 
 -- arg2: thread id
 local function regThreadId(arg)
-    var.id = tonumber(arg[2]) or error(format("bad thread id: %s", arg[2]))
+    var.id = arg[2]
     local func = {
         "workerReg",
         arg[2]
@@ -125,10 +123,10 @@ end
 -- arg4: ip
 -- arg5: overtime
 local function echoDns(arg)
-    local coId = tonumber(arg[2]) or error(format("bad coId: %s", arg[2]))
+    local coId = arg[2]
     local co = var.dnsWait[coId]
 
-    local domain, ip, over = arg[3], arg[4], tonumber(arg[5])
+    local domain, ip, over = arg[3], arg[4], arg[5]
     over = over == -1 and mathHuge or over
     var.dnsBuf[domain] = {ip, over}
     if status(co) == "suspended" then
@@ -142,11 +140,11 @@ end
 -- arg3: strings
 -- arg4: seq
 local function pong(arg)  -- refer to masterVar ping function.
-    local coId = tonumber(arg[2]) or error(format("bad coId: %s", arg[2]))
+    local coId = arg[2]
     local co = var.pingWait[coId]
 
     if status(co) =="suspended" then
-        local res, msg = resume(co, arg[3], tonumber(arg[4]) or error("bad seq: %s", arg[4]))
+        local res, msg = resume(co, arg[3], arg[4])
         coReport(co, res, msg)
     end
     var.pingWait[coId] = nil
@@ -259,8 +257,8 @@ end
 function M.dnsReq(domain)
     local func = {
         "reqDns",
-        tostring(var.id),
-        tostring(dnsGetCoId()),
+        var.id,
+        dnsGetCoId(),
         domain
     }
 
@@ -283,8 +281,8 @@ end
 function M.pingMaster(s)
     local func = {
         "ping",
-        tostring(var.id),
-        tostring(pingGetCoId()),
+        var.id,
+        pingGetCoId(),
         s
     }
     pipeOut(pipeEncode(func))
