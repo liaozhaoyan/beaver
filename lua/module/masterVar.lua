@@ -14,8 +14,6 @@ local cffi = require("beavercffi")
 local c_type, c_api = cffi.type, cffi.api
 
 local lyaml = require("lyaml")
-local cjson = require("cjson.safe")
-
 local M = {}
 
 local mathHuge = math.huge
@@ -34,9 +32,11 @@ local resume = coroutine.resume
 local format = string.format
 local running = coroutine.running
 local create_beaver = c_api.create_beaver
-local jencode = cjson.encode
+local pipeEncode = system.pipeEncode
 local ydump = lyaml.dump
 local deepcopy = system.deepcopy
+local tonumber = tonumber
+local tostring = tostring
 
 local timer
 
@@ -77,8 +77,8 @@ local function pipeCtrlReg(arg)
     local res, msg
 
     if not var.setup then
-        var.masterIn  = arg["in"]
-        var.masterOut = arg["out"]
+        var.masterIn  = tonumber(arg[2]) or error(format("bad masterIn: %s", arg[2]))
+        var.masterOut = tonumber(arg[3]) or error(format("bad masterOut: %s", arg[3]))
 
         local thread = var.thread
         local yaml = thread.yaml
@@ -104,27 +104,24 @@ local function pipeCtrlReg(arg)
                     var.workers[w] = {false, pid, r, co}   -- use w pipe to record single thread.
     
                     local func = {
-                        func = "regThreadId",
-                        arg = {
-                            id = w,
-                        }
+                        "regThreadId",
+                        tonumber(w)
                     }
 
-                    res, msg = resume(co, jencode(func))
+                    res, msg = resume(co, pipeEncode(func))
                     coReport(co, res, msg)
                 end
             end
         end
 
         var.setup = true
-        local ret = {ret = 0}
-        pipeOut(jencode(ret))
+        pipeOut("ok.")
     end
     return 0
 end
 
 local function workerReg(arg)
-    local w = arg.id
+    local w = tonumber(arg[2])
     print(format("thread %d is already online", w))
     var.workers[w][1] = true
 end
@@ -135,16 +132,14 @@ end
 
 local function wakeDns(domain, ip, over, fid, coId)
     local func = {
-        func = "echoDns",
-        arg = {
-            coId = coId,
-            domain = domain,
-            ip = ip,
-            over = over == mathHuge and -1 or over  -- -1 means no overtime, cannot encode by json.
-        }
+        "echoDns",
+        tostring(coId),
+        domain,
+        ip,
+        tostring(over == mathHuge and -1 or over), -- -1 means no overtime, cannot encode by tonumber.
     }
     local co = var.workers[fid][4]  -- refer to pipeCtrlReg
-    local res, msg = resume(co, jencode(func))
+    local res, msg = resume(co, pipeEncode(func))
     coReport(co, res, msg)
 end
 
@@ -166,9 +161,9 @@ local function randomIp(ips)
 end
 
 local function reqDns(arg)
-    local fid = arg.id
-    local coId = arg.coId
-    local domain = arg.domain
+    local fid = tonumber(arg[2]) or error(format("bad fid: %s", arg[2]))
+    local coId = tonumber(arg[3]) or error(format("bad coId: %s", arg[3]))
+    local domain = arg[4]
     local ips, over
 
     ips, over = checkDns(domain)
@@ -181,21 +176,19 @@ end
 
 local ping_seq = 1
 local function ping(arg)
-    local fid = arg.id
-    local coId = arg.coId
-    local s = arg.str
+    local fid = tonumber(arg[2])
+    local coId = tonumber(arg[3])
+    local s = arg[4]
 
     local func = {
-        func = "pong",
-        arg = {
-            coId = coId,
-            seq = ping_seq,
-            str = s
-        }
+        "pong",
+        tostring(coId),
+        s,
+        tostring(ping_seq),
     }
     ping_seq = ping_seq + 1
     local co = var.workers[fid][4]  -- refer to pipeCtrlReg
-    local res, msg = resume(co, jencode(func))
+    local res, msg = resume(co, pipeEncode(func))
     coReport(co, res, msg)
 end
 
@@ -208,7 +201,7 @@ local funcTable = {
 
 function M.call(arg)
     if arg then
-        return funcTable[arg.func](arg.arg)
+        return funcTable[arg[1]](arg)
     end
 end
 

@@ -18,7 +18,7 @@ local type = type
 local next = next
 local pairs = pairs
 local error = error
-local jencode = cjson.encode
+local pipeEncode = system.pipeEncode
 local time = os.time
 local format = string.format
 local liteAssert = system.liteAssert
@@ -31,6 +31,8 @@ local resume = coroutine.resume
 local status = coroutine.status
 local isdns = dnsmatch.isdns
 local setEncoding = httpComm.setEncoding
+local tonumber = tonumber
+local tostring = tostring
 
 local timer
 local dnsOvertime = 30
@@ -100,16 +102,15 @@ local function pipeOut(stream)
     coReport(co, res, msg)
 end
 
+-- arg2: thread id
 local function regThreadId(arg)
-    var.id = arg.id
+    var.id = tonumber(arg[2]) or error(format("bad thread id: %s", arg[2]))
     local func = {
-        func = "workerReg",
-        arg = {
-            id = arg.id
-        }
+        "workerReg",
+        arg[2]
     }
 
-    pipeOut(jencode(func))
+    pipeOut(pipeEncode(func))
 
     if var.setupCb then
         local call = var.setupCb.func
@@ -119,11 +120,15 @@ local function regThreadId(arg)
     end
 end
 
+-- arg2: coId
+-- arg3: domain
+-- arg4: ip
+-- arg5: overtime
 local function echoDns(arg)
-    local coId = arg.coId
+    local coId = tonumber(arg[2]) or error(format("bad coId: %s", arg[2]))
     local co = var.dnsWait[coId]
 
-    local domain, ip, over = arg.domain, arg.ip, arg.over
+    local domain, ip, over = arg[3], arg[4], tonumber(arg[5])
     over = over == -1 and mathHuge or over
     var.dnsBuf[domain] = {ip, over}
     if status(co) == "suspended" then
@@ -133,13 +138,15 @@ local function echoDns(arg)
     var.dnsWait[coId] = nil   -- free wait.
 end
 
+-- arg2: coId
+-- arg3: strings
+-- arg4: seq
 local function pong(arg)  -- refer to masterVar ping function.
-    local coId = arg.coId
+    local coId = tonumber(arg[2]) or error(format("bad coId: %s", arg[2]))
     local co = var.pingWait[coId]
 
-    local s, seq = arg.s, arg.seq
     if status(co) =="suspended" then
-        local res, msg = resume(co, s, seq)
+        local res, msg = resume(co, arg[3], tonumber(arg[4]) or error("bad seq: %s", arg[4]))
         coReport(co, res, msg)
     end
     var.pingWait[coId] = nil
@@ -152,7 +159,7 @@ local funcTable = {
 }
 
 function M.call(arg)
-    return funcTable[arg.func](arg.arg)
+    return funcTable[arg[1]](arg)
 end
 
 local function stripOverTimeDns(dnsBuf)
@@ -242,28 +249,24 @@ end
 
 function M.log(level, msg)
     local func = {
-        func = "log",
-        arg = {
-            l = level,
-            m = msg,
-        }
+        "log",
+        level,
+        msg
     }
-    pipeOut(jencode(func))
+    pipeOut(pipeEncode(func))
 end
 
 function M.dnsReq(domain)
     local func = {
-        func = "reqDns",
-        arg = {
-            id = var.id,
-            domain = domain,
-            coId = dnsGetCoId()
-        }
+        "reqDns",
+        tostring(var.id),
+        tostring(dnsGetCoId()),
+        domain
     }
 
-    pipeOut(jencode(func))
+    pipeOut(pipeEncode(func))
     local ip
-    domain, ip = yield()
+    domain, ip = yield()  -- resume from echoDns
     return domain, ip
 end
 
@@ -279,15 +282,13 @@ end
 -- @return: s string, seq int
 function M.pingMaster(s)
     local func = {
-        func = "ping",
-        arg = {
-            id = var.id,
-            coId = pingGetCoId(),
-            str = s
-        }
+        "ping",
+        tostring(var.id),
+        tostring(pingGetCoId()),
+        s
     }
-    pipeOut(jencode(func))
-    return yield()
+    pipeOut(pipeEncode(func))
+    return yield()  -- resume from pong fucntion.
 end
 
 function M.msleep(ms)

@@ -28,8 +28,9 @@ local create = coroutine.create
 local yield = coroutine.yield
 local resume = coroutine.resume
 local format = string.format
-local jdecode = cjson.decode
+local pipeDecode = system.pipeDecode
 local yload = lyaml.load
+local mcall = masterVar.call
 
 cjson.encode_empty_table_as_object(false)
 cjson.encode_escape_forward_slash(false)
@@ -57,11 +58,11 @@ local function pipeIn(b, conf)  --> to receive call function
 
     while true do
         local s = r:read()
-        local arg = jdecode(s)
+        local arg = pipeDecode(s)
         if arg then
-            masterVar.call(arg)
+            mcall(arg)
         else
-            print(format("decode arg failed. %s, len: %d", s, #s))
+            print(format("decode arg failed. %d, %s", #arg, s))
             exit(1)
         end
     end

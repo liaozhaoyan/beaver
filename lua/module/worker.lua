@@ -19,7 +19,6 @@ local cjson = require("cjson.safe")
 local class = class
 local Cworker = class("master")
 
-local require = require
 local pairs = pairs
 local format = string.format
 local liteAssert = system.liteAssert
@@ -28,8 +27,9 @@ local create = coroutine.create
 local running = coroutine.running
 local yield = coroutine.yield
 local resume = coroutine.resume
-local jdecode = cjson.decode
+local pipeDecode = system.pipeDecode
 local yload = lyaml.load
+local wcall = workVar.call
 
 cjson.encode_empty_table_as_object(false)
 cjson.encode_escape_forward_slash(false)
@@ -57,8 +57,7 @@ local function pipeIn(b, conf)
 
     while true do
         local s = r:read()
-        local arg = jdecode(s)
-        workVar.call(arg)
+        wcall(pipeDecode(s))
     end
 end
 
