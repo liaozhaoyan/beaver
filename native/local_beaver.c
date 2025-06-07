@@ -361,6 +361,14 @@ int b_write(int fd, const char* buf, int offset, int count) {
     return ret;
 }
 
+int b_writev(int fd, const struct iovec *iov, int iovcnt) {
+    int ret = writev(fd, iov, iovcnt);
+    if (ret < 0) {
+        return -errno;
+    }
+    return ret;
+}
+
 void b_yield(void) {
     sched_yield();
 }

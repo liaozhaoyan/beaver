@@ -7,6 +7,12 @@
 local c_type = require("ffi")
 local c_api = c_type.load('lbeaver')
 c_type.cdef [[
+
+typedef struct iovec {
+    const char *iov_base;
+    size_t iov_len;
+} iovec;
+
 typedef struct native_event {
     int fd;
     short int ev_in;
@@ -40,6 +46,7 @@ int setsockopt_reuse_port(int fd);
 int check_connected(int fd);
 int b_read(int fd, void *buf, int count);
 int b_write(int fd, const char *buf, int offet, int count);
+int b_writev(int fd, const struct iovec *iov, int iovcnt);
 int b_socket(int domain, int type, int protocol);
 int b_accept(int fd);
 int b_listen(int fd, int backlog);

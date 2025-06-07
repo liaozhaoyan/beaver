@@ -5,8 +5,13 @@ local unistd = require("posix.unistd")
 local workVar = require("module.workVar")
 local pystring = require("cpystring")
 local sio = require("common.sio")
+local system = require("common.system")
 local bit = require("bit")
 
+local create = coroutine.create
+local resume = coroutine.resume
+local yield = coroutine.yield
+local coReport =system.coReport
 local bor = bit.bor
 local split = pystring.split
 local partition = pystring.partition
@@ -35,6 +40,7 @@ local logLevel = 3  -- default is info
 local logPattern = "%l %d: %m"
 local logFmt
 local logOutFunc
+local coLog
 
 local function rotataGz(head, seq, rotate)
     if seq < rotate then
@@ -117,21 +123,20 @@ local function workerOut(level, msg)
     wlog(level, msg)
 end
 
+--- master log output write to master pipe
+--- @param vec table, log level
+--- @return nil
+function M.mlog(vec)
+    logOutFunc(vec)
+end
 
 local function _log(level, fmt, ...)
     if level < logLevel or #fmt == 0 then
         return
     end
     local msg = format(fmt, ...)
-    logOutFunc(logFmt(level, msg))
-end
-
---- master log output write to master pipe
---- @param level number, log level
---- @param msg string, log message
---- @return nil
-function M.mlog(level, msg)
-    logOutFunc(level, msg)
+    local res, m = resume(coLog, logFmt(level, msg))
+    coReport(coLog, res, m)
 end
 
 --- 
@@ -248,6 +253,12 @@ local function setupFormat(pattern)
     end
 end
 
+local function logLoop()
+    while true do
+        local vec = yield()
+        logOutFunc(vec)
+    end
+end
 
 --- init log for global settings, do not call this in worker
 --- --
@@ -267,6 +278,9 @@ function M._init(islocal, level, pattern, out, maxLogSize, rotate)
     else
         logOutFunc = workerOut
     end
+    coLog = create(logLoop)
+    local res, msg = resume(coLog)
+    coReport(coLog, res, msg)
 end
 
 return M

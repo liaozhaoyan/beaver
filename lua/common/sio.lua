@@ -1,5 +1,6 @@
 local require = require
 
+local cffi = require("beavercffi")
 local ffi = require("ffi")
 local pstat = require("posix.sys.stat")
 local unistd = require("posix.unistd")
@@ -7,20 +8,14 @@ local stdio = require("posix.stdio")
 local zlib = require("zlib")
 local struct = require("struct")
 
-ffi.cdef[[
-    typedef struct iovec {
-        const char *iov_base;
-        size_t iov_len;
-    } iovec;
+local c_type, c_api = cffi.type, cffi.api
 
-    ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
-]]
-
-local c_writev = ffi.C.writev
 local c_new = ffi.new
+local c_writev = c_api.b_writev
 local stat = pstat.stat
 local char = string.char
 local concat = table.concat
+local floor = math.floor
 local access = unistd.access
 local rename = stdio.rename
 local deflate = zlib.deflate
@@ -33,19 +28,81 @@ local m = {}
 --- bulk writev
 --- --
 --- @param fd number, file descriptor
---- @param t table, string list table
+--- @param vec table, string list table
 --- @return number write length.
-function m.writes(fd, t)
-    local len = #t
+function m.writes(fd, vec)
+    local len = #vec
     if len == 0 then
         return 0
     end
+    local write_len = 0
     local iov = c_new("struct iovec[?]", len)
     for i = 1, len do
-        iov[i - 1].iov_base = t[i]
-        iov[i - 1].iov_len = #t[i]
+        local s_vec = #vec[i]
+        if s_vec > 0 then
+            iov[write_len].iov_base = vec[i]
+            iov[write_len].iov_len = s_vec
+            write_len = write_len + 1
+        end
     end
-    return c_writev(fd, iov, len)
+    return c_writev(fd, iov, write_len)
+end
+
+local function binary_search(poss, offset)
+    local len = #poss
+    local left, right = 1, len
+    while left <= right do
+        local mid = floor((left + right) / 2)
+        local v = poss[mid]
+        if v == offset then
+            return mid, offset
+        elseif v < offset then
+            left = mid + 1
+        else
+            right = mid - 1
+        end
+    end
+    return left - 1, poss[left -1]
+end
+
+--- bulk writev for async.
+--- @param fd number, file descriptor
+--- @param vec table, string list table
+--- @return number total
+--- @return function|nil function(number); 
+function m.awrites(fd, vec)
+    local len = #vec
+    if len == 0 then
+        return 0, nil
+    end
+
+    local size, write_len = 0, 0
+    local poss = {0}
+    local iov = c_new("struct iovec[?]", len)
+    for i = 1, len do
+        local s_vec = #vec[i]
+        if s_vec > 0 then
+            size = size + s_vec
+            poss[write_len + 2] = size
+            iov[write_len].iov_base = vec[i]
+            iov[write_len].iov_len = s_vec
+            write_len = write_len + 1
+        end
+    end
+    if size == 0 then
+        return 0, nil
+    end
+    return size, function (offset)
+        if offset == 0 then
+            return c_writev(fd, iov, write_len)
+        else
+            local index, pos = binary_search(poss, offset)
+            local w_iov = iov[index - 1]
+            w_iov.iov_base = w_iov.iov_base + offset - pos
+            w_iov.iov_len = offset - pos
+            return c_writev(fd, w_iov, write_len - index + 1)
+        end
+    end
 end
 
 --- get file size

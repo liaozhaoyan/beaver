@@ -13,6 +13,7 @@ local buffer = require("string.buffer")
 local cffi = require("beavercffi")
 local system = require("common.system")
 local CworkerTimer =require("module.workerTimer")
+local sio = require("common.sio")
 
 local c_type, c_api = cffi.type, cffi.api
 
@@ -35,11 +36,11 @@ local c_api_ssl_read = c_api.ssl_read
 local c_api_ssl_write = c_api.ssl_write
 local c_api_ssl_free = c_api.ssl_free
 local c_api_ssl_shutdown = c_api.ssl_shutdown
-local c_api_b_yield = c_api.b_yield
 local yield = coroutine.yield
 local running = coroutine.running
 local traceback = debug.traceback
 local format = string.format
+local awrites = sio.awrites
 local ioBlockSize = 65536
 
 local timer
@@ -325,8 +326,66 @@ function CbeaverIO:writev(fd, vec)
     if handler then
         return self:write(fd, concat(vec))
     end
+    local len, func = awrites(fd, vec)
+    if func then
+        local offset = 0
+        local ret = func(offset)
+        if ret == -11 then  --- eagain
+            ret = 0
+        end
 
-    
+        if ret >= 0 then
+            if ret < len then
+                local res = c_api_mod_fd(self._efd, fd, 1)  -- epoll write ev
+                if res < 0 then
+                    return nil, "epoll mod_fd failed.", -res
+                end
+
+                while len > ret do
+                    len = len - ret
+                    offset = offset + ret
+
+                    local co = running()
+                    timer:wait(co, self._tmoFd[fd] * 1000)
+                    local e = yield()
+                    timer:wait(co, -1)
+                    local t = type(e)
+                    if e == nil then
+                        return nil, "fd closed",  64
+                    elseif t == "number" then  -- number means time out
+                        return -e, "time out.", 5
+                    elseif t ~= "cdata" then
+                        error(format("beaver report error. bad type(e):%s", t))
+                    end
+
+                    if e.ev_close > 0 then
+                        return nil, format("write fd %d is already closed.", fd), 32
+                    elseif e.ev_out then
+                        ret = func(offset)
+                        if ret < 0 then
+                            if ret == -11 then  -- EAGAIN ?
+                                ret = 0
+                                goto continue
+                            end
+                            return nil, "innner write IO Error.", -ret
+                        end
+                    else  -- need to read ? may something error.
+                        return nil, "need to read ? may something error.", 5
+                    end
+                    ::continue::
+                end
+
+                res = c_api_mod_fd(self._efd, fd, 0)  -- epoll read ev only
+                if res < 0 then
+                    return nil, "epoll mod_fd failed.", -res
+                end
+            end
+            return 0
+        else
+            return nil, "top write IO Error.", -ret
+        end
+    end
+    return 0
 end
 
 function CbeaverIO:readBySize(fd, size)  -- only for pipe, not for ssl socket
@@ -362,8 +421,8 @@ end
 
 function CbeaverIO:pipeWrite(fd, stream)
     local len = #stream
-    local buff = s_pack("<i", len) .. stream
-    return self:write(fd, buff)
+    local vec = {s_pack("<i", len), stream}
+    return self:writev(fd, vec)
 end
 
 return CbeaverIO
