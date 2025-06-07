@@ -16,9 +16,10 @@ local workVar = require("module.workVar")
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
 local buffer = require("string.buffer")
+local log = require("common.log")
 
 local class = class
-local Cworker = class("master")
+local Cworker = class("Cworker")
 
 local pairs = pairs
 local format = string.format
@@ -85,9 +86,11 @@ end
 
 function Cworker:proc()
     local b = CcoBeaver.new()
+    local config = yload(self._conf.config)
+    log._init(false, config.log.level, config.log.pattern)
 
     b.var = workVar
-    workVar.workerSetVar(b, self._conf, yload(self._conf.config))
+    workVar.workerSetVar(b, self._conf, config)
     workVar.setCb(setupFuncs, workVar.workerGetVar())
 
     local co = create(pipeIn)

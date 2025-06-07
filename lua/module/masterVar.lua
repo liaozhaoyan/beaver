@@ -9,6 +9,7 @@ local unistd = require("posix.unistd")
 local CasyncPipeWrite = require("async.asyncPipeWrite")
 local CasyncDns = require("async.asyncDns")
 local system = require("common.system")
+local log = require("common.log")
 local buffer = require("string.buffer")
 
 local cffi = require("beavercffi")
@@ -38,6 +39,7 @@ local ydump = lyaml.dump
 local deepcopy = system.deepcopy
 local tonumber = tonumber
 local tostring = tostring
+local mlog = log.mlog
 
 local timer
 
@@ -88,6 +90,7 @@ local function pipeCtrlReg(arg)
                 local workerSend = deepcopy(worker)
                 workerSend.number = nil
                 local config = {worker = workerSend}
+                config.log = yaml.log
                 local configStr= ydump({config})
                 for i = 1, worker.number do
                     local r, w, errno = pipe()
@@ -198,6 +201,7 @@ local funcTable = {
     workerReg = function(arg) return workerReg(arg) end,
     reqDns = function(arg) return reqDns(arg)  end,
     ping = function(arg) return ping(arg) end,
+    log = function(arg) return mlog(arg[2], arg[3]) end,
 }
 
 function M.call(arg)

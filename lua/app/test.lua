@@ -27,6 +27,7 @@ local Cpopen = require("client.popen")
 local executor = require("client.excute")
 local redisTest = require("app.redisTest")
 local CclickHouse = require("client.clickHouse")
+local log = require("common.log")
 
 local class = class
 local Ctest = class("test")
@@ -355,7 +356,7 @@ local function _ping(i)
     local s, seq = "hello" .. i, nil
     s, seq = pingMaster(s)
     if seq % 100 == 0 then
-        print("ping ok, seq:", seq)
+        log.info("ping ok, seq: %d", seq)
     end
     -- print("ping ok, seq:", seq)
 end

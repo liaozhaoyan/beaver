@@ -16,6 +16,7 @@ local masterVar = require("module.masterVar")
 local lyaml = require("lyaml")
 local cjson = require("cjson.safe")
 local buffer = require("string.buffer")
+local log = require("common.log")
 
 local class = class
 local Cmaster = class("master")
@@ -69,10 +70,25 @@ local function pipeIn(b, conf)  --> to receive call function
     end
 end
 
-function Cmaster:proc()
-    local beaver = CcoBeaver.new()
 
-    masterVar.masterSetVar(beaver, self._conf, yload(self._conf.config))
+function Cmaster:proc()
+    local config = yload(self._conf.config)
+    if not config.log then
+        config.log = {level = 3, pattern = "%l %t: %m"}
+    end
+    config.log.level = config.log.level or 3
+    config.log.pattern = config.log.pattern or "%l %t: %m"
+    log._init(true,
+        config.log.level,
+        config.log.pattern,
+        config.log.out or "bv_run.log",
+        config.log.maxLogSize or 1 * 1024 * 1024,
+        config.log.rotate or 4)
+
+    log.info("master start.")
+
+    local beaver = CcoBeaver.new()
+    masterVar.masterSetVar(beaver, self._conf, config)
 
     local co = create(pipeIn)
     local res, msg = resume(co, beaver, self._conf)
