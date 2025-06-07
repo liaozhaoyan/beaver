@@ -316,6 +316,19 @@ function CbeaverIO:write(fd, stream)
     end
 end
 
+-- writev
+-- --- @param fd number, file descriptor
+-- --- @param vec table, vector
+-- --- @return number write length, error(...).
+function CbeaverIO:writev(fd, vec)
+    local handler = self._ssl[fd]
+    if handler then
+        return self:write(fd, concat(vec))
+    end
+
+    
+end
+
 function CbeaverIO:readBySize(fd, size)  -- only for pipe, not for ssl socket
     local res, err, errno
     local len = 0
