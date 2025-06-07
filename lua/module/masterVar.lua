@@ -201,7 +201,7 @@ local funcTable = {
     workerReg = function(arg) return workerReg(arg) end,
     reqDns = function(arg) return reqDns(arg)  end,
     ping = function(arg) return ping(arg) end,
-    log = function(arg) return mlog(arg[2]) end,
+    log = function(arg) return mlog(arg[2], arg[3]) end,
 }
 
 function M.call(arg)

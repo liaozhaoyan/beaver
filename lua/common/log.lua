@@ -124,10 +124,11 @@ local function workerOut(level, msg)
 end
 
 --- master log output write to master pipe
---- @param vec table, log level
+--- @param level number, log level
+--- @param msg string, 
 --- @return nil
-function M.mlog(vec)
-    logOutFunc(vec)
+function M.mlog(level, msg)
+    logOutFunc(level, msg)
 end
 
 local function _log(level, fmt, ...)
@@ -135,7 +136,7 @@ local function _log(level, fmt, ...)
         return
     end
     local msg = format(fmt, ...)
-    local res, m = resume(coLog, logFmt(level, msg))
+    local res, m = resume(coLog, level, msg)
     coReport(coLog, res, m)
 end
 
@@ -255,8 +256,15 @@ end
 
 local function logLoop()
     while true do
-        local vec = yield()
-        logOutFunc(vec)
+        local level, msg = yield()
+        logOutFunc(level, msg)
+    end
+end
+
+local function localLogFunc(out, maxLogSize, rotate)
+    local func = setupLogOut(out, maxLogSize, rotate)
+    return function(level, msg)
+        func(logFmt(level, msg))
     end
 end
 
@@ -274,7 +282,7 @@ function M._init(islocal, level, pattern, out, maxLogSize, rotate)
     logPattern = pattern or logPattern
     logFmt = setupFormat(logPattern)
     if islocal then
-        logOutFunc = setupLogOut(out, maxLogSize, rotate)
+        logOutFunc = localLogFunc(out, maxLogSize, rotate)
     else
         logOutFunc = workerOut
     end
