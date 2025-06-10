@@ -191,6 +191,7 @@ function ChttpKeepPool:req(reqs)
                 reqs._toWake = running()
                 self:poolAdd(reqs)
             else
+                logWarn("pool %s is full", host)
                 return nil, "pool is full"
             end
         else
