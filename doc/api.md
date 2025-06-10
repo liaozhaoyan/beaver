@@ -194,3 +194,62 @@ worker:
       gzip: true
       entry: test  # entry path
 ```
+
+# 5、日志系统
+beaver 的日志系统通过调用log 库的相关函数来 实现日志记录的功能，支持以下特性：
+- 日志级别 包含 trace, debug, info, warn, error, fatal
+- 日志格式 支持自定义 日志格式，支持占位符
+- 日志输出 支持输出到文件、标准输出、标准错误
+- 日志rotate 支持日志文件自动rotate，并支持按大小rotate 压缩
+- 暂不支持日志异步输出
+- 暂不支持日志限流  
+- 暂不支持日志采样
+- 暂不支持日志过滤
+- 暂不支持日志 投递到其他系统，如rsyslog
+
+## 5.1、日志配置
+beaver 的日志配置在beaver.yaml 中，支持以下配置：
+```yaml
+log:
+  level: 3  # 日志级别 trace, debug, info, warn, error, fatal, 默认级别为3
+  format: "%l %t: %m"  # 日志格式，默认格式为"%l %t: %m"
+  out: "bv_run.log"  # 输出位置，1:标准输出，2:标准错误，如果是字符串，则为文件的输出路径，默认值为 bv_run.log
+  maxLogSize: 10  # 日志最大rotate大小，单位为兆字节，默认值为10
+  rotate: 4  # 日志rotate数量，默认值为4
+
+## 5.2、日志接口
+beaver 的日志接口通过调用log 库的相关函数实现
+
+```lua
+local log = require("common.log")
+log.info("hello world")
+```
+### 5.2.1、log.trace
+log.trace 函数提供对日志的trace 记录功能
+* 可变入参: 待记录的日志内容，类似string.format 函数
+* 无直接返回值
+
+### 5.2.2、log.debug
+log.debug 函数提供对日志的debug 记录功能
+* 可变入参: 待记录的日志内容，类似string.format 函数
+* 无直接返回值
+
+### 5.2.3、log.info
+log.info 函数提供对日志的info 记录功能
+* 可变入参: 待记录的日志内容，类似string.format 函数
+* 无直接返回值
+
+### 5.2.4、log.warn
+log.warn 函数提供对日志的warn 记录功能
+* 可变入参: 待记录的日志内容，类似string.format 函数
+* 无直接返回值
+
+### 5.2.5、log.error
+log.error 函数提供对日志的error 记录功能
+* 可变入参: 待记录的日志内容，类似string.format 函数
+* 无直接返回值
+
+### 5.2.6、log.fatal
+log.fatal 函数提供对日志的fatal 记录功能
+* 可变入参: 待记录的日志内容，类似string.format 函数
+* 无直接返回值

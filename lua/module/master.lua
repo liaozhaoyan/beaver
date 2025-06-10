@@ -82,7 +82,7 @@ function Cmaster:proc()
         config.log.level,
         config.log.pattern,
         config.log.out or "bv_run.log",
-        config.log.maxLogSize or 1 * 1024 * 1024,
+        config.log.maxLogSize or 10,
         config.log.rotate or 4)
 
     log.info("master start.")

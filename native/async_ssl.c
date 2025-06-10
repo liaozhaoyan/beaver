@@ -147,6 +147,9 @@ void ssl_shutdown(void *handle) {
             case SSL_ERROR_SYSCALL:
                 err_code = ERR_get_error();
                 if (err_code != 0 || errno != 0) {
+                    if (errno == EPIPE || errno == ECONNRESET) {  // remote server close connection, donot print error.
+                        break;
+                    }
                     fprintf(stderr, "SSL_shutdown failed. err: SSL_ERROR_SYSCALL, OpenSSL error: %s, errno: %d, %s\n", ERR_error_string(err_code, NULL), errno, strerror(errno));
                 }
                 break;

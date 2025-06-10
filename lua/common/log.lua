@@ -282,7 +282,7 @@ function M._init(islocal, level, pattern, out, maxLogSize, rotate)
     logPattern = pattern or logPattern
     logFmt = setupFormat(logPattern)
     if islocal then
-        logOutFunc = localLogFunc(out, maxLogSize, rotate)
+        logOutFunc = localLogFunc(out, maxLogSize * 1024 * 1024, rotate)
     else
         logOutFunc = workerOut
     end

@@ -6,6 +6,8 @@ local parseUrl = require("common.parseUrl")
 
 local ChttpReq = require("http.httpReq")
 local ChttpPool = require("http.httpPool")
+local log = require("common.log")
+
 local format = string.format
 local yield = coroutine.yield
 local create = coroutine.create
@@ -24,6 +26,7 @@ local time = os.time
 local parseHostUri = parseUrl.parseHostUri
 local parse = parseUrl.parse
 local isSsl = parseUrl.isSsl
+local logWarn = log.warn
 
 local tonumber = tonumber
 local class = class
@@ -55,6 +58,12 @@ function ChttpKeepPool:confGet()
     return self._conf
 end
 
+function ChttpKeepPool:conn2die()
+    local co = running()
+    self._conn[co] = nil
+    self._count = self._count - 1
+end
+
 function ChttpKeepPool:conn2idle()
     local co = running()
     -- call from coWork, set connection to idle stat.
@@ -74,6 +83,13 @@ function ChttpKeepPool:idle2die()
     -- call from coWork, set connection to die stat.
     local co = running()
     self._idle[co] = nil
+end
+
+local function resumeReq(co, ret)
+    if status(co) == "suspended" then
+        local res, msg = resume(co, ret)  -- wake to ChttpPool:req
+        coReport(co, res, msg)
+    end
 end
 
 local function httpPoolwork(o, reqs)
@@ -106,7 +122,10 @@ local function httpPoolwork(o, reqs)
             end
             req = ChttpReq.new(tReq, host, nil, tmo, proxy, maxLen)
             if req:status() ~= 1 then
-                print(format("create http req failed, host:%s, proxy:%s, stat:%d", conf.host, system.dump(proxy), req:status()))
+                logWarn("create http req failed, host:%s, proxy:%s, stat:%d", conf.host, system.dump(proxy), req:status())
+                res = {code = "403", msg = "create http req failed, remote server close connection."}
+                resumeReq(reqs._toWake, res)
+                o:conn2die()
                 break
             end
             req:reuse(true)  -- remember to close when req:status() == 1
@@ -116,11 +135,7 @@ local function httpPoolwork(o, reqs)
             uri = format("%s%s", head, uri)
         end
         res = req:_req(reqs.verb, uri, reqs.headers, reqs.body)
-        local coWake = reqs._toWake
-        if status(coWake) == "suspended" then  -- only to wake suspended coroutine.
-            res, msg = resume(coWake, res)  -- wake to ChttpPool:req
-            coReport(coWake, res, msg)
-        end
+        resumeReq(reqs._toWake, res)
 
         -- try get next reqs
         reqs = o:poolGet()
@@ -136,6 +151,7 @@ local function httpPoolwork(o, reqs)
             else
                 -- guard thread may close idle connection if overtime.
                 o:idle2die() -- set connection to die stat.
+                -- call from idle, do not need to call
                 break
             end
         end

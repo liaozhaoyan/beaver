@@ -16,6 +16,7 @@ local workVar = require("module.workVar")
 local parseUrl = require("common.parseUrl")
 local httpRead = require("http.httpRead")
 local httpComm = require("http.httpComm")
+local log = require("common.log")
 local stat = posix.sys.stat
 
 local format = string.format
@@ -32,6 +33,7 @@ local clientRead = httpRead.clientRead
 local getIp = workVar.getIp
 local parse = parseUrl.parse
 local isSsl = parseUrl.isSsl
+local logWarn = log.warn
 local startswith = pystring.startswith
 
 local httpConnectTmo = 10
@@ -161,9 +163,9 @@ function ChttpReq:_setup(fd, tmo)
                 end
                 res, msg = beaver:write(fd, e)
                 if not res then
-                    print("http write error.", msg)
+                    logWarn("write data failed, host:%s, reported: %s", self._domain, msg)
                     self._status = 0
-                    self:wake(co, nil)
+                    self:wake(co, {code = 500, body = 'remote server close connection.'})
                     break
                 end
             end
