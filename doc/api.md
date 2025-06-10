@@ -208,7 +208,7 @@ beaver 的日志系统通过调用log 库的相关函数来 实现日志记录�
 - 暂不支持日志 投递到其他系统，如rsyslog
 
 ## 5.1、日志配置
-beaver 的日志配置在beaver.yaml 中，支持以下配置：
+beaver 的日志配置在config.yaml 中，支持以下配置：
 ```yaml
 log:
   level: 3  # 日志级别 trace, debug, info, warn, error, fatal, 默认级别为3
@@ -216,6 +216,7 @@ log:
   out: "bv_run.log"  # 输出位置，1:标准输出，2:标准错误，如果是字符串，则为文件的输出路径，默认值为 bv_run.log
   maxLogSize: 10  # 日志最大rotate大小，单位为兆字节，默认值为10
   rotate: 4  # 日志rotate数量，默认值为4
+```
 
 ## 5.2、日志接口
 beaver 的日志接口通过调用log 库的相关函数实现
