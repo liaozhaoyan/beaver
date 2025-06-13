@@ -59,8 +59,8 @@ function ChttpServer:_setup(fd, tmo)
             local tRes = inst:proc(fread, session, clients, beaver, fd, gzip)
 
             if tRes then
-                local s = inst:packServerFrame(tRes)
-                beaver:write(fd, s)
+                local vec = inst:packServerFrame(tRes)
+                beaver:writev(fd, vec)
                 if tRes.keep == false then  -- do not keep alive any more.
                     break
                 end

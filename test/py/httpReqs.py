@@ -6,7 +6,7 @@ from requests.exceptions import Timeout
 urls = [
         "http://127.0.0.1:3385/bing",
         "http://127.0.0.1:3385/baidu",
-        "http://127.0.0.1:3385/instance"
+        "http://127.0.0.1:3385/bing"
         ]
 
 

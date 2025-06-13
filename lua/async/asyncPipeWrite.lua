@@ -43,7 +43,6 @@ function CasyncPipeWrite:_setup(fd, tmo)
         local stream = yield()
         if type(stream) == "string" then
             self._working = true
-            beaver:co_yield()  -- release call from CasyncPipeWrite:write
             while c < self._c do
                 local ret, err, errno = beaver:pipeWrite(fd, self._que[c])  -->pipe write may yield out
                 self._que[c] = nil
@@ -61,10 +60,14 @@ function CasyncPipeWrite:_setup(fd, tmo)
     self:stop()
 end
 
+function CasyncPipeWrite:isWorking()
+    return self._working
+end
+
 function CasyncPipeWrite:write(stream)
     self._que[self._c] = stream
     self._c = self._c + 1
-    if not self._working then
+    if not self:isWorking() then
         local co = self._coSelf
         local res, msg = resume(co, "run.")
         coReport(co, res, msg)

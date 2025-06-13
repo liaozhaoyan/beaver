@@ -8,6 +8,7 @@
 local require = require
 local pystring = require("pystring")
 local system = require("common.system")
+local sio = require("common.sio")
 local sockerUrl = require("socket.url")
 local zlib = require("zlib")
 local struct = require("struct")
@@ -29,6 +30,7 @@ local format = string.format
 local os_date = os.date
 local os_time = os.time
 local type = type
+local gizps = sio.gizps
 local deflate = zlib.deflate
 local crc32 = zlib.crc32
 
@@ -48,6 +50,18 @@ local function parseParam(param)
         res[k] = v
     end
     return res
+end
+
+local function bodisLen(bodis)
+    local len = 0
+    for i = 1, #bodis do
+        if type(bodis[i]) == "string" then
+            len = len + #bodis[i]
+        else
+            return -1
+        end
+    end
+    return len
 end
 
 local function parseParams(tUrl)
@@ -88,21 +102,15 @@ local codeStrTable = {
 }
 local function packStat(code)   -- only for server.
     code = code or 200
-    local t = {"HTTP/1.1", tostring(code), codeStrTable[code] or "Unkonwn"}
-    return concat(t, " ")
+    return {"HTTP/1.1", " ", tostring(code), " ", codeStrTable[code] or "Unkonwn", "\r\n"}
 end
 
-local function packServerHeaders(headers, body, zip) -- just for http out.
-    if not headers then
-        headers = {
-            ["Content-Type"] = "text/plain",
-        }
-    end
+local function packServerHeaders(streams, c, headers, len, zip) -- just for http out.
     if zip then
         headers["Content-Encoding"] = zip
     end
     if not headers["Content-Length"] then
-        headers["Content-Length"] = #body
+        headers["Content-Length"] = len
     end
     if not headers["Date"] then
         headers["Date"] = os_date("%a, %d %b %Y %H:%M:%S %Z", os_time())
@@ -111,50 +119,21 @@ local function packServerHeaders(headers, body, zip) -- just for http out.
         headers["Server"] = "beaver/0.1.0"
     end
 
-    return map_format("{k}: {v}", headers, "\r\n")
+    for k, v in pairs(headers) do
+        streams[c + 1] = k
+        streams[c + 2] = ": "
+        streams[c + 3] = tostring(v)
+        streams[c + 4] = "\r\n"
+        c = c + 4
+    end
+    c = c + 1
+    streams[c] = "\r\n"
+    return c
 end
 
 local function _deflate(data)
     local compressor = deflate(5, 15)
     return compressor(data, "finish")
-end
-
-
-local function gzip(data)
-    local compressor = deflate(5,15)
-    local gzip_data = {}
-    gzip_data[1] = char(0x1F, 0x8B) -- magic number
-    gzip_data[2] = char(0x08, 0x08)  -- compression method, flags, has file name
-    gzip_data[3] = pack("<I4", os_time() % (2^32)) -- modification time
-    gzip_data[4] = char(0x02, 0x03) -- extra flags, OS type
-    gzip_data[5] = "a"  -- extension file name.
-    gzip_data[6] = char(0x00) -- end
-    local cSize = #data
-    local crc = 0
-    crc = crc32(crc, data)
-    gzip_data[7] = compressor(data, "finish"):sub(3):sub(1, -5)  -- strip head 2 bytes and  end 4 bytes
-    gzip_data[8] = pack("<I4", crc) -- crc
-    gzip_data[9] = pack("<I4", cSize) -- size
-    local r = concat(gzip_data)
-    return r
-end
-
-local compressor_func = {
-    ["deflate"] = _deflate,
-    ["gzip"] = gzip,
-}
-
-local function transfer_encoding(data, mode)
-    local func = compressor_func[mode]
-    if func then
-        return func(data)
-    else
-        return nil, format("unsupport compress mode %s", mode)
-    end
-end
-
-function mt.compress(data, mode)
-    return transfer_encoding(data, mode)
 end
 
 local plainTextType = {
@@ -170,38 +149,82 @@ local plainTextType = {
     ["application/x-protobuf"] = true,
     ["application/x-thrift"] = true,
 }
+
+local typeLen = {
+    string = function(body) return #body, body end,
+    table = function(body) return bodisLen(body), body end,
+    number = function(body) local s = tostring(body); return s, #s end,
+    boolean = function(body) local s = tostring(body); return s, #s end,
+    ["nil"] = function(body) return 0, "" end,
+    ["function"] = function(body) return -1, nil end,
+    ["thread"] = function(body) return -1, nil end,
+    ["userdata"] = function(body) return -1, nil end
+}
+
 function mt.packServerFrame(res)
-    local body = res.body or ""
-    if body and type(body) ~= "string" then
-        body = tostring(body)
+    local body = res.body
+    local t = type(body)
+    local len
+    len, body = typeLen[t](body)
+    if len < 0 then
+        return nil, "body has illegal type." .. t
     end
+
+    if not res.headers then
+        res.headers = {
+            ["Content-Type"] = "text/plain",
+        }
+    end
+
     local zip = nil
     local encoding = res["accept-encoding"]
-    if encoding and body and plainTextType[res["Content-Type"]] and #body >= 512 then
+    if encoding and len >= 512 and plainTextType[res.headers["Content-Type"]] then
         if find(encoding, "deflate") then
             zip = "deflate"
-            body = _deflate(body)
+            if t =="table" then  -- only table need to transfer_encoding
+                t = "string"
+                body = concat(body)
+                body = _deflate(body)
+            else
+                body = _deflate(body)
+            end
+            len = #body
         elseif find(encoding, "gzip") then
             zip = "gzip"
-            body = gzip(body)
+            if t =="table" then  -- only table need to transfer_encoding
+                body = concat(body)  -- body is string
+                body = gizps(body, "a")
+            else -- string
+                body = gizps(body, "a")
+            end
+             t = "table"
+             len = bodisLen(body)
         end
     end
-    local tHttp = {
-        packStat(res.code),
-        packServerHeaders(res.headers, body, zip),
-        "",
-        body
-    }
-    return concat(tHttp, "\r\n")
+
+    local stream , c = packStat(res.code), 6
+    if t == "table" then
+        c = packServerHeaders(stream, c, res.headers, len, zip)
+        for i = 1, #body do
+            c = c + 1
+            stream[c] = body[i]
+        end
+    else
+        c = packServerHeaders(stream, c, res.headers, len, zip) + 1
+        stream[c] = body
+    end
+    if c > 1024 then
+        return nil, "stream is too long. len: " .. c
+    end
+    return stream, c
 end
 
 local function packCliLine(method, uri)
-    local t = {method, uri, "HTTP/1.1"}
-    return concat(t, " ")
+    return {method, " ",  uri, " ", "HTTP/1.1", "\r\n"}
 end
 
 local acceptEncoding = "deflate, gzip"
-local function packCliHeaders(headers, len)
+local function packCliHeaders(streams, c, headers, len)
     len = len or 0
 
     if not headers then
@@ -210,7 +233,7 @@ local function packCliHeaders(headers, len)
         }
     end
     if not headers["Content-Length"] and len > 0 then
-        headers["Content-Length"] = tonumber(len)
+        headers["Content-Length"] = tostring(len)
     end
     if not headers["Accept-Encoding"] and acceptEncoding then
         headers["Accept-Encoding"] = acceptEncoding
@@ -221,17 +244,40 @@ local function packCliHeaders(headers, len)
     if not headers["Connection"] then
         headers["Connection"] = "Keep-Alive"
     end
-    return map_format("{k}: {v}", headers, "\r\n")
+
+    for k, v in pairs(headers) do
+        streams[c + 1] = k
+        streams[c + 2] = ": "
+        streams[c + 3] = tostring(v)
+        streams[c + 4] = "\r\n"
+        c = c + 4
+    end
+
+    c = c + 1
+    streams[c] = "\r\n"
+    return c
 end
 
 function mt.packClientFrame(res)
-    local tHttp = {
-        packCliLine(res.method, res.uri),
-        packCliHeaders(res.headers, #res.body),
-        "",
-        res.body
-    }
-    return concat(tHttp, "\r\n")
+    local streams, c = packCliLine(res.method, res.uri), 6 -- has 6 cells, so index is 6
+    local t = type(res.body)
+    local len, body = typeLen[t](res.body)
+    if len < 0 then
+        return nil, "body has illegal type." .. t
+    end
+
+    if t == "table" then   -- only table need to transfer_encoding
+        c = packCliHeaders(streams, c, res.headers, len)
+        for i = 1, #body do
+            c = c + 1
+            streams[c] = body[i]
+        end
+    else
+        c = packCliHeaders(streams, c, res.headers, len) + 1
+        streams[c] = body
+    end
+
+    return streams, c
 end
 
 function mt.setEncoding(coding)

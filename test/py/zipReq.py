@@ -17,10 +17,12 @@ compressed_data = buffer.getvalue()
 # 发送请求
 headers = {
     'Content-Type': 'application/json',
-    'Content-Encoding': 'gzip'
+    'Content-Encoding': 'gzip',
+    "Accept-Encoding": "gzip"
 }
 response = requests.get(url, data=compressed_data, headers=headers)
 print(response.status_code)
+print(response.headers)
 
 
 compressed_data = zlib.compress(data)

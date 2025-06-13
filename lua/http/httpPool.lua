@@ -168,6 +168,7 @@ function ChttpPool:req(reqs)
     if self:connFull() then  -- connect is full, add to pool
         if not self:poolFull() then  -- pool is not full, add to pool
             reqs._toWake = running()
+            
             self:poolAdd(reqs)
         else   -- pool is full, return nil.
             return nil, "pool is full."

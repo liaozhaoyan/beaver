@@ -369,6 +369,16 @@ local function pings(tReq)
     return {body = "pings ok."}
 end
 
+local function bigBody(tReq)
+    local body = tReq.body
+    print("body: ", body)
+    local bodis = {}
+    for i = 1, 500 do
+        bodis[i] = body
+    end
+    return {body = bodis}
+end
+
 function Ctest:_init_(inst, conf)
     setupPorxy()
     -- redisTest.start()
@@ -393,6 +403,7 @@ function Ctest:_init_(inst, conf)
     inst:get("/clickhouse", clickHouse)
     inst:get("/ping", ping)
     inst:get("/pings", pings)
+    inst:post("/bigBody", bigBody)
     testPipe()
     testPopen()
     testKmsg()

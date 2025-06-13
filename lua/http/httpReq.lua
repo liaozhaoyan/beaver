@@ -105,7 +105,7 @@ function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
         end
     else
         self._status = 0
-        return 0
+        return
     end
 
     tmo = tmo or 60
@@ -153,15 +153,21 @@ function ChttpReq:_setup(fd, tmo)
         end
         local _ = clear and clear()
         local t = type(e)
-        if t == "string" then -- has data to send
+        if t == "string" or t == "table" then -- has data to send
             if #e > 0 then  -- for watcher event, may send empty string
                 local msg
-                if startswith(e, "HEAD") then
+                if t == "string" and startswith(e, "HEAD") then
+                    headType = true
+                elseif t == "table" and e[1] == "HEAD" then
                     headType = true
                 else
                     headType = false
                 end
-                res, msg = beaver:write(fd, e)
+                if t == "string" then
+                    res, msg = beaver:write(fd, e)
+                else  -- for table
+                    res, msg = beaver:writev(fd, e)
+                end
                 if not res then
                     logWarn("write data failed, host:%s, reported: %s", self._domain, msg)
                     self._status = 0
@@ -209,8 +215,10 @@ function ChttpReq:_setup(fd, tmo)
                         break
                     end
                     e = nil
-                elseif t ~= "string" then   --> string mean has next data to send
-                    error(format("ChttpReq type: %s, unknown error.", t))
+                elseif t == "string" or t == "table" then
+                    e = e
+                else
+                    error(format("http req type: %s, not support, , unknown error.", t))
                 end
             elseif ev_close > 0 then
                 self._status = 0
@@ -306,8 +314,14 @@ function ChttpReq:_req(verb, uri, headers, body, reuse)
         headers = setupHeader(headers),
         body = body or "",
     }
-    local stream = commPackClientFrame(sendTable)
-    local res, msg = self:_waitData(stream)
+    local vec, rvec = commPackClientFrame(sendTable)
+    local res, msg
+    if vec then
+        res, msg = self:_waitData(vec)
+    else
+        logWarn("packClientFrame failed, host:%s, reported: %s", self._domain, rvec)
+        res, msg = nil, rvec
+    end
     if type(res) ~= "table" then
         -- closed by remote server.
         self:close()

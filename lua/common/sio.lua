@@ -97,10 +97,19 @@ function m.awrites(fd, vec)
             return c_writev(fd, iov, write_len)
         else
             local index, pos = binary_search(poss, offset)
+
             local w_iov = iov[index - 1]
-            w_iov.iov_base = w_iov.iov_base + offset - pos
-            w_iov.iov_len = offset - pos
-            return c_writev(fd, w_iov, write_len - index + 1)
+            local diff = offset - pos
+            if diff > 0 then
+                local r_base, r_len = w_iov.iov_base, w_iov.iov_len
+                w_iov.iov_base = w_iov.iov_base + diff
+                w_iov.iov_len = w_iov.iov_len - diff
+                local ret = c_writev(fd, w_iov, write_len - index + 1)
+                w_iov.iov_base, w_iov.iov_len = r_base, r_len
+                return ret
+            else
+                return c_writev(fd, w_iov, write_len - index + 1)
+            end
         end
     end
 end

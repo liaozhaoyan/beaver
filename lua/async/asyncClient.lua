@@ -254,7 +254,8 @@ function CasyncClient:close()
     local stat = self._status
     if stat > 0 then
         self:_waitData(nil)
-        liteAssert(self._status == 0, "close socket failed. " .. self._status .. debugTraceback(self._co))
+        stat = self._status
+        liteAssert(stat == 0, stat == 0 and "close socket failed. " .. stat .. debugTraceback(self._co))
     end
 end
 

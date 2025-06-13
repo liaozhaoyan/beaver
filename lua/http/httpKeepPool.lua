@@ -85,9 +85,9 @@ function ChttpKeepPool:idle2die()
     self._idle[co] = nil
 end
 
-local function resumeReq(co, ret)
+local function resumeReq(co, res, msg)
     if status(co) == "suspended" then
-        local res, msg = resume(co, ret)  -- wake to ChttpPool:req
+        res, msg = resume(co, res, msg)  -- wake to ChttpPool:req
         coReport(co, res, msg)
     end
 end
@@ -122,7 +122,7 @@ local function httpPoolwork(o, reqs)
             end
             req = ChttpReq.new(tReq, host, nil, tmo, proxy, maxLen)
             if req:status() ~= 1 then
-                logWarn("create http req failed, host:%s, proxy:%s, stat:%d", conf.host, system.dump(proxy), req:status())
+                print("create http req failed, host:%s, proxy:%s, stat:%d", conf.host, system.dump(proxy), req:status())
                 res = {code = "403", msg = "create http req failed, remote server close connection."}
                 resumeReq(reqs._toWake, res)
                 o:conn2die()
@@ -134,8 +134,8 @@ local function httpPoolwork(o, reqs)
         if head then
             uri = format("%s%s", head, uri)
         end
-        res = req:_req(reqs.verb, uri, reqs.headers, reqs.body)
-        resumeReq(reqs._toWake, res)
+        res, msg = req:_req(reqs.verb, uri, reqs.headers, reqs.body)
+        resumeReq(reqs._toWake, res, msg)
 
         -- try get next reqs
         reqs = o:poolGet()
@@ -147,7 +147,7 @@ local function httpPoolwork(o, reqs)
             reqs = yield(0)  -- yield 0 means reuse connection， for httpReq.
             if reqs then
                 o:idle2conn(reqs, running())  -- set connection to working stat.
-                beaver:co_yield() -- release callchain from ChttpPool:_req, self._idle co wake. 
+                beaver:co_yield() -- release callchain from ChttpPool:_req, self._idle co wake.
             else
                 -- guard thread may close idle connection if overtime.
                 o:idle2die() -- set connection to die stat.
@@ -191,7 +191,7 @@ function ChttpKeepPool:req(reqs)
                 reqs._toWake = running()
                 self:poolAdd(reqs)
             else
-                logWarn("pool %s is full", host)
+                print("pool %s is full", host, uri)
                 return nil, "pool is full"
             end
         else

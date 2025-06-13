@@ -480,8 +480,7 @@ function Credis:_setup(fd, tmo)
             clear = beaver:timerWait(fd)
             lastType = "string"
         elseif t == "table" then
-            local s = concat(e)  -- contract all syms.
-            res = beaver:write(fd, s)
+            res = beaver:writev(fd, e)
             if not res then
                 print("redis write error.", msg)
                 self._status = 0
