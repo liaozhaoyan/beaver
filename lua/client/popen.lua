@@ -15,11 +15,13 @@ local waitpid = pwait.wait
 local kill = signal.kill
 local ipairs = ipairs
 local msleep = workVar.msleep
+local lbeaver = workVar.workerGetVar().beaver
 
 -- cmds: table, {"ls", "-l"}
 -- cbIn: callback for fd in event, arg 1 is fd, return -1 will exit.
 -- cbEvent: callback for fd timeout, close event, arg 1 is fd, arg 2: 0 for timeout(return not nil for hold.), 1 for close. 
 function Cpopen:_init_(beaver, cmds, cbIn, cbEvent, tmo)
+    beaver = beaver or lbeaver
     self._pfd = popen(cmds, "r")
     if self._pfd then
         CperfFd._init_(self, beaver, self._pfd.fd, cbIn, cbEvent, tmo)

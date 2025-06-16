@@ -3,6 +3,7 @@ require("eclass")
 local class = class
 local system = require("common.system")
 local CasyncBase = require("async.asyncBase")
+local workVar = require("module.workVar")
 local CperfFd = class("perfFd", CasyncBase)
 
 local coRerport = system.coReport
@@ -11,10 +12,13 @@ local resume = coroutine.resume
 local status = coroutine.status
 local type = type
 
+local lbeaver = workVar.workerGetVar().beaver
+
 -- cb is read read callback function.
 -- cbIn: callback for fd in event, arg 1 is fd, return -1 will exit.
 -- cbEvent: callback for fd timeout, close event, arg 1 is fd, arg 2: 0 for timeout(return not nil for hold.), 1 for close. 
 function CperfFd:_init_(beaver, fd, cbIn, cbEvent, tmo)
+    beaver = beaver or lbeaver
     self._cb = cbIn
     self._cbEvent = cbEvent
     CasyncBase._init_(self, beaver, fd, tmo)

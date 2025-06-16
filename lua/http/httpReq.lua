@@ -36,6 +36,7 @@ local isSsl = parseUrl.isSsl
 local logWarn = log.warn
 local startswith = pystring.startswith
 
+local lbeaver = workVar.workerGetVar().beaver
 local httpConnectTmo = 10
 
 local class = class
@@ -79,6 +80,7 @@ end
 function ChttpReq:_init_(tReq, host, port, tmo, proxy, maxLen)
     local tPort
     local host_t = type(host)
+    tReq = tReq or {beaver = lbeaver}
 
     if host_t == "table" then   -- is a table , may uds or kata socket.
         local path

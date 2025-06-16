@@ -84,6 +84,8 @@ local getIp = workVar.getIp
 local connectAdd = workVar.connectAdd
 local connectDel = workVar.connectDel
 
+local lbeaver = workVar.workerGetVar().beaver
+
 local function packCmd(cmd, ...)
     local args = {...}
     local res = {}
@@ -106,6 +108,7 @@ end
 
 function Credis:_init_(tReq, host, port, tmo, pswd)
     local ip
+    tReq = tReq or {beaver = lbeaver}
 
     ip, port = getIp(host), port or 6379
     if not ip then
