@@ -1,6 +1,7 @@
 local require = require
 
 local posix = require("posix")
+local syslog = require("posix.syslog")
 local unistd = require("posix.unistd")
 local workVar = require("module.workVar")
 local pystring = require("cpystring")
@@ -33,9 +34,18 @@ local io_open = io.open
 local truncate = unistd.truncate
 local print = print
 local error = error
+local syslog_write = syslog.syslog
 
 local M = {}
 local levels = {"trace", "debug", "info", "warn", "error", "fatal"}
+local syslogLevel = {
+    [1] = syslog.LOG_DEBUG,
+    [2] = syslog.LOG_DEBUG,
+    [3] = syslog.LOG_INFO,
+    [4] = syslog.LOG_WARNING,
+    [5] = syslog.LOG_ERR,
+    [6] = syslog.LOG_CRIT,
+}
 local logLevel = 3  -- default is info
 local logPattern = "%l %d: %m"
 local logFmt
@@ -98,6 +108,10 @@ local function fileOut(filePath, maxLogSize, rotate)
             size = 0
         end
     end
+end
+
+local function toSyslog()
+
 end
 
 local function setupLogOut(out, maxLogSize, rotate)
@@ -268,6 +282,16 @@ local function localLogFunc(out, maxLogSize, rotate)
     end
 end
 
+local function setupSyslog()
+    syslog.openlog("beaver", syslog.LOG_PID, syslog.LOG_LOCAL0)
+    return function(level, msg)
+        if level < logLevel then
+            return
+        end
+        syslog_write(syslogLevel[level], msg)
+    end
+end
+
 --- init log for global settings, do not call this in worker
 --- --
 --- @param islocal boolean, true for master direct write, false for worker remote write
@@ -281,7 +305,9 @@ function M._init(islocal, level, pattern, out, maxLogSize, rotate)
     logLevel = level or logLevel
     logPattern = pattern or logPattern
     logFmt = setupFormat(logPattern)
-    if islocal then
+    if out == "syslog" then
+        logOutFunc = setupSyslog()
+    elseif islocal then
         logOutFunc = localLogFunc(out, maxLogSize * 1024 * 1024, rotate)
     else
         logOutFunc = workerOut
