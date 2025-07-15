@@ -27,7 +27,7 @@ target_aarch64: pack_common
 	sh update.sh $(TARBALL) 22 10.0.0.236 beaver.devel.$(ARCH).tar.gz
 
 target_x86_64: pack_common
-	sh update.sh $(TARBALL) 11000 100.83.167.31 beaver.devel.$(ARCH).tar.gz
+	sh update.sh $(TARBALL) 11000 100.83.167.31 beaver.alpha.$(ARCH).tar.gz
 
 clean:
 	make -C lib clean

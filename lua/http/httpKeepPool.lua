@@ -122,7 +122,7 @@ local function httpPoolwork(o, reqs)
             end
             req = ChttpReq.new(tReq, host, nil, tmo, proxy, maxLen)
             if req:status() ~= 1 then
-                print("create http req failed, host:%s, proxy:%s, stat:%d", conf.host, system.dump(proxy), req:status())
+                logWarn("create http req failed, host:%s, proxy:%s, stat:%d", conf.host, system.dump(proxy), req:status())
                 res = {code = "403", msg = "create http req failed, remote server close connection."}
                 resumeReq(reqs._toWake, res)
                 o:conn2die()
@@ -191,7 +191,7 @@ function ChttpKeepPool:req(reqs)
                 reqs._toWake = running()
                 self:poolAdd(reqs)
             else
-                print("pool %s is full", host, uri)
+                logWarn("pool host %s uri %s is ful.", host, uri)
                 return nil, "pool is full"
             end
         else

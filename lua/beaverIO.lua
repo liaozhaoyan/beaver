@@ -8,6 +8,7 @@ local require = require
 require("eclass")
 require("struct")
 
+local class = class
 local CbeaverIO = class("beaverIO")
 local buffer = require("string.buffer")
 local cffi = require("beavercffi")

@@ -283,7 +283,7 @@ local function localLogFunc(out, maxLogSize, rotate)
 end
 
 local function setupSyslog()
-    syslog.openlog("beaver", syslog.LOG_PID, syslog.LOG_LOCAL0)
+    syslog.openlog("beaver", bor(syslog.LOG_PID, syslog.LOG_NDELAY), syslog.LOG_LOCAL0)
     return function(level, msg)
         if level < logLevel then
             return
@@ -305,10 +305,12 @@ function M._init(islocal, level, pattern, out, maxLogSize, rotate)
     logLevel = level or logLevel
     logPattern = pattern or logPattern
     logFmt = setupFormat(logPattern)
-    if out == "syslog" then
-        logOutFunc = setupSyslog()
-    elseif islocal then
-        logOutFunc = localLogFunc(out, maxLogSize * 1024 * 1024, rotate)
+    if islocal then
+        if out == "syslog" then
+            logOutFunc = setupSyslog()
+        else
+            logOutFunc = localLogFunc(out, maxLogSize * 1024 * 1024, rotate)
+        end
     else
         logOutFunc = workerOut
     end

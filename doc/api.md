@@ -212,10 +212,10 @@ beaver 的日志配置在config.yaml 中，支持以下配置：
 ```yaml
 log:
   level: 3  # 日志级别 trace, debug, info, warn, error, fatal, 默认级别为3
-  format: "%l %t: %m"  # 日志格式，默认格式为"%l %t: %m"
-  out: "bv_run.log"  # 输出位置，1:标准输出，2:标准错误，如果是字符串，则为文件的输出路径，默认值为 bv_run.log
-  maxLogSize: 10  # 日志最大rotate大小，单位为兆字节，默认值为10
-  rotate: 4  # 日志rotate数量，默认值为4
+  format: "%l %t: %m"  # 日志格式，默认格式为"%l %t: %m", out 为syslog 时 不生效
+  out: "bv_run.log"  # 输出位置，1:标准输出，2:标准错误，如果是字符串，如果是syslog，则调用syslog 系统调用输出，否则会按照指定文件，则为文件的输出路径，默认值为 bv_run.log
+  maxLogSize: 10  # 日志最大rotate大小，单位为兆字节，默认值为10， out 为syslog 时 不生效
+  rotate: 4  # 日志rotate数量，默认值为4，  out 为syslog 时 不生效
 ```
 
 ## 5.2、日志接口
