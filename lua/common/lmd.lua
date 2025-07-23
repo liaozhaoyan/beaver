@@ -20,7 +20,7 @@ local gsub = string.gsub
 local find = string.find
 local byte = string.byte
 local insert = table.insert
-local join = pystring.join
+local concat = table.concat
 local split = pystring.split
 local strip = pystring.strip
 local startswith = pystring.startswith
@@ -39,43 +39,43 @@ function Clmd:pTitle(s)
     local level = #head
     local tag = format("<h%d>", level)
     local etag = format("</h%d>", level)
-    return join("", {tag, value, etag})
+    return concat({tag, value, etag}, "")
 end
 
 local function boldItalic(s)
     if sub(s, -4, -4) == "\\" then
         return s
     end
-    return join("", {"<strong><em>", sub(s, 4, -4), "</em></strong>"})
+    return concat({"<strong><em>", sub(s, 4, -4), "</em></strong>"}, "")
 end
 
 local function bold(s)
     if sub(s, -3, -3) == "\\" then
         return s
     end
-    return join("", {"<strong>", sub(s, 3, -3), "</strong>"})
+    return concat({"<strong>", sub(s, 3, -3), "</strong>"}, "")
 end
 
 local function italic(s)
     if sub(s, -2, -2) == "\\" then
         return s
     end
-    return join("", {"<em>", sub(s, 2, -2), "</em>"})
+    return concat({"<em>", sub(s, 2, -2), "</em>"}, "")
 end
 
 local function delete(s)
     if sub(s, -3, -3) == "\\" then
         return s
     end
-    return join("", {"<s>", sub(s, 3, -3), "</s>"})
+    return concat({"<s>", sub(s, 3, -3), "</s>"}, "")
 end
 
 local function code1(s)
-    return join("", {"<code>", sub(s, 2, -2), "</code>"})
+    return concat({"<code>", sub(s, 2, -2), "</code>"}, "")
 end
 
 local function code2(s)
-    return join("", {"<code>", sub(s, 3, -3), "</code>"})
+    return concat({"<code>", sub(s, 3, -3), "</code>"}, "")
 end
 
 local function pBI(s)
@@ -163,7 +163,7 @@ local function Quotes(quotes, res)
                 level = level - 1
             end
         end
-        local line = join("", {"<p>", body, "</p>"})
+        local line = concat({"<p>", body, "</p>"}, "")
         insert(res, line)
     end
     while level > 1 do
@@ -216,7 +216,7 @@ function Clmd:ol(ols, res)
                 level = level - 1
             end
         end
-        local line = join("", {"<li>", self:seg(sub(body, 2)), "</li>"})
+        local line = concat({"<li>", self:seg(sub(body, 2)), "</li>"}, "")
         insert(res, line)
     end
 
@@ -260,7 +260,7 @@ function Clmd:ul(uls, res)
                 level = level - 1
             end
         end
-        local line = join("", {"<li>", self:seg(body), "</li>"})
+        local line = concat({"<li>", self:seg(body), "</li>"}, "")
         insert(res, line)
     end
 
@@ -340,10 +340,10 @@ function Clmd:pTable(codes, res)
         cell = self:seg(cell)
         local line
         if aligns[j - 1] == nil or aligns[j - 1] == "nil" then
-            line = join("", {"<th>", cell, "</th>"})
+            line = concat({"<th>", cell, "</th>"}, "")
         else
-            line = join("", {format('<th align="%s">', aligns[j - 1]),
-                                            cell, "</th>"})
+            line = concat({format('<th align="%s">', aligns[j - 1]),
+                                            cell, "</th>"}, "")
         end
         insert(res, line)
     end
@@ -357,10 +357,10 @@ function Clmd:pTable(codes, res)
             cell = self:seg(cell)
             local line
             if aligns[j - 1] == nil or aligns[j - 1] == "nil" then
-                line = join("", {"<td>", cell, "</td>"})
+                line = concat({"<td>", cell, "</td>"}, "")
             else
-                line = join("", {format('<td align="%s">', aligns[j - 1]),
-                                          cell, "</td>"})
+                line = concat({format('<td align="%s">', aligns[j - 1]),
+                                          cell, "</td>"}, "")
             end
             insert(res, line)
         end
@@ -390,7 +390,7 @@ end
 
 function Clmd:pSeg(s)
     s = self:seg(s)
-    return join("", {"<p>", pEnter(s), "</p>"})
+    return concat({"<p>", pEnter(s), "</p>"}, "")
 end
 
 function Clmd:toHtml(md, path)
@@ -484,7 +484,7 @@ function Clmd:toHtml(md, path)
 
         ::continue::
     end
-    return join("\n", res)
+    return concat(res, "\n")
 end
 
 return Clmd
