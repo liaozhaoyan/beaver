@@ -153,8 +153,8 @@ local plainTextType = {
 local typeLen = {
     string = function(body) return #body, body end,
     table = function(body) return bodisLen(body), body end,
-    number = function(body) local s = tostring(body); return s, #s end,
-    boolean = function(body) local s = tostring(body); return s, #s end,
+    number = function(body) local s = tostring(body); return #s, s end,
+    boolean = function(body) local s = tostring(body); return #s, s end,
     ["nil"] = function(body) return 0, "" end,
     ["function"] = function(body) return -1, nil end,
     ["thread"] = function(body) return -1, nil end,
