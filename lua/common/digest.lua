@@ -116,7 +116,7 @@ function mt.b64_decode(s)
     if ret < 0 then
         error("b64_decode failed")
     end
-    return c_str(digest, ret)
+    return c_str(digest, ret - 1)
 end
 
 local urlIgnore = {
