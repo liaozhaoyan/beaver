@@ -99,7 +99,7 @@ end
 
 function mt.b64_encode(s)
     local len = #s
-    local rlen = floor((len + 2) / 3 * 4)
+    local rlen = floor((len + 2) / 3 * 4 + 1)
     local digest = c_new("char[?]", rlen)
     local ret = c_b64_encode(s, len, digest)
 
